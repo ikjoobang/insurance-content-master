@@ -427,6 +427,10 @@ const mainPageHtml = `
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>보험 콘텐츠 마스터 | AI Q&A 자동화</title>
   <meta name="description" content="AI 기반 네이버 카페 Q&A 자동 생성 + 설계서 이미지 생성">
+  <!-- 보안: 캐시 방지 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
@@ -453,7 +457,54 @@ const mainPageHtml = `
     }
   </script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* ========== 보안: 복사/선택/드래그 방지 ========== */
+    * { 
+      margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+    /* 입력 필드는 선택 허용 */
+    input, textarea, [contenteditable="true"] {
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
+    }
+    /* 이미지 드래그 방지 */
+    img {
+      -webkit-user-drag: none;
+      -khtml-user-drag: none;
+      -moz-user-drag: none;
+      -o-user-drag: none;
+      user-drag: none;
+      pointer-events: none;
+    }
+    
+    /* ========== 인쇄 방지 ========== */
+    @media print {
+      html, body {
+        display: none !important;
+        visibility: hidden !important;
+      }
+      * {
+        display: none !important;
+        visibility: hidden !important;
+      }
+    }
+    
+    /* ========== 추가 보안: 텍스트 선택 하이라이트 숨김 ========== */
+    ::selection {
+      background: transparent;
+      color: inherit;
+    }
+    ::-moz-selection {
+      background: transparent;
+      color: inherit;
+    }
+    
     html { scroll-behavior: smooth; }
     body { 
       font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
@@ -749,7 +800,7 @@ const mainPageHtml = `
     }
   </style>
 </head>
-<body class="min-h-screen">
+<body class="min-h-screen" oncontextmenu="return false;" ondragstart="return false;" onselectstart="return false;" oncopy="return false;" oncut="return false;">
   
   <!-- 네비게이션 - PC에서 전체 너비 -->
   <nav class="fixed top-0 left-0 right-0 z-50 px-2 py-1.5 sm:px-3 sm:py-2 lg:px-6 xl:px-8">
@@ -761,7 +812,7 @@ const mainPageHtml = `
           </div>
           <div class="flex items-center gap-1.5">
             <span class="text-xs sm:text-sm font-bold text-white">보험 콘텐츠 마스터</span>
-            <span class="text-2xs sm:text-xs text-gray-400 font-medium">V6.5</span>
+            <span class="text-2xs sm:text-xs text-gray-400 font-medium">V6.6</span>
           </div>
         </a>
         <div class="flex items-center gap-1.5 sm:gap-2">
@@ -1276,7 +1327,7 @@ const mainPageHtml = `
             <i class="fas fa-shield-alt text-white text-xs"></i>
           </div>
           <div>
-            <p class="font-semibold text-white text-xs">보험 콘텐츠 마스터 V6.5</p>
+            <p class="font-semibold text-white text-xs">보험 콘텐츠 마스터 V6.6</p>
             <p class="text-gray-400 text-2xs">2026 보험엑시트</p>
           </div>
         </div>
@@ -1562,6 +1613,181 @@ const mainPageHtml = `
       } catch (e) { showToast('분석 실패'); }
       setLoading('btn-analyze', false);
     }
+
+    // ========== 보안 강화 코드 (해킹/복사/캡처 방지) ==========
+    
+    // 1. 개발자 도구 감지 및 차단
+    (function() {
+      // 개발자 도구 열림 감지 (창 크기 기반)
+      let devtoolsOpen = false;
+      const threshold = 160;
+      
+      function detectDevTools() {
+        const widthThreshold = window.outerWidth - window.innerWidth > threshold;
+        const heightThreshold = window.outerHeight - window.innerHeight > threshold;
+        
+        if (widthThreshold || heightThreshold) {
+          if (!devtoolsOpen) {
+            devtoolsOpen = true;
+            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#050505;"><div style="text-align:center;color:#fff;"><h1 style="font-size:2rem;margin-bottom:1rem;">⚠️ 접근 제한</h1><p style="color:#999;">개발자 도구 사용이 감지되었습니다.</p><p style="color:#999;margin-top:0.5rem;">페이지를 새로고침하여 정상 이용해주세요.</p></div></div>';
+          }
+        }
+      }
+      
+      // 주기적 감지
+      setInterval(detectDevTools, 500);
+      
+      // 2. 키보드 단축키 차단
+      document.addEventListener('keydown', function(e) {
+        // F12 차단
+        if (e.key === 'F12' || e.keyCode === 123) {
+          e.preventDefault();
+          e.stopPropagation();
+          showToast('개발자 도구 사용이 제한됩니다');
+          return false;
+        }
+        
+        // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (개발자 도구)
+        if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) {
+          e.preventDefault();
+          e.stopPropagation();
+          showToast('개발자 도구 사용이 제한됩니다');
+          return false;
+        }
+        
+        // Ctrl+U (소스 보기)
+        if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) {
+          e.preventDefault();
+          e.stopPropagation();
+          showToast('소스 보기가 제한됩니다');
+          return false;
+        }
+        
+        // Ctrl+S (저장)
+        if (e.ctrlKey && (e.key === 'S' || e.key === 's')) {
+          e.preventDefault();
+          e.stopPropagation();
+          showToast('저장 기능이 제한됩니다');
+          return false;
+        }
+        
+        // Ctrl+P (인쇄)
+        if (e.ctrlKey && (e.key === 'P' || e.key === 'p')) {
+          e.preventDefault();
+          e.stopPropagation();
+          showToast('인쇄 기능이 제한됩니다');
+          return false;
+        }
+        
+        // Ctrl+A (전체 선택) - 입력 필드 제외
+        if (e.ctrlKey && (e.key === 'A' || e.key === 'a') && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+        
+        // PrintScreen 감지 (완전 차단 어려움, 경고만)
+        if (e.key === 'PrintScreen') {
+          showToast('화면 캡처가 제한됩니다');
+          // 클립보드 초기화 시도
+          navigator.clipboard.writeText('').catch(()=>{});
+        }
+      }, true);
+      
+      // 3. 마우스 오른쪽 버튼 차단 (이중 보안)
+      document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        showToast('우클릭이 제한됩니다');
+        return false;
+      }, true);
+      
+      // 4. 드래그 방지 (이중 보안)
+      document.addEventListener('dragstart', function(e) {
+        e.preventDefault();
+        return false;
+      }, true);
+      
+      // 5. 복사 이벤트 차단 (복사 버튼 제외)
+      document.addEventListener('copy', function(e) {
+        // 복사 버튼을 통한 의도적 복사는 허용
+        if (window.intentionalCopy) {
+          window.intentionalCopy = false;
+          return true;
+        }
+        // 입력 필드에서의 복사는 허용
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+          return true;
+        }
+        e.preventDefault();
+        return false;
+      }, true);
+      
+      // 6. 붙여넣기 차단 (입력 필드 제외)
+      document.addEventListener('paste', function(e) {
+        if (!['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+          e.preventDefault();
+          return false;
+        }
+      }, true);
+      
+      // 7. 선택 차단 (결과 영역 제외)
+      document.addEventListener('selectstart', function(e) {
+        if (!['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+          e.preventDefault();
+          return false;
+        }
+      }, true);
+      
+      // 8. console 무력화 (기본 보안)
+      const noop = function() {};
+      ['log', 'debug', 'info', 'warn', 'error', 'table', 'dir', 'trace'].forEach(function(method) {
+        console[method] = noop;
+      });
+      
+      // 9. 디버거 방지 (무한 루프 방지를 위해 조건부)
+      setInterval(function() {
+        if (devtoolsOpen) {
+          debugger;
+        }
+      }, 100);
+    })();
+    
+    // 복사 버튼용 플래그 설정 함수 오버라이드
+    const originalCopyText = copyText;
+    copyText = function(id) {
+      window.intentionalCopy = true;
+      originalCopyText(id);
+    };
+    
+    const originalCopyKeywords = copyKeywords;
+    copyKeywords = function() {
+      window.intentionalCopy = true;
+      originalCopyKeywords();
+    };
+    
+    const originalCopyDesignText = copyDesignText;
+    copyDesignText = function() {
+      window.intentionalCopy = true;
+      originalCopyDesignText();
+    };
+    
+    const originalCopyAllQnA = copyAllQnA;
+    copyAllQnA = function() {
+      window.intentionalCopy = true;
+      originalCopyAllQnA();
+    };
+    
+    const originalCopyAllBlog = copyAllBlog;
+    copyAllBlog = function() {
+      window.intentionalCopy = true;
+      originalCopyAllBlog();
+    };
+    
+    const originalCopyAnalyzeAll = copyAnalyzeAll;
+    copyAnalyzeAll = function() {
+      window.intentionalCopy = true;
+      originalCopyAnalyzeAll();
+    };
   </script>
 </body>
 </html>
@@ -1598,7 +1824,7 @@ const adminPageHtml = `
         </a>
         <div>
           <h1 class="text-base sm:text-lg font-bold text-white">관리자 대시보드</h1>
-          <p class="text-gray-400 text-xs">보험 콘텐츠 마스터 V6.5</p>
+          <p class="text-gray-400 text-xs">보험 콘텐츠 마스터 V6.6</p>
         </div>
       </div>
       <a href="/" class="px-3 py-1.5 rounded-lg bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 transition-all text-xs">
@@ -1647,7 +1873,7 @@ const adminPageHtml = `
           </div>
           <div>
             <p class="text-gray-300 text-2xs sm:text-xs">버전</p>
-            <p class="text-white font-semibold text-xs sm:text-sm">V6.5</p>
+            <p class="text-white font-semibold text-xs sm:text-sm">V6.6</p>
           </div>
         </div>
       </div>
@@ -1688,7 +1914,7 @@ const adminPageHtml = `
     </div>
     
     <div class="glass-card p-3 sm:p-4">
-      <h3 class="font-semibold text-white text-sm mb-3"><i class="fas fa-robot text-green-400 mr-1.5"></i>V6.5 업데이트</h3>
+      <h3 class="font-semibold text-white text-sm mb-3"><i class="fas fa-robot text-green-400 mr-1.5"></i>V6.6 업데이트</h3>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1">
         <div class="flex items-center gap-1.5 text-gray-300 text-xs"><i class="fas fa-check text-green-400 text-2xs"></i>키워드 복사</div>
         <div class="flex items-center gap-1.5 text-gray-300 text-xs"><i class="fas fa-check text-green-400 text-2xs"></i>이모티콘 제거</div>
@@ -1718,10 +1944,10 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '6.5', 
+  version: '6.6', 
   ai: 'gemini + naver', 
   year: 2026,
-  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout'],
+  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection'],
   timestamp: new Date().toISOString() 
 }))
 

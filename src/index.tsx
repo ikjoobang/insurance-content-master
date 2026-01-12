@@ -70,6 +70,42 @@ async function callGeminiAPI(prompt: string, retries = 3): Promise<string> {
   throw new Error('All API keys failed')
 }
 
+// 텍스트 정리 함수 (이모티콘, ##, ** 완전 제거)
+function cleanText(text: string): string {
+  return text
+    // 모든 이모지 범위 제거 (완전 확장)
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // Misc Symbols and Pictographs, Emoticons, etc.
+    .replace(/[\u{2600}-\u{26FF}]/gu, '') // Misc symbols
+    .replace(/[\u{2700}-\u{27BF}]/gu, '') // Dingbats
+    .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
+    .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport and Map
+    .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, '') // Flags
+    .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental Symbols
+    .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Chess Symbols
+    .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '') // Symbols and Pictographs Extended-A
+    .replace(/[\u{2300}-\u{23FF}]/gu, '') // Misc Technical
+    .replace(/[\u{2B50}-\u{2B55}]/gu, '') // Stars
+    .replace(/[\u{200D}]/gu, '') // Zero Width Joiner
+    .replace(/[\u{FE0F}]/gu, '') // Variation Selector
+    // 특수 기호 제거
+    .replace(/[✅✓✔☑□☐⭐⚡❤💙💚💛💜🖤🤍💯🔥👍👎👏🙏😀-😿🙀-🙊]/gu, '')
+    .replace(/[❶❷❸❹❺❻❼❽❾❿]/g, '')
+    .replace(/[①②③④⑤⑥⑦⑧⑨⑩]/g, '')
+    .replace(/[●○◆◇■□▲△▼▽]/g, '')
+    .replace(/[★☆♠♣♥♦]/g, '')
+    .replace(/[→←↑↓↔↕]/g, '')
+    // 마크다운 기호 제거
+    .replace(/#{1,6}\s*/g, '') // # ## ### 등 제거
+    .replace(/\*{2,}/g, '') // ** *** 등 제거
+    .replace(/\*\s+/g, ' ') // * 포인트 제거
+    .replace(/_{2,}/g, '') // __ 제거
+    .replace(/`{1,3}/g, '') // ` `` ``` 제거
+    // 줄바꿈 정리
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^\s+|\s+$/gm, '') // 각 줄 앞뒤 공백 제거
+    .trim()
+}
+
 // 네이버 검색 API (키워드 추출용)
 async function searchNaverKeywords(query: string): Promise<string[]> {
   try {
@@ -91,27 +127,22 @@ async function searchNaverKeywords(query: string): Promise<string[]> {
     const data = await response.json() as any
     const items = data.items || []
     
-    // 제목과 설명에서 자주 등장하는 키워드 추출
     const allText = items.map((item: any) => 
       (item.title + ' ' + item.description)
-        .replace(/<[^>]*>/g, '') // HTML 태그 제거
-        .replace(/&[^;]+;/g, '') // HTML 엔티티 제거
+        .replace(/<[^>]*>/g, '')
+        .replace(/&[^;]+;/g, '')
     ).join(' ')
     
-    // 한글 키워드 추출 (2-6글자)
     const koreanWords = allText.match(/[가-힣]{2,8}/g) || []
     
-    // 빈도수 계산
     const wordCount: Record<string, number> = {}
     koreanWords.forEach(word => {
-      // 불용어 제외
-      const stopWords = ['있습니다', '합니다', '입니다', '됩니다', '합니다', '그리고', '하지만', '그러나', '때문에', '대해서', '관련해', '라고', '이라고']
+      const stopWords = ['있습니다', '합니다', '입니다', '됩니다', '그리고', '하지만', '그러나', '때문에', '대해서', '관련해', '라고', '이라고']
       if (!stopWords.some(sw => word.includes(sw))) {
         wordCount[word] = (wordCount[word] || 0) + 1
       }
     })
     
-    // 상위 키워드 반환 (쿼리 관련 키워드 우선)
     const sortedWords = Object.entries(wordCount)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 20)
@@ -142,7 +173,6 @@ async function getRelatedKeywords(query: string): Promise<string[]> {
     const data = await response.json() as any
     const items = data.items || []
     
-    // 제목에서 키워드 추출
     const keywords = new Set<string>()
     items.forEach((item: any) => {
       const title = item.title.replace(/<[^>]*>/g, '')
@@ -158,146 +188,232 @@ async function getRelatedKeywords(query: string): Promise<string[]> {
   }
 }
 
-// 가상 연락처 생성
-function generateVirtualContact(): { name: string, phone: string, kakao: string } {
-  const surnames = ['김', '이', '박', '최', '정', '강', '조', '윤', '장', '임']
-  const givenNames = ['민준', '서연', '예준', '서윤', '도윤', '지우', '시우', '하은', '주원', '하윤', '지호', '수아', '준서', '지아', '현우', '소율']
-  
-  const surname = surnames[Math.floor(Math.random() * surnames.length)]
-  const givenName = givenNames[Math.floor(Math.random() * givenNames.length)]
-  const name = surname + givenName
-  
-  // 가상 전화번호
-  const prefix = ['010', '010', '010'][Math.floor(Math.random() * 3)]
-  const mid = String(Math.floor(1000 + Math.random() * 9000))
-  const last = String(Math.floor(1000 + Math.random() * 9000))
-  const phone = `${prefix}-${mid}-${last}`
+// 가상 연락처 생성 (수정: ㅇㅇ71-10ㅇㅇ 형태 - 이름 없이)
+function generateVirtualContact(): { phone: string, kakao: string } {
+  // 가상 전화번호 (ㅇㅇXX-10XX 형태 - 18번호 안씀)
+  const mid1 = String(Math.floor(10 + Math.random() * 90)) // 2자리 (10-99)
+  const mid2 = String(Math.floor(10 + Math.random() * 90)) // 2자리 (10-99)
+  const phone = `ㅇㅇ${mid1}-10${mid2}`
   
   // 가상 카카오톡 ID
-  const kakaoId = `ins_${surname.charCodeAt(0) % 100}_${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`
+  const kakaoId = `ins_${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`
   
-  return { name, phone, kakao: `카카오톡: ${kakaoId}` }
+  return { phone, kakao: kakaoId }
 }
 
-// 설계서 이미지 HTML 생성 (표 형식)
-function generateInsuranceTableHtml(data: {
-  title: string,
-  customerName: string,
+// 보험 설계서 HTML 생성 (엑셀 스타일 - 고객 맞춤 상세 보장 내역)
+function generateInsuranceDesignHtml(data: {
+  companyName: string,
+  productName: string,
+  insuranceType: string,
   customerAge: string,
   customerGender: string,
-  insuranceType: string,
-  items: Array<{name: string, coverage: string, premium: string, period: string}>
+  customerTarget: string,
+  customerConcern: string,
+  paymentPeriod: string,
+  coveragePeriod: string,
+  mainCoverage: Array<{category: string, name: string, coverage: string, premium: string, note?: string}>,
+  riders: Array<{name: string, coverage: string, premium: string, period: string, note?: string}>,
   totalPremium: string,
-  highlights: string[]
+  monthlyPremium: string,
+  specialNotes: string[],
+  designReason: string
 }): string {
-  const itemRows = data.items.map((item, idx) => `
-    <tr class="${idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}">
-      <td class="px-4 py-3 text-center font-medium">${idx + 1}</td>
-      <td class="px-4 py-3">${item.name}</td>
-      <td class="px-4 py-3 text-right font-semibold text-blue-600">${item.coverage}</td>
-      <td class="px-4 py-3 text-right">${item.premium}</td>
-      <td class="px-4 py-3 text-center text-gray-600">${item.period}</td>
+  const today = new Date()
+  const dateStr = `${today.getFullYear()}. ${today.getMonth() + 1}. ${today.getDate()}.`
+  
+  // 주계약 행 생성
+  const mainRows = data.mainCoverage.map((item, idx) => `
+    <tr style="background: ${idx % 2 === 0 ? '#f8fafc' : '#ffffff'};">
+      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: center; font-weight: 600; color: #1e40af;">${item.category}</td>
+      <td style="border: 1px solid #d1d5db; padding: 10px 14px;">
+        <div style="font-weight: 500;">${item.name}</div>
+        ${item.note ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${item.note}</div>` : ''}
+      </td>
+      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: right; font-weight: 700; color: #059669; font-size: 15px;">${item.coverage}</td>
+      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: right; font-weight: 500;">${item.premium}</td>
     </tr>
   `).join('')
-
-  const highlightItems = data.highlights.map(h => `
-    <li class="flex items-start gap-2">
-      <span class="text-primary font-bold">✓</span>
-      <span>${h}</span>
-    </li>
+  
+  // 특약 행 생성
+  const riderRows = data.riders.map((item, idx) => `
+    <tr style="background: ${idx % 2 === 0 ? '#fffbeb' : '#ffffff'};">
+      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: center; font-size: 13px; font-weight: 600; color: #374151;">${idx + 1}</td>
+      <td style="border: 1px solid #d1d5db; padding: 10px 14px;">
+        <div style="font-weight: 500;">${item.name}</div>
+        ${item.note ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${item.note}</div>` : ''}
+      </td>
+      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: right; font-weight: 700; color: #059669; font-size: 15px;">${item.coverage}</td>
+      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: right; font-weight: 500;">${item.premium}</td>
+      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: center; color: #6b7280; font-size: 13px;">${item.period}</td>
+    </tr>
   `).join('')
+  
+  // 특이사항 행 생성
+  const notesHtml = data.specialNotes.map(note => `<li style="margin-bottom: 6px; padding-left: 4px;">${note}</li>`).join('')
 
   return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
-    body { font-family: 'Noto Sans KR', sans-serif; }
-    .primary { color: #03C75A; }
-    .bg-primary { background-color: #03C75A; }
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Noto Sans KR', sans-serif; background: #f3f4f6; padding: 20px; }
+    .container { max-width: 850px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
+    .header { background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3b82f6 100%); color: white; padding: 24px 28px; }
+    .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .company-name { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+    .doc-type { font-size: 13px; background: rgba(255,255,255,0.25); padding: 8px 20px; border-radius: 25px; font-weight: 600; }
+    .product-name { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .date { font-size: 12px; opacity: 0.85; }
+    .customer-info-section { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); padding: 20px 28px; border-bottom: 3px solid #3b82f6; }
+    .customer-title { font-size: 14px; font-weight: 700; color: #1e40af; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .customer-title::before { content: ''; width: 4px; height: 18px; background: #3b82f6; border-radius: 2px; }
+    .customer-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .customer-item { background: white; padding: 14px 16px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .customer-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 500; }
+    .customer-value { font-size: 15px; font-weight: 700; color: #1f2937; }
+    .concern-box { margin-top: 16px; background: white; padding: 14px 18px; border-radius: 10px; border-left: 4px solid #f59e0b; }
+    .concern-label { font-size: 11px; color: #92400e; margin-bottom: 6px; font-weight: 600; }
+    .concern-text { font-size: 13px; color: #374151; line-height: 1.6; }
+    .info-section { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #e5e7eb; border-bottom: 2px solid #1e40af; }
+    .info-item { background: white; padding: 14px 18px; text-align: center; }
+    .info-label { font-size: 11px; color: #6b7280; margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+    .info-value { font-size: 15px; font-weight: 700; color: #1f2937; }
+    .section-title { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 12px 20px; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .section-title::before { content: ''; width: 6px; height: 6px; background: white; border-radius: 50%; }
+    .premium-summary { display: flex; justify-content: space-between; align-items: center; padding: 20px 28px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-bottom: 3px solid #f59e0b; }
+    .premium-label { font-size: 18px; font-weight: 700; color: #92400e; }
+    .premium-value { font-size: 32px; font-weight: 800; color: #b45309; letter-spacing: -1px; }
+    .reason-section { padding: 20px 28px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-bottom: 2px solid #22c55e; }
+    .reason-title { font-size: 14px; font-weight: 700; color: #166534; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .reason-title::before { content: ''; width: 4px; height: 18px; background: #22c55e; border-radius: 2px; }
+    .reason-text { font-size: 13px; color: #166534; line-height: 1.7; background: white; padding: 14px 18px; border-radius: 10px; }
+    .notes { padding: 20px 28px; background: #f9fafb; border-top: 1px solid #e5e7eb; }
+    .notes-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 10px; }
+    .notes-list { font-size: 12px; color: #4b5563; padding-left: 18px; line-height: 1.8; }
+    .footer { padding: 14px 28px; background: #1f2937; border-top: 1px solid #374151; font-size: 11px; color: #9ca3af; display: flex; justify-content: space-between; align-items: center; }
+    .footer-brand { font-weight: 600; color: #d1d5db; }
   </style>
 </head>
-<body class="bg-gray-100 p-6">
-  <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+<body>
+  <div class="container">
+    <!-- 헤더 -->
+    <div class="header">
+      <div class="header-top">
+        <span class="company-name">${data.companyName}</span>
+        <span class="doc-type">맞춤 설계서</span>
+      </div>
+      <div class="product-name">${data.productName}</div>
+      <div class="date">작성일: ${dateStr}</div>
+    </div>
     
-    <!-- Header -->
-    <div class="bg-gradient-to-r from-emerald-600 to-green-500 px-6 py-5">
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-white text-2xl font-bold">${data.title}</h1>
-          <p class="text-emerald-100 text-sm mt-1">보험 설계 제안서</p>
+    <!-- 고객 맞춤 정보 -->
+    <div class="customer-info-section">
+      <div class="customer-title">고객 맞춤 설계 정보</div>
+      <div class="customer-grid">
+        <div class="customer-item">
+          <div class="customer-label">고객 유형</div>
+          <div class="customer-value">${data.customerTarget}</div>
         </div>
-        <div class="bg-white/20 rounded-xl px-4 py-2">
-          <span class="text-white font-bold">${data.insuranceType}</span>
+        <div class="customer-item">
+          <div class="customer-label">예상 연령</div>
+          <div class="customer-value">${data.customerAge}</div>
         </div>
+        <div class="customer-item">
+          <div class="customer-label">성별</div>
+          <div class="customer-value">${data.customerGender}</div>
+        </div>
+      </div>
+      ${data.customerConcern ? `
+      <div class="concern-box">
+        <div class="concern-label">고객 고민/니즈</div>
+        <div class="concern-text">${data.customerConcern}</div>
+      </div>
+      ` : ''}
+    </div>
+    
+    <!-- 기본 정보 -->
+    <div class="info-section">
+      <div class="info-item">
+        <div class="info-label">보험종류</div>
+        <div class="info-value">${data.insuranceType}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">피보험자</div>
+        <div class="info-value">${data.customerAge} / ${data.customerGender}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">납입기간</div>
+        <div class="info-value">${data.paymentPeriod}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">보장기간</div>
+        <div class="info-value">${data.coveragePeriod}</div>
       </div>
     </div>
     
-    <!-- Customer Info -->
-    <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
-      <div class="flex items-center gap-8">
-        <div class="flex items-center gap-2">
-          <span class="text-gray-500 text-sm">피보험자:</span>
-          <span class="font-semibold">${data.customerName}</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="text-gray-500 text-sm">연령:</span>
-          <span class="font-semibold">${data.customerAge}</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="text-gray-500 text-sm">성별:</span>
-          <span class="font-semibold">${data.customerGender}</span>
-        </div>
-      </div>
+    <!-- 주계약 -->
+    <div class="section-title">주계약 보장내역</div>
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="background: #e0e7ff;">
+          <th style="border: 1px solid #d1d5db; padding: 10px; width: 15%; font-size: 13px;">구분</th>
+          <th style="border: 1px solid #d1d5db; padding: 10px; font-size: 13px;">보장명</th>
+          <th style="border: 1px solid #d1d5db; padding: 10px; width: 20%; font-size: 13px;">보장금액</th>
+          <th style="border: 1px solid #d1d5db; padding: 10px; width: 15%; font-size: 13px;">보험료</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${mainRows}
+      </tbody>
+    </table>
+    
+    <!-- 특약 -->
+    <div class="section-title">특약 보장내역</div>
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="background: #fef9c3;">
+          <th style="border: 1px solid #d1d5db; padding: 10px; width: 8%; font-size: 13px;">No</th>
+          <th style="border: 1px solid #d1d5db; padding: 10px; font-size: 13px;">특약명</th>
+          <th style="border: 1px solid #d1d5db; padding: 10px; width: 18%; font-size: 13px;">보장금액</th>
+          <th style="border: 1px solid #d1d5db; padding: 10px; width: 15%; font-size: 13px;">보험료</th>
+          <th style="border: 1px solid #d1d5db; padding: 10px; width: 12%; font-size: 13px;">보장만기</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${riderRows}
+      </tbody>
+    </table>
+    
+    <!-- 보험료 합계 -->
+    <div class="premium-summary">
+      <span class="premium-label">월 납입 보험료 합계</span>
+      <span class="premium-value">${data.monthlyPremium}</span>
     </div>
     
-    <!-- Coverage Table -->
-    <div class="p-6">
-      <h3 class="font-bold text-gray-800 mb-4">📋 보장 내역</h3>
-      <div class="overflow-hidden rounded-xl border border-gray-200">
-        <table class="w-full text-sm">
-          <thead class="bg-gray-800 text-white">
-            <tr>
-              <th class="px-4 py-3 text-center w-12">순번</th>
-              <th class="px-4 py-3 text-left">가입담보</th>
-              <th class="px-4 py-3 text-right">가입금액</th>
-              <th class="px-4 py-3 text-right">보험료</th>
-              <th class="px-4 py-3 text-center">만기</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemRows}
-          </tbody>
-          <tfoot class="bg-emerald-50 border-t-2 border-emerald-500">
-            <tr>
-              <td colspan="3" class="px-4 py-4 font-bold text-gray-800">월 납입 보험료 합계</td>
-              <td class="px-4 py-4 text-right font-bold text-2xl text-emerald-600">${data.totalPremium}</td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+    <!-- 설계 이유 -->
+    ${data.designReason ? `
+    <div class="reason-section">
+      <div class="reason-title">이 설계를 추천하는 이유</div>
+      <div class="reason-text">${data.designReason}</div>
+    </div>
+    ` : ''}
+    
+    <!-- 특이사항 -->
+    <div class="notes">
+      <div class="notes-title">설계 특이사항 및 유의점</div>
+      <ul class="notes-list">
+        ${notesHtml}
+      </ul>
     </div>
     
-    <!-- Highlights -->
-    <div class="px-6 pb-6">
-      <h3 class="font-bold text-gray-800 mb-3">⭐ 핵심 포인트</h3>
-      <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
-        <ul class="space-y-2 text-sm text-gray-700">
-          ${highlightItems}
-        </ul>
-      </div>
-    </div>
-    
-    <!-- Footer -->
-    <div class="px-6 py-4 bg-gray-100 border-t border-gray-200">
-      <div class="flex items-center justify-between">
-        <p class="text-xs text-gray-500">※ 이 자료는 참고용이며, 실제 보험료는 가입 시점에 따라 다를 수 있습니다.</p>
-        <p class="text-xs text-gray-400">${new Date().toLocaleDateString('ko-KR')}</p>
-      </div>
+    <!-- 푸터 -->
+    <div class="footer">
+      <span class="footer-brand">보험엑시트</span>
+      <span>본 설계서는 참고용이며, 실제 보험료는 가입 시점에 따라 변경될 수 있습니다. | 2026년 기준</span>
     </div>
   </div>
 </body>
@@ -336,7 +452,6 @@ const mainPageHtml = `
     html { scroll-behavior: smooth; }
     body { font-family: 'Inter', sans-serif; background: #0a0a0a; color: #fff; overflow-x: hidden; }
     
-    /* Hero Gradient */
     .hero-gradient {
       background: linear-gradient(180deg, #0a0a0a 0%, #0f1419 40%, #0a0a0a 100%);
       position: relative;
@@ -351,7 +466,6 @@ const mainPageHtml = `
       pointer-events: none;
     }
     
-    /* Glass Morphism */
     .glass-card {
       background: rgba(255, 255, 255, 0.02);
       backdrop-filter: blur(24px);
@@ -359,7 +473,6 @@ const mainPageHtml = `
       border-radius: 28px;
     }
     
-    /* Input Styles */
     .input-premium {
       background: rgba(255, 255, 255, 0.04);
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -374,7 +487,6 @@ const mainPageHtml = `
     }
     .input-premium::placeholder { color: rgba(255, 255, 255, 0.3); }
     
-    /* Chip / Tag Buttons */
     .chip {
       background: rgba(255, 255, 255, 0.04);
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -396,7 +508,6 @@ const mainPageHtml = `
       color: #03C75A;
     }
     
-    /* Primary Button */
     .btn-primary {
       background: linear-gradient(135deg, #03C75A 0%, #00B050 100%);
       border-radius: 16px;
@@ -414,7 +525,6 @@ const mainPageHtml = `
       box-shadow: none;
     }
     
-    /* Feature Cards */
     .feature-card {
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid rgba(255, 255, 255, 0.05);
@@ -432,7 +542,6 @@ const mainPageHtml = `
       border-color: rgba(3, 199, 90, 0.4);
     }
     
-    /* Result Cards */
     .result-card {
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid rgba(255, 255, 255, 0.06);
@@ -440,7 +549,6 @@ const mainPageHtml = `
     }
     .result-content { max-height: 500px; overflow-y: auto; }
     
-    /* Progress Steps */
     .step-badge {
       display: flex;
       align-items: center;
@@ -460,7 +568,6 @@ const mainPageHtml = `
       50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
     }
     
-    /* Keyword Tags */
     .keyword-tag {
       display: inline-flex;
       align-items: center;
@@ -471,9 +578,13 @@ const mainPageHtml = `
       border-radius: 100px;
       font-size: 13px;
       color: #03C75A;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .keyword-tag:hover {
+      background: rgba(3, 199, 90, 0.25);
     }
     
-    /* Spinner */
     .spinner {
       border: 3px solid rgba(255, 255, 255, 0.1);
       border-top-color: #fff;
@@ -483,7 +594,6 @@ const mainPageHtml = `
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     
-    /* Toast */
     .toast {
       transform: translateY(120px);
       opacity: 0;
@@ -491,15 +601,13 @@ const mainPageHtml = `
     }
     .toast.show { transform: translateY(0); opacity: 1; }
     
-    /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
     ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 3px; }
     
-    /* Image Preview */
     .design-preview {
       background: white;
-      border-radius: 16px;
+      border-radius: 8px;
       overflow: hidden;
       box-shadow: 0 20px 60px rgba(0,0,0,0.5);
     }
@@ -507,7 +615,6 @@ const mainPageHtml = `
 </head>
 <body class="min-h-screen">
   
-  <!-- Navigation -->
   <nav class="fixed top-0 left-0 right-0 z-50 px-4 py-4">
     <div class="max-w-7xl mx-auto">
       <div class="glass-card px-6 py-3 flex items-center justify-between">
@@ -517,7 +624,7 @@ const mainPageHtml = `
           </div>
           <div class="hidden sm:block">
             <span class="text-lg font-bold text-white">보험 콘텐츠 마스터</span>
-            <span class="text-xs text-gray-500 ml-2">V6.0</span>
+            <span class="text-xs text-gray-500 ml-2">V6.2</span>
           </div>
         </a>
         <div class="flex items-center gap-2 sm:gap-4">
@@ -533,11 +640,9 @@ const mainPageHtml = `
     </div>
   </nav>
 
-  <!-- Hero Section -->
   <section class="hero-gradient min-h-screen px-4 pt-28 pb-12">
     <div class="max-w-7xl mx-auto">
       
-      <!-- Header -->
       <div class="text-center mb-12">
         <div class="inline-flex items-center gap-3 mb-6">
           <span class="px-4 py-2 rounded-full text-sm font-medium bg-white/5 border border-white/10 text-gray-400">
@@ -549,11 +654,10 @@ const mainPageHtml = `
           <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary via-emerald-400 to-primary">Q&A 완전 자동화</span>
         </h1>
         <p class="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto">
-          키워드 분석 → Q&A 생성 → 설계서 이미지까지<br class="sm:hidden"> 원클릭으로 완성
+          키워드 분석 - Q&A 생성 - 설계서 이미지까지<br class="sm:hidden"> 원클릭으로 완성
         </p>
       </div>
       
-      <!-- Feature Cards -->
       <div class="grid md:grid-cols-3 gap-4 md:gap-6 mb-10">
         <button onclick="selectFeature('qna')" id="card-qna" class="feature-card active p-6 md:p-8 text-left">
           <div class="flex items-start justify-between mb-6">
@@ -561,7 +665,7 @@ const mainPageHtml = `
               <i class="fas fa-robot text-blue-400 text-2xl"></i>
             </div>
             <span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              V6.0 NEW
+              V6.1 NEW
             </span>
           </div>
           <h3 class="text-xl font-bold text-white mb-2">Q&A 완전 자동화</h3>
@@ -607,10 +711,8 @@ const mainPageHtml = `
         </button>
       </div>
       
-      <!-- Main Form -->
       <div class="glass-card p-6 md:p-10 max-w-4xl mx-auto">
         
-        <!-- ========== Q&A 완전 자동화 폼 ========== -->
         <div id="form-qna" class="space-y-8">
           <div class="flex items-center gap-4 pb-6 border-b border-white/5">
             <div class="w-12 h-12 rounded-2xl bg-blue-500/20 flex items-center justify-center">
@@ -618,11 +720,10 @@ const mainPageHtml = `
             </div>
             <div>
               <h2 class="text-2xl font-bold text-white">Q&A 완전 자동화</h2>
-              <p class="text-gray-400 text-sm">네이버 키워드 분석 → Q&A → 설계서 이미지</p>
+              <p class="text-gray-400 text-sm">네이버 키워드 분석 - Q&A - 설계서 이미지</p>
             </div>
           </div>
           
-          <!-- Progress Indicator -->
           <div id="qna-progress" class="hidden bg-white/5 rounded-2xl p-6">
             <div class="flex items-center justify-between mb-4">
               <span class="text-white font-semibold">생성 진행 상황</span>
@@ -631,22 +732,22 @@ const mainPageHtml = `
             <div class="flex items-center gap-2">
               <div id="step-1" class="flex items-center gap-2">
                 <div class="step-badge pending">1</div>
-                <span class="text-sm text-gray-400 hidden md:inline">키워드 분석</span>
+                <span class="text-sm text-gray-400 hidden md:inline">키워드</span>
               </div>
               <div class="flex-1 h-1 bg-white/10 rounded mx-2"></div>
               <div id="step-2" class="flex items-center gap-2">
                 <div class="step-badge pending">2</div>
-                <span class="text-sm text-gray-400 hidden md:inline">질문 생성</span>
+                <span class="text-sm text-gray-400 hidden md:inline">질문</span>
               </div>
               <div class="flex-1 h-1 bg-white/10 rounded mx-2"></div>
               <div id="step-3" class="flex items-center gap-2">
                 <div class="step-badge pending">3</div>
-                <span class="text-sm text-gray-400 hidden md:inline">답변 생성</span>
+                <span class="text-sm text-gray-400 hidden md:inline">답변</span>
               </div>
               <div class="flex-1 h-1 bg-white/10 rounded mx-2"></div>
               <div id="step-4" class="flex items-center gap-2">
                 <div class="step-badge pending">4</div>
-                <span class="text-sm text-gray-400 hidden md:inline">댓글 생성</span>
+                <span class="text-sm text-gray-400 hidden md:inline">댓글</span>
               </div>
               <div class="flex-1 h-1 bg-white/10 rounded mx-2"></div>
               <div id="step-5" class="flex items-center gap-2">
@@ -657,52 +758,48 @@ const mainPageHtml = `
             <p id="progress-status" class="text-gray-500 text-sm mt-4 text-center">준비 중...</p>
           </div>
           
-          <!-- 타겟 고객 -->
           <div>
             <label class="block text-sm font-semibold text-white mb-3">
               <i class="fas fa-users text-blue-400 mr-2"></i>타겟 고객
             </label>
             <div class="flex flex-wrap gap-2" id="qna-target-chips">
-              <button onclick="selectChip(this, 'qna-target')" data-value="20대 사회초년생" class="chip">👶 20대 사회초년생</button>
-              <button onclick="selectChip(this, 'qna-target')" data-value="30대 직장인" class="chip active">👔 30대 직장인</button>
-              <button onclick="selectChip(this, 'qna-target')" data-value="40대 가장" class="chip">👨‍👩‍👧 40대 가장</button>
-              <button onclick="selectChip(this, 'qna-target')" data-value="50대 은퇴준비" class="chip">🏖️ 50대 은퇴준비</button>
-              <button onclick="selectChip(this, 'qna-target')" data-value="신혼부부" class="chip">💑 신혼부부</button>
-              <button onclick="selectChip(this, 'qna-target')" data-value="자영업자" class="chip">🏪 자영업자</button>
+              <button onclick="selectChip(this, 'qna-target')" data-value="20대 사회초년생" class="chip">20대 사회초년생</button>
+              <button onclick="selectChip(this, 'qna-target')" data-value="30대 직장인" class="chip active">30대 직장인</button>
+              <button onclick="selectChip(this, 'qna-target')" data-value="40대 가장" class="chip">40대 가장</button>
+              <button onclick="selectChip(this, 'qna-target')" data-value="50대 은퇴준비" class="chip">50대 은퇴준비</button>
+              <button onclick="selectChip(this, 'qna-target')" data-value="신혼부부" class="chip">신혼부부</button>
+              <button onclick="selectChip(this, 'qna-target')" data-value="자영업자" class="chip">자영업자</button>
             </div>
           </div>
           
-          <!-- 문체 톤 -->
           <div>
             <label class="block text-sm font-semibold text-white mb-3">
               <i class="fas fa-font text-blue-400 mr-2"></i>문체 톤
             </label>
             <div class="flex flex-wrap gap-2" id="qna-tone-chips">
-              <button onclick="selectChip(this, 'qna-tone')" data-value="친근한" class="chip active">😊 친근한</button>
-              <button onclick="selectChip(this, 'qna-tone')" data-value="전문적인" class="chip">🎓 전문적인</button>
-              <button onclick="selectChip(this, 'qna-tone')" data-value="설득력 있는" class="chip">💪 설득력 있는</button>
-              <button onclick="selectChip(this, 'qna-tone')" data-value="공감하는" class="chip">🤝 공감하는</button>
+              <button onclick="selectChip(this, 'qna-tone')" data-value="친근한" class="chip active">친근한</button>
+              <button onclick="selectChip(this, 'qna-tone')" data-value="전문적인" class="chip">전문적인</button>
+              <button onclick="selectChip(this, 'qna-tone')" data-value="설득력 있는" class="chip">설득력 있는</button>
+              <button onclick="selectChip(this, 'qna-tone')" data-value="공감하는" class="chip">공감하는</button>
             </div>
           </div>
           
-          <!-- 보험 종류 -->
           <div>
             <label class="block text-sm font-semibold text-white mb-3">
               <i class="fas fa-shield-alt text-blue-400 mr-2"></i>보험 종류
             </label>
             <div class="flex flex-wrap gap-2" id="qna-insurance-chips">
-              <button onclick="selectChip(this, 'qna-insurance')" data-value="종신보험" class="chip active">🛡️ 종신보험</button>
-              <button onclick="selectChip(this, 'qna-insurance')" data-value="암보험" class="chip">🏥 암보험</button>
-              <button onclick="selectChip(this, 'qna-insurance')" data-value="실손보험" class="chip">💊 실손보험</button>
-              <button onclick="selectChip(this, 'qna-insurance')" data-value="연금보험" class="chip">🏦 연금보험</button>
-              <button onclick="selectChip(this, 'qna-insurance')" data-value="저축보험" class="chip">💰 저축보험</button>
-              <button onclick="selectChip(this, 'qna-insurance')" data-value="변액보험" class="chip">📈 변액보험</button>
-              <button onclick="selectChip(this, 'qna-insurance')" data-value="어린이보험" class="chip">👶 어린이보험</button>
-              <button onclick="selectChip(this, 'qna-insurance')" data-value="운전자보험" class="chip">🚗 운전자보험</button>
+              <button onclick="selectChip(this, 'qna-insurance')" data-value="종신보험" class="chip active">종신보험</button>
+              <button onclick="selectChip(this, 'qna-insurance')" data-value="암보험" class="chip">암보험</button>
+              <button onclick="selectChip(this, 'qna-insurance')" data-value="실손보험" class="chip">실손보험</button>
+              <button onclick="selectChip(this, 'qna-insurance')" data-value="연금보험" class="chip">연금보험</button>
+              <button onclick="selectChip(this, 'qna-insurance')" data-value="저축보험" class="chip">저축보험</button>
+              <button onclick="selectChip(this, 'qna-insurance')" data-value="변액보험" class="chip">변액보험</button>
+              <button onclick="selectChip(this, 'qna-insurance')" data-value="어린이보험" class="chip">어린이보험</button>
+              <button onclick="selectChip(this, 'qna-insurance')" data-value="운전자보험" class="chip">운전자보험</button>
             </div>
           </div>
           
-          <!-- 고민 입력 (선택) -->
           <div>
             <label class="block text-sm font-semibold text-white mb-3">
               <i class="fas fa-question-circle text-blue-400 mr-2"></i>핵심 고민 <span class="text-gray-500 text-xs">(선택 - 비워두면 자동 생성)</span>
@@ -710,13 +807,12 @@ const mainPageHtml = `
             <textarea id="qna-concern" rows="3" placeholder="예: 보험료가 부담되는데 괜찮은 상품이 있을까요?" class="input-premium w-full px-5 py-4 text-white resize-none"></textarea>
           </div>
           
-          <!-- 설계서 생성 옵션 -->
           <div class="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-5">
             <label class="flex items-center gap-3 cursor-pointer">
               <input type="checkbox" id="generate-design" checked class="w-5 h-5 rounded bg-white/10 border-white/20 text-primary focus:ring-primary">
               <div>
-                <span class="text-white font-semibold">설계서 이미지 생성</span>
-                <p class="text-gray-400 text-sm">보장분석 표 형식 설계 제안서 이미지</p>
+                <span class="text-white font-semibold">보험 설계서 이미지 생성</span>
+                <p class="text-gray-400 text-sm">엑셀 형태 상세 보장분석 설계서</p>
               </div>
             </label>
           </div>
@@ -727,7 +823,6 @@ const mainPageHtml = `
           </button>
         </div>
         
-        <!-- ========== 블로그 생성 폼 ========== -->
         <div id="form-blog" class="space-y-8 hidden">
           <div class="flex items-center gap-4 pb-6 border-b border-white/5">
             <div class="w-12 h-12 rounded-2xl bg-orange-500/20 flex items-center justify-center">
@@ -739,30 +834,28 @@ const mainPageHtml = `
             </div>
           </div>
           
-          <!-- 콘텐츠 유형 -->
           <div>
             <label class="block text-sm font-semibold text-white mb-3">
               <i class="fas fa-file-alt text-orange-400 mr-2"></i>콘텐츠 유형
             </label>
             <div class="flex flex-wrap gap-2" id="blog-type-chips">
-              <button onclick="selectChip(this, 'blog-type')" data-value="정보성" class="chip active">📚 정보성</button>
-              <button onclick="selectChip(this, 'blog-type')" data-value="후기성" class="chip">⭐ 후기성</button>
-              <button onclick="selectChip(this, 'blog-type')" data-value="비교분석" class="chip">⚖️ 비교분석</button>
-              <button onclick="selectChip(this, 'blog-type')" data-value="뉴스형" class="chip">📰 뉴스형</button>
+              <button onclick="selectChip(this, 'blog-type')" data-value="정보성" class="chip active">정보성</button>
+              <button onclick="selectChip(this, 'blog-type')" data-value="후기성" class="chip">후기성</button>
+              <button onclick="selectChip(this, 'blog-type')" data-value="비교분석" class="chip">비교분석</button>
+              <button onclick="selectChip(this, 'blog-type')" data-value="뉴스형" class="chip">뉴스형</button>
             </div>
           </div>
           
-          <!-- 타겟 독자 -->
           <div>
             <label class="block text-sm font-semibold text-white mb-3">
               <i class="fas fa-users text-orange-400 mr-2"></i>타겟 독자
             </label>
             <div class="flex flex-wrap gap-2" id="blog-target-chips">
-              <button onclick="selectChip(this, 'blog-target')" data-value="20대" class="chip">👶 20대</button>
-              <button onclick="selectChip(this, 'blog-target')" data-value="30대" class="chip active">👔 30대</button>
-              <button onclick="selectChip(this, 'blog-target')" data-value="40대" class="chip">👨‍👩‍👧 40대</button>
-              <button onclick="selectChip(this, 'blog-target')" data-value="50대 이상" class="chip">🏖️ 50대+</button>
-              <button onclick="selectChip(this, 'blog-target')" data-value="전 연령" class="chip">👥 전 연령</button>
+              <button onclick="selectChip(this, 'blog-target')" data-value="20대" class="chip">20대</button>
+              <button onclick="selectChip(this, 'blog-target')" data-value="30대" class="chip active">30대</button>
+              <button onclick="selectChip(this, 'blog-target')" data-value="40대" class="chip">40대</button>
+              <button onclick="selectChip(this, 'blog-target')" data-value="50대 이상" class="chip">50대+</button>
+              <button onclick="selectChip(this, 'blog-target')" data-value="전 연령" class="chip">전 연령</button>
             </div>
           </div>
           
@@ -794,7 +887,6 @@ const mainPageHtml = `
           </button>
         </div>
         
-        <!-- ========== 분석 폼 ========== -->
         <div id="form-analyze" class="space-y-8 hidden">
           <div class="flex items-center gap-4 pb-6 border-b border-white/5">
             <div class="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center">
@@ -837,7 +929,6 @@ const mainPageHtml = `
     </div>
   </section>
 
-  <!-- Results Section -->
   <section id="resultsSection" class="hidden py-16 px-4 bg-gradient-to-b from-transparent to-gray-900/30">
     <div class="max-w-4xl mx-auto">
       
@@ -856,21 +947,23 @@ const mainPageHtml = `
         </div>
       </div>
       
-      <!-- Q&A 결과 (확장) -->
       <div id="result-qna" class="space-y-4 hidden">
         
-        <!-- 키워드 분석 결과 -->
         <div class="result-card p-6">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-              <i class="fas fa-search text-primary"></i>
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                <i class="fas fa-search text-primary"></i>
+              </div>
+              <span class="font-bold text-white">네이버 키워드 분석</span>
             </div>
-            <span class="font-bold text-white">네이버 키워드 분석</span>
+            <button onclick="copyKeywords()" class="px-4 py-2 rounded-xl bg-primary/20 text-primary hover:bg-primary/30 text-sm">
+              <i class="fas fa-copy mr-1"></i> 키워드 복사
+            </button>
           </div>
           <div id="qna-keywords" class="flex flex-wrap gap-2"></div>
         </div>
         
-        <!-- 질문 -->
         <div class="result-card p-6">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
@@ -887,13 +980,8 @@ const mainPageHtml = `
             </button>
           </div>
           <div id="qna-q" class="result-content text-gray-300 whitespace-pre-wrap leading-relaxed bg-white/5 rounded-xl p-4"></div>
-          <div class="flex items-center gap-2 mt-3">
-            <span class="text-gray-500 text-xs">가상 고객:</span>
-            <span id="qna-customer" class="text-primary text-sm font-medium"></span>
-          </div>
         </div>
         
-        <!-- 답변 -->
         <div class="result-card p-6">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
@@ -912,14 +1000,12 @@ const mainPageHtml = `
           </div>
           <div id="qna-a" class="result-content text-gray-300 whitespace-pre-wrap leading-relaxed bg-white/5 rounded-xl p-4"></div>
           
-          <!-- 강조 포인트 -->
           <div id="qna-highlights" class="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl hidden">
-            <h4 class="font-bold text-yellow-400 text-sm mb-2">⭐ 핵심 강조 포인트</h4>
+            <h4 class="font-bold text-yellow-400 text-sm mb-2">핵심 강조 포인트</h4>
             <ul id="qna-highlights-list" class="text-gray-300 text-sm space-y-1"></ul>
           </div>
         </div>
         
-        <!-- 댓글 -->
         <div class="result-card p-6">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
@@ -935,14 +1021,13 @@ const mainPageHtml = `
           <div id="qna-c" class="result-content text-gray-300 whitespace-pre-wrap leading-relaxed bg-white/5 rounded-xl p-4"></div>
         </div>
         
-        <!-- 설계서 이미지 -->
         <div id="design-section" class="result-card p-6 hidden">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
                 <i class="fas fa-file-image text-emerald-400"></i>
               </div>
-              <span class="font-bold text-white">보험 설계서</span>
+              <span class="font-bold text-white">보험 설계서 (엑셀 스타일)</span>
             </div>
             <button onclick="downloadDesignImage()" class="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-sm">
               <i class="fas fa-download mr-1"></i> 이미지 저장
@@ -957,7 +1042,6 @@ const mainPageHtml = `
         </button>
       </div>
       
-      <!-- 블로그 결과 -->
       <div id="result-blog" class="space-y-4 hidden">
         <div class="result-card p-6">
           <div class="flex items-center justify-between mb-4">
@@ -1011,7 +1095,6 @@ const mainPageHtml = `
         </button>
       </div>
       
-      <!-- 분석 결과 -->
       <div id="result-analyze" class="space-y-4 hidden">
         <div class="result-card p-8" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(124, 58, 237, 0.06) 100%);">
           <div class="flex flex-col md:flex-row items-center justify-between gap-8">
@@ -1081,7 +1164,6 @@ const mainPageHtml = `
     </div>
   </section>
 
-  <!-- Footer -->
   <footer class="py-16 px-4 border-t border-white/5">
     <div class="max-w-6xl mx-auto">
       <div class="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -1090,8 +1172,8 @@ const mainPageHtml = `
             <i class="fas fa-shield-alt text-white"></i>
           </div>
           <div>
-            <p class="font-bold text-white">보험 콘텐츠 마스터 V6.0</p>
-            <p class="text-gray-500 text-sm">© 2025 개발자: 방익주</p>
+            <p class="font-bold text-white">보험 콘텐츠 마스터 V6.2</p>
+            <p class="text-gray-500 text-sm">2026 보험엑시트</p>
           </div>
         </div>
         <div class="flex items-center gap-6">
@@ -1102,13 +1184,11 @@ const mainPageHtml = `
     </div>
   </footer>
 
-  <!-- Toast -->
   <div id="toast" class="toast fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-4 rounded-2xl bg-gray-800/90 backdrop-blur-lg text-white font-medium shadow-2xl z-50 border border-white/10"></div>
 
   <script>
-    // State
     let currentFeature = 'qna';
-    let generatedDesignHtml = '';
+    let generatedKeywords = [];
     const selections = {
       'qna-target': '30대 직장인',
       'qna-tone': '친근한',
@@ -1118,7 +1198,6 @@ const mainPageHtml = `
       'analyze-type': '종합 분석'
     };
 
-    // Feature Selection
     function selectFeature(feature) {
       currentFeature = feature;
       document.querySelectorAll('.feature-card').forEach(c => c.classList.remove('active'));
@@ -1128,14 +1207,12 @@ const mainPageHtml = `
       document.getElementById('resultsSection').classList.add('hidden');
     }
 
-    // Chip Selection
     function selectChip(btn, group) {
       btn.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
       btn.classList.add('active');
       selections[group] = btn.dataset.value;
     }
 
-    // Toast
     function showToast(msg) {
       const toast = document.getElementById('toast');
       toast.textContent = msg;
@@ -1143,27 +1220,31 @@ const mainPageHtml = `
       setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
-    // Copy Functions
     function copyText(id) {
-      navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => showToast('📋 복사 완료!'));
+      navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => showToast('복사 완료!'));
+    }
+    
+    function copyKeywords() {
+      if (generatedKeywords.length > 0) {
+        navigator.clipboard.writeText(generatedKeywords.join(', ')).then(() => showToast('키워드 복사 완료!'));
+      }
     }
 
     function copyAllQnA() {
       const all = '【질문】\\n' + document.getElementById('qna-q').textContent + '\\n\\n【답변】\\n' + document.getElementById('qna-a').textContent + '\\n\\n【댓글】\\n' + document.getElementById('qna-c').textContent;
-      navigator.clipboard.writeText(all).then(() => showToast('📋 전체 복사 완료!'));
+      navigator.clipboard.writeText(all).then(() => showToast('전체 복사 완료!'));
     }
 
     function copyAllBlog() {
       const all = document.getElementById('blog-title').textContent + '\\n\\n' + document.getElementById('blog-body').textContent + '\\n\\n' + document.getElementById('blog-tags').textContent;
-      navigator.clipboard.writeText(all).then(() => showToast('📋 전체 복사 완료!'));
+      navigator.clipboard.writeText(all).then(() => showToast('전체 복사 완료!'));
     }
 
     function copyAnalyzeAll() {
       const all = '【분석】\\n' + document.getElementById('analyze-result').textContent + '\\n\\n【개선안】\\n' + document.getElementById('analyze-improved').textContent;
-      navigator.clipboard.writeText(all).then(() => showToast('📋 전체 복사 완료!'));
+      navigator.clipboard.writeText(all).then(() => showToast('전체 복사 완료!'));
     }
 
-    // Download Functions
     function downloadTxt() {
       let content = '', filename = '';
       if (currentFeature === 'qna') {
@@ -1178,7 +1259,7 @@ const mainPageHtml = `
       }
       const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
-      showToast('📥 TXT 다운로드 완료!');
+      showToast('TXT 다운로드 완료!');
     }
 
     function downloadPdf() {
@@ -1191,13 +1272,12 @@ const mainPageHtml = `
       doc.setFontSize(18); doc.text(title, 20, 20);
       doc.setFontSize(10); doc.text(doc.splitTextToSize(content, 170), 20, 35);
       doc.save(currentFeature + '_' + new Date().toISOString().slice(0,10) + '.pdf');
-      showToast('📥 PDF 다운로드 완료!');
+      showToast('PDF 다운로드 완료!');
     }
     
-    // 설계서 이미지 다운로드
     async function downloadDesignImage() {
       const preview = document.getElementById('design-preview');
-      if (!preview.innerHTML) { showToast('⚠️ 설계서가 없습니다'); return; }
+      if (!preview.innerHTML) { showToast('설계서가 없습니다'); return; }
       
       try {
         const canvas = await html2canvas(preview, { scale: 2, useCORS: true });
@@ -1205,13 +1285,12 @@ const mainPageHtml = `
         link.download = 'insurance_design_' + new Date().toISOString().slice(0,10) + '.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
-        showToast('📥 이미지 다운로드 완료!');
+        showToast('이미지 다운로드 완료!');
       } catch (e) {
-        showToast('❌ 이미지 저장 실패');
+        showToast('이미지 저장 실패');
       }
     }
 
-    // Progress UI
     function updateProgress(step, percent, status) {
       document.getElementById('qna-progress').classList.remove('hidden');
       document.getElementById('progress-percent').textContent = percent + '%';
@@ -1226,7 +1305,6 @@ const mainPageHtml = `
       }
     }
 
-    // Loading State
     function setLoading(btnId, loading) {
       const btn = document.getElementById(btnId);
       if (loading) {
@@ -1240,7 +1318,6 @@ const mainPageHtml = `
       }
     }
 
-    // Show Results
     function showResults(type) {
       document.getElementById('resultsSection').classList.remove('hidden');
       document.querySelectorAll('[id^="result-"]').forEach(r => r.classList.add('hidden'));
@@ -1248,7 +1325,6 @@ const mainPageHtml = `
       document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
     }
 
-    // ========== Q&A 완전 자동화 API ==========
     async function generateQnAFull() {
       const concern = document.getElementById('qna-concern').value.trim();
       const generateDesign = document.getElementById('generate-design').checked;
@@ -1272,54 +1348,54 @@ const mainPageHtml = `
         
         const data = await res.json();
         
-        // 키워드 표시
+        generatedKeywords = data.keywords || [];
         const keywordsDiv = document.getElementById('qna-keywords');
-        keywordsDiv.innerHTML = data.keywords.map(kw => 
-          '<span class="keyword-tag"><i class="fas fa-hashtag text-xs"></i>' + kw + '</span>'
+        keywordsDiv.innerHTML = generatedKeywords.map(kw => 
+          '<span class="keyword-tag" onclick="copyKeyword(\\'' + kw + '\\')">#' + kw + '</span>'
         ).join('');
         
-        // Q&A 표시
         document.getElementById('qna-q').textContent = data.question;
         document.getElementById('qna-a').textContent = data.answer;
         document.getElementById('qna-c').textContent = data.comments;
         document.getElementById('qna-char').textContent = data.answer.length + '자';
-        document.getElementById('qna-customer').textContent = data.customerInfo || '';
         
-        // 강조 포인트
         if (data.highlights && data.highlights.length > 0) {
           const highlightsList = document.getElementById('qna-highlights-list');
-          highlightsList.innerHTML = data.highlights.map(h => '<li>• ' + h + '</li>').join('');
+          highlightsList.innerHTML = data.highlights.map(h => '<li>' + h + '</li>').join('');
           document.getElementById('qna-highlights').classList.remove('hidden');
+        } else {
+          document.getElementById('qna-highlights').classList.add('hidden');
         }
         
-        // 설계서 이미지
         if (data.designHtml) {
           document.getElementById('design-section').classList.remove('hidden');
           const preview = document.getElementById('design-preview');
           preview.innerHTML = data.designHtml;
-          generatedDesignHtml = data.designHtml;
         } else {
           document.getElementById('design-section').classList.add('hidden');
         }
         
         document.getElementById('qna-progress').classList.add('hidden');
-        document.getElementById('resultsInfo').textContent = 'Q&A 생성 완료 · ' + selections['qna-target'] + ' · ' + data.keywords.length + '개 키워드';
+        document.getElementById('resultsInfo').textContent = 'Q&A 생성 완료 - ' + selections['qna-target'] + ' - ' + generatedKeywords.length + '개 키워드';
         showResults('qna');
-        showToast('✨ Q&A 완전 자동화 완료!');
+        showToast('Q&A 완전 자동화 완료!');
         
       } catch (e) {
         console.error(e);
-        showToast('❌ 생성 실패. 다시 시도해주세요.');
+        showToast('생성 실패. 다시 시도해주세요.');
         document.getElementById('qna-progress').classList.add('hidden');
       }
       
       setLoading('btn-qna', false);
     }
+    
+    function copyKeyword(kw) {
+      navigator.clipboard.writeText(kw).then(() => showToast(kw + ' 복사!'));
+    }
 
-    // ========== 블로그 생성 API ==========
     async function generateBlog() {
       const topic = document.getElementById('blog-topic').value.trim();
-      if (!topic) { showToast('⚠️ 블로그 주제를 입력해주세요'); return; }
+      if (!topic) { showToast('블로그 주제를 입력해주세요'); return; }
       
       setLoading('btn-blog', true);
       try {
@@ -1339,17 +1415,16 @@ const mainPageHtml = `
         document.getElementById('blog-body').textContent = data.content;
         document.getElementById('blog-tags').textContent = data.hashtags;
         document.getElementById('blog-char').textContent = data.content.length + '자';
-        document.getElementById('resultsInfo').textContent = '블로그 생성 완료 · ' + data.content.length + '자';
+        document.getElementById('resultsInfo').textContent = '블로그 생성 완료 - ' + data.content.length + '자';
         showResults('blog');
-        showToast('✨ 블로그 글 생성 완료!');
-      } catch (e) { showToast('❌ 생성 실패'); }
+        showToast('블로그 글 생성 완료!');
+      } catch (e) { showToast('생성 실패'); }
       setLoading('btn-blog', false);
     }
 
-    // ========== 분석 API ==========
     async function analyzeBlog() {
       const content = document.getElementById('analyze-content').value.trim();
-      if (!content) { showToast('⚠️ 분석할 글을 입력해주세요'); return; }
+      if (!content) { showToast('분석할 글을 입력해주세요'); return; }
       
       setLoading('btn-analyze', true);
       try {
@@ -1371,10 +1446,10 @@ const mainPageHtml = `
         document.getElementById('geo-score').textContent = data.geoScore;
         document.getElementById('analyze-result').textContent = data.analysis;
         document.getElementById('analyze-improved').textContent = data.improved;
-        document.getElementById('resultsInfo').textContent = '분석 완료 · 종합 ' + data.totalScore + '점';
+        document.getElementById('resultsInfo').textContent = '분석 완료 - 종합 ' + data.totalScore + '점';
         showResults('analyze');
-        showToast('📊 블로그 분석 완료!');
-      } catch (e) { showToast('❌ 분석 실패'); }
+        showToast('블로그 분석 완료!');
+      } catch (e) { showToast('분석 실패'); }
       setLoading('btn-analyze', false);
     }
   </script>
@@ -1406,7 +1481,7 @@ const adminPageHtml = `
         </a>
         <div>
           <h1 class="text-2xl font-bold text-white">관리자 대시보드</h1>
-          <p class="text-gray-500 text-sm">보험 콘텐츠 마스터 V6.0</p>
+          <p class="text-gray-500 text-sm">보험 콘텐츠 마스터 V6.2</p>
         </div>
       </div>
       <a href="/" class="px-4 py-2 rounded-xl bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all text-sm">
@@ -1455,7 +1530,7 @@ const adminPageHtml = `
           </div>
           <div>
             <p class="text-gray-400 text-sm">버전</p>
-            <p class="text-white font-bold">V6.0</p>
+            <p class="text-white font-bold">V6.2</p>
           </div>
         </div>
       </div>
@@ -1493,24 +1568,19 @@ const adminPageHtml = `
           </div>
           <span class="text-gray-500 text-sm">/api/analyze/blog</span>
         </div>
-        <div class="flex items-center justify-between p-4 bg-white/5 rounded-xl">
-          <div class="flex items-center gap-3">
-            <span class="px-2 py-1 rounded bg-primary/20 text-primary text-xs font-bold">GET</span>
-            <span class="text-gray-300">네이버 키워드 검색</span>
-          </div>
-          <span class="text-gray-500 text-sm">/api/naver/keywords</span>
-        </div>
       </div>
     </div>
     
     <div class="glass-card p-6">
-      <h3 class="font-bold text-white text-lg mb-4"><i class="fas fa-robot text-primary mr-2"></i>V6.0 새로운 기능</h3>
+      <h3 class="font-bold text-white text-lg mb-4"><i class="fas fa-robot text-primary mr-2"></i>V6.2 업데이트 내용</h3>
       <ul class="space-y-2 text-gray-400 text-sm">
-        <li class="flex items-center gap-2"><i class="fas fa-check text-primary"></i> 네이버 API 키워드 자동 분석</li>
-        <li class="flex items-center gap-2"><i class="fas fa-check text-primary"></i> 6단계 Q&A 완전 자동화 파이프라인</li>
-        <li class="flex items-center gap-2"><i class="fas fa-check text-primary"></i> 보험 설계서 이미지 자동 생성</li>
-        <li class="flex items-center gap-2"><i class="fas fa-check text-primary"></i> 가상 고객 정보 자동 생성</li>
-        <li class="flex items-center gap-2"><i class="fas fa-check text-primary"></i> SEO/C-RANK/AEO/GEO 최적화</li>
+        <li class="flex items-center gap-2"><i class="fas fa-check text-primary"></i> 키워드 복사 기능</li>
+        <li class="flex items-center gap-2"><i class="fas fa-check text-primary"></i> 이모티콘/마크다운 완전 제거</li>
+        <li class="flex items-center gap-2"><i class="fas fa-check text-primary"></i> 가상 고객명 삭제</li>
+        <li class="flex items-center gap-2"><i class="fas fa-check text-primary"></i> 전화번호 형식 (ㅇㅇXX-10XX)</li>
+        <li class="flex items-center gap-2"><i class="fas fa-check text-primary"></i> 설계서 고객 맞춤형 재설계</li>
+        <li class="flex items-center gap-2"><i class="fas fa-check text-primary"></i> 타겟별 나이/성별 자동 추론</li>
+        <li class="flex items-center gap-2"><i class="fas fa-check text-primary"></i> 2026년 기준 업데이트</li>
       </ul>
     </div>
     
@@ -1531,9 +1601,10 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '6.0', 
+  version: '6.2', 
   ai: 'gemini + naver', 
-  features: ['keyword-analysis', 'qna-full-auto', 'design-image'],
+  year: 2026,
+  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji'],
   timestamp: new Date().toISOString() 
 }))
 
@@ -1546,7 +1617,7 @@ app.get('/api/naver/keywords', async (c) => {
   return c.json({ keywords })
 })
 
-// Q&A 완전 자동화 API (V6.0 핵심 기능)
+// Q&A 완전 자동화 API (V6.1)
 app.post('/api/generate/qna-full', async (c) => {
   const { target, tone, insuranceType, concern, generateDesign } = await c.req.json()
   
@@ -1555,56 +1626,60 @@ app.post('/api/generate/qna-full', async (c) => {
   const naverKeywords = await searchNaverKeywords(searchQuery)
   const relatedKeywords = await getRelatedKeywords(insuranceType)
   
-  // 핵심 키워드 선정 (3개 이상)
   const allKeywords = [...new Set([insuranceType, ...naverKeywords.slice(0, 5), ...relatedKeywords.slice(0, 3)])]
   const coreKeywords = allKeywords.slice(0, 6)
   
-  // 2. 가상 고객 생성
-  const customer = generateVirtualContact()
+  // 2. 가상 연락처 생성 (이름 제외)
+  const contact = generateVirtualContact()
   
-  // 3. 고민/질문 자동 생성 (비어있으면)
+  // 3. 고민/질문 자동 생성
   let customerConcern = concern
   if (!customerConcern) {
     const concernPrompt = `당신은 ${target}입니다. ${insuranceType}에 대해 네이버 카페에 질문하려고 합니다.
 현실적이고 구체적인 고민을 50자 이내로 작성해주세요.
-예: "종신보험 가입 고민인데, 보험료가 부담되고 해지하면 손해라던데 어떤 상품이 좋을까요?"
+이모티콘이나 특수문자 없이 순수 텍스트만 작성하세요.
 반드시 한 문장으로 작성하세요.`
     customerConcern = await callGeminiAPI(concernPrompt)
-    customerConcern = customerConcern.replace(/["\n]/g, '').trim()
+    customerConcern = cleanText(customerConcern.replace(/["\n]/g, '').trim())
   }
   
-  // 4. Q&A 생성 프롬프트
+  // 4. Q&A 생성 프롬프트 (이모티콘/마크다운 금지, 가상 고객명 삭제)
   const qnaPrompt = `당신은 보험 전문 콘텐츠 작성 AI입니다. 네이버 카페용 Q&A를 생성해주세요.
+
+【절대 규칙 - 반드시 지켜야 함】
+- 이모티콘 절대 사용 금지 (모든 종류)
+- ## 또는 ** 마크다운 사용 금지
+- 가상 이름/가명 사용 금지 (예: 홍길동, 김철수 등)
+- 순수 텍스트만 작성
+- 현재 연도는 2026년
 
 【조건】
 - 타겟: ${target}
 - 보험 종류: ${insuranceType}
 - 문체 톤: ${tone}
 - 고민: ${customerConcern}
-- 가상 고객: ${customer.name}
 - 핵심 키워드: ${coreKeywords.join(', ')}
+- 연락처: ${contact.phone}
 
 【SEO 최적화 규칙】
 1. 핵심 키워드(${coreKeywords.slice(0, 3).join(', ')}) 최소 3회 자연스럽게 포함
-2. C-RANK: 전문적인 정보와 출처 명시
-3. AEO: 질문-답변 구조 명확히
-4. GEO: 필요시 지역 정보 언급
+2. 전문적인 정보 포함 (2026년 기준)
+3. 질문-답변 구조 명확히
 
 【출력 형식 - 반드시 이 형식을 따르세요】
 [질문]
 (${target}이 ${insuranceType}에 대해 궁금해하는 자연스러운 질문. 200-300자. ${tone} 톤)
-- 가상 고객명: ${customer.name}
-- 연락처: ${customer.phone}
+- 이름 없이 "안녕하세요" 또는 "제가" 등으로 시작
+- 연락처: ${contact.phone}
 - 고민 상황 구체적으로 설명
 
 [답변]
 (보험 전문가 답변 800자 이상)
-✅ 핵심 요약 3줄
-✅ ${insuranceType}의 장점 3가지 (구체적 숫자/통계 포함)
-✅ 가입 전 체크포인트 3가지
-✅ 추천 이유와 결론
+- 핵심 요약 3줄
+- ${insuranceType}의 장점 3가지 (2026년 기준 구체적 숫자/통계 포함)
+- 가입 전 체크포인트 3가지
+- 추천 이유와 결론
 - ${tone} 톤으로 작성
-- 키워드 자연스럽게 포함
 
 [강조포인트]
 - (핵심 장점 1)
@@ -1612,13 +1687,13 @@ app.post('/api/generate/qna-full', async (c) => {
 - (핵심 장점 3)
 
 [댓글1]
-(공감하는 후기형 댓글 50-80자)
+(공감하는 후기형 댓글 50-80자. 이모티콘 없이)
 
 [댓글2]
-(정보 추가/질문하는 댓글 50-80자)
+(정보 추가/질문하는 댓글 50-80자. 이모티콘 없이)
 
 [댓글3]
-(추천/감사 댓글 50-80자, ${customer.kakao} 자연스럽게 언급 가능)`
+(추천/감사 댓글 50-80자. 이모티콘 없이)`
 
   const qnaResult = await callGeminiAPI(qnaPrompt)
   
@@ -1635,30 +1710,73 @@ app.post('/api/generate/qna-full', async (c) => {
   if (highlightsMatch) {
     highlights = highlightsMatch[1]
       .split('\n')
-      .map(line => line.replace(/^[-•]\s*/, '').trim())
+      .map(line => cleanText(line.replace(/^[-•*]\s*/, '').trim()))
       .filter(line => line.length > 5)
       .slice(0, 3)
   }
   
-  // 5. 설계서 이미지 생성
+  // 5. 타겟에 따른 성별/나이 자동 추론
+  const targetInfo: { age: string, gender: string, ageNum: number } = (() => {
+    const ageMatch = target.match(/(\d+)대/)
+    const ageNum = ageMatch ? parseInt(ageMatch[1]) : 35
+    const age = ageMatch ? `${ageMatch[1]}세` : '35세'
+    
+    // 타겟에 따른 성별 추론
+    let gender = '남성'
+    if (target.includes('신혼부부')) gender = Math.random() > 0.5 ? '남성' : '여성'
+    else if (target.includes('가장')) gender = '남성'
+    else if (target.includes('직장인')) gender = Math.random() > 0.3 ? '남성' : '여성'
+    else if (target.includes('사회초년생')) gender = Math.random() > 0.5 ? '남성' : '여성'
+    else if (target.includes('은퇴준비')) gender = Math.random() > 0.6 ? '남성' : '여성'
+    else if (target.includes('자영업자')) gender = Math.random() > 0.4 ? '남성' : '여성'
+    
+    return { age, gender, ageNum }
+  })()
+
+  // 6. 설계서 이미지 생성 (엑셀 스타일 - 고객 맞춤형)
   let designHtml = ''
   if (generateDesign) {
-    // 설계서 데이터 생성
-    const designPrompt = `${insuranceType} 보험 설계서용 보장 내역을 JSON으로 생성해주세요.
+    const designPrompt = `${target}를 위한 ${insuranceType} 보험 설계서용 상세 보장 내역을 JSON으로 생성해주세요.
 
-【조건】
-- 타겟: ${target}
+【고객 정보 - 반드시 이 조건에 맞춰 설계】
+- 타겟 고객: ${target}
+- 예상 나이: ${targetInfo.ageNum}세
+- 성별: ${targetInfo.gender}
+- 고객 고민: ${customerConcern}
 - 보험 종류: ${insuranceType}
-- 현실적인 보험료와 보장금액 설정
+
+【설계 원칙】
+- 2026년 기준 현실적인 보험료 (${targetInfo.gender} ${targetInfo.ageNum}세 기준)
+- ${target}의 특성과 니즈에 맞는 보장 구성
+- 고객 고민(${customerConcern})을 해결할 수 있는 보장 포함
+- 보험회사명과 실제 판매중인 상품명 스타일로 작성
 
 【출력 형식 - 반드시 JSON만 출력】
 {
-  "items": [
-    {"name": "사망보장", "coverage": "1억원", "premium": "45,000원", "period": "90세"},
-    {"name": "암진단", "coverage": "5,000만원", "premium": "32,000원", "period": "90세"}
+  "companyName": "삼성생명",
+  "productName": "무배당 삼성 ${insuranceType} 플러스 2026",
+  "paymentPeriod": "20년납",
+  "coveragePeriod": "종신",
+  "mainCoverage": [
+    {"category": "주계약", "name": "사망보험금", "coverage": "1억원", "premium": "45,000원", "note": "질병/재해사망 공통"},
+    {"category": "주계약", "name": "재해사망 추가지급금", "coverage": "1억원", "premium": "5,000원", "note": "재해사망시 추가 지급"}
   ],
-  "totalPremium": "125,000원",
-  "highlights": ["비갱신형으로 보험료 인상 없음", "해지환급금 100% 보장", "추가납입으로 적립금 증대 가능"]
+  "riders": [
+    {"name": "암진단특약 (유사암제외)", "coverage": "5,000만원", "premium": "28,000원", "period": "90세", "note": "1회 진단시 전액 지급"},
+    {"name": "뇌출혈진단특약", "coverage": "3,000만원", "premium": "12,000원", "period": "90세", "note": "뇌졸중 포함"},
+    {"name": "급성심근경색진단특약", "coverage": "3,000만원", "premium": "10,000원", "period": "90세", "note": "허혈성 심장질환 포함"},
+    {"name": "수술비특약 (1-5종)", "coverage": "100만원", "premium": "8,500원", "period": "90세", "note": "수술종류별 차등 지급"},
+    {"name": "입원일당특약", "coverage": "5만원", "premium": "6,200원", "period": "80세", "note": "1일당 지급"},
+    {"name": "상해후유장해특약", "coverage": "1억원", "premium": "4,800원", "period": "80세", "note": "3%이상 후유장해"}
+  ],
+  "totalPremium": "119,500원",
+  "specialNotes": [
+    "비갱신형 특약 선택으로 보험료 인상 없음",
+    "납입면제 특약 포함 (암/뇌/심장 진단시)",
+    "중도인출 및 추가납입 가능",
+    "${target} 특성에 맞춘 보장 구성"
+  ],
+  "designReason": "${target}의 주요 니즈인 '${customerConcern.substring(0, 30)}'을 고려하여 설계하였습니다. ${insuranceType}의 핵심 보장과 함께 3대 진단비, 수술/입원 보장을 추가하여 종합적인 보장을 구성했습니다."
 }`
 
     try {
@@ -1668,19 +1786,22 @@ app.post('/api/generate/qna-full', async (c) => {
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0])
         
-        // 나이 추출
-        const ageMatch = target.match(/(\d+)대/)
-        const age = ageMatch ? ageMatch[1] + '세' : '35세'
-        
-        designHtml = generateInsuranceTableHtml({
-          title: `${insuranceType} 보장분석`,
-          customerName: customer.name,
-          customerAge: age,
-          customerGender: '남성',
+        designHtml = generateInsuranceDesignHtml({
+          companyName: parsed.companyName || '삼성생명',
+          productName: parsed.productName || `무배당 ${insuranceType} 2026`,
           insuranceType: insuranceType,
-          items: parsed.items || [],
-          totalPremium: parsed.totalPremium || '월 100,000원',
-          highlights: parsed.highlights || highlights
+          customerAge: targetInfo.age,
+          customerGender: targetInfo.gender,
+          customerTarget: target,
+          customerConcern: cleanText(customerConcern),
+          paymentPeriod: parsed.paymentPeriod || '20년납',
+          coveragePeriod: parsed.coveragePeriod || '종신',
+          mainCoverage: parsed.mainCoverage || [],
+          riders: parsed.riders || [],
+          totalPremium: parsed.totalPremium || '100,000원',
+          monthlyPremium: parsed.totalPremium || '100,000원',
+          specialNotes: parsed.specialNotes || [],
+          designReason: parsed.designReason || ''
         })
       }
     } catch (e) {
@@ -1688,75 +1809,19 @@ app.post('/api/generate/qna-full', async (c) => {
     }
   }
   
+  // 텍스트 정리 후 반환
   return c.json({
     keywords: coreKeywords,
-    customerInfo: `${customer.name} (${customer.phone})`,
-    question: questionMatch ? questionMatch[1].trim() : `[${target}] ${insuranceType} 가입 고민\n\n${customerConcern}\n\n연락처: ${customer.phone}`,
-    answer: answerMatch ? answerMatch[1].trim() : `${insuranceType}에 대해 답변 드립니다.`,
+    question: cleanText(questionMatch ? questionMatch[1].trim() : `[${target}] ${insuranceType} 가입 고민\n\n${customerConcern}\n\n연락처: ${contact.phone}`),
+    answer: cleanText(answerMatch ? answerMatch[1].trim() : `${insuranceType}에 대해 답변 드립니다.`),
     highlights: highlights,
-    comments: [
+    comments: cleanText([
       comment1Match ? comment1Match[1].trim() : '저도 같은 고민이었어요!',
       comment2Match ? comment2Match[1].trim() : '전문가 답변 감사합니다.',
       comment3Match ? comment3Match[1].trim() : '저도 상담 받아봐야겠네요.'
-    ].join('\n\n'),
+    ].join('\n\n')),
     designHtml: designHtml
   })
-})
-
-// 기존 Q&A API (호환성 유지)
-app.post('/api/generate/qna', async (c) => {
-  const { product, concern, target, tone, insuranceType, contact } = await c.req.json()
-  
-  const prompt = `당신은 보험 전문 콘텐츠 작성 AI입니다. 네이버 카페용 Q&A를 생성해주세요.
-
-【조건】
-- 보험 종류: ${insuranceType || '종신보험'}
-- 구체적 상품명: ${product}
-- 타겟: ${target}
-- 문체 톤: ${tone || '친근한'}
-- 고민: ${concern}
-
-【출력 형식】
-[질문]
-(${target}이 ${product}에 대해 궁금해하는 자연스러운 질문)
-
-[답변]
-(전문가 답변 800자 이상)
-
-[댓글1]
-(공감하는 댓글)
-
-[댓글2]
-(정보 추가 댓글)
-
-[댓글3]
-(상담 권유 댓글)`
-
-  try {
-    const result = await callGeminiAPI(prompt)
-    
-    const questionMatch = result.match(/\[질문\]([\s\S]*?)(?=\[답변\])/i)
-    const answerMatch = result.match(/\[답변\]([\s\S]*?)(?=\[댓글1\])/i)
-    const comment1Match = result.match(/\[댓글1\]([\s\S]*?)(?=\[댓글2\])/i)
-    const comment2Match = result.match(/\[댓글2\]([\s\S]*?)(?=\[댓글3\])/i)
-    const comment3Match = result.match(/\[댓글3\]([\s\S]*?)$/i)
-    
-    return c.json({
-      question: questionMatch ? questionMatch[1].trim() : `[${target}] ${product} 가입 고민`,
-      answer: answerMatch ? answerMatch[1].trim() : `${product}에 대한 답변입니다.`,
-      comments: [
-        comment1Match ? comment1Match[1].trim() : '저도 같은 고민!',
-        comment2Match ? comment2Match[1].trim() : '좋은 정보 감사합니다.',
-        comment3Match ? comment3Match[1].trim() : '저도 가입 고려해봐야겠네요.'
-      ].join('\n\n')
-    })
-  } catch (error) {
-    return c.json({
-      question: `[${target}] ${product} 가입 고민이에요`,
-      answer: `${product} 관련 답변입니다.`,
-      comments: '저도 같은 고민이었어요!\n\n전문가 답변 감사합니다.\n\n저도 가입 고려해봐야겠네요.'
-    })
-  }
 })
 
 // Blog API
@@ -1765,18 +1830,23 @@ app.post('/api/generate/blog', async (c) => {
   
   const prompt = `당신은 네이버 블로그 SEO 전문 작성 AI입니다.
 
+【중요 규칙】
+- 이모티콘 사용 금지
+- ## 또는 ** 마크다운 사용 금지
+
 【조건】
 - 주제: ${topic}
 - 키워드: ${keywords || topic}
 - 지역: ${region || '전국'}
 - 유형: ${type}
 - 타겟: ${target}
+- 2026년 기준
 
 【규칙】
 1. 본문 1,700자 이상
 2. 키워드 3회+ 포함
-3. [📷 이미지 삽입] 3-4회
-4. > 3줄 요약 포함
+3. [이미지 삽입] 3-4회
+4. 3줄 요약 포함
 5. Q&A 섹션 포함
 
 【출력 형식】
@@ -1797,14 +1867,14 @@ app.post('/api/generate/blog', async (c) => {
     const hashtagMatch = result.match(/\[해시태그\]\s*([\s\S]*?)$/i)
     
     return c.json({
-      title: titleMatch ? titleMatch[1].trim() : `${topic}, 이것만 알면 끝!`,
-      content: contentMatch ? contentMatch[1].trim() : '',
-      hashtags: hashtagMatch ? hashtagMatch[1].trim() : `#${topic.replace(/\s/g, '')}`
+      title: cleanText(titleMatch ? titleMatch[1].trim() : `${topic}, 이것만 알면 끝!`),
+      content: cleanText(contentMatch ? contentMatch[1].trim() : ''),
+      hashtags: cleanText(hashtagMatch ? hashtagMatch[1].trim() : `#${topic.replace(/\s/g, '')}`)
     })
   } catch (error) {
     return c.json({
       title: `${topic}, 완벽 가이드`,
-      content: `> 📌 3줄 요약\n> 1. ${topic}의 핵심\n> 2. ${target}을 위한 정보\n> 3. 실용적인 가이드\n\n[📷 이미지 삽입]\n\n${topic}에 대해 알아보겠습니다...`,
+      content: `3줄 요약\n1. ${topic}의 핵심\n2. ${target}을 위한 정보\n3. 실용적인 가이드\n\n[이미지 삽입]\n\n${topic}에 대해 알아보겠습니다...`,
       hashtags: `#${topic.replace(/\s/g, '')} #${target}추천`
     })
   }
@@ -1830,7 +1900,7 @@ ${content.substring(0, 4000)}
 - AEO (0-100)
 - GEO (0-100)
 
-【출력 형식】
+【출력 형식 - 이모티콘 사용 금지】
 [점수]
 SEO: (숫자)
 C-RANK: (숫자)
@@ -1864,8 +1934,8 @@ GEO: (숫자)
     
     return c.json({
       totalScore, seoScore, crankScore, aeoScore, geoScore,
-      analysis: analysisMatch ? analysisMatch[1].trim() : '분석 결과',
-      improved: improvedMatch ? improvedMatch[1].trim() : '개선안'
+      analysis: cleanText(analysisMatch ? analysisMatch[1].trim() : '분석 결과'),
+      improved: cleanText(improvedMatch ? improvedMatch[1].trim() : '개선안')
     })
   } catch (error) {
     return c.json({

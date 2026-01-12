@@ -201,8 +201,8 @@ function generateVirtualContact(): { phone: string, kakao: string } {
   return { phone, kakao: kakaoId }
 }
 
-// 보험 설계서 HTML 생성 (엑셀 스타일 - 고객 맞춤 상세 보장 내역)
-function generateInsuranceDesignHtml(data: {
+// 보험 설계서 생성 (복사 가능한 텍스트 표 형식 + HTML 표시용)
+function generateInsuranceDesignData(data: {
   companyName: string,
   productName: string,
   insuranceType: string,
@@ -218,207 +218,205 @@ function generateInsuranceDesignHtml(data: {
   monthlyPremium: string,
   specialNotes: string[],
   designReason: string
-}): string {
+}): { text: string, html: string } {
   const today = new Date()
   const dateStr = `${today.getFullYear()}. ${today.getMonth() + 1}. ${today.getDate()}.`
   
-  // 주계약 행 생성
-  const mainRows = data.mainCoverage.map((item, idx) => `
-    <tr style="background: ${idx % 2 === 0 ? '#f8fafc' : '#ffffff'};">
-      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: center; font-weight: 600; color: #1e40af;">${item.category}</td>
-      <td style="border: 1px solid #d1d5db; padding: 10px 14px;">
-        <div style="font-weight: 500;">${item.name}</div>
-        ${item.note ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${item.note}</div>` : ''}
-      </td>
-      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: right; font-weight: 700; color: #059669; font-size: 15px;">${item.coverage}</td>
-      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: right; font-weight: 500;">${item.premium}</td>
+  // ===== 엑셀 스타일 텍스트 버전 (복사/붙여넣기용) =====
+  let textLines: string[] = []
+  
+  // 헤더
+  textLines.push('┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓')
+  textLines.push(`┃  ${data.companyName}  |  ${data.productName}`)
+  textLines.push(`┃  작성일: ${dateStr}`)
+  textLines.push('┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛')
+  textLines.push('')
+  
+  // 고객 정보
+  textLines.push('【 고객 정보 】')
+  textLines.push(`  ▸ 고객유형: ${data.customerTarget}`)
+  textLines.push(`  ▸ 연    령: ${data.customerAge}`)
+  textLines.push(`  ▸ 성    별: ${data.customerGender}`)
+  textLines.push(`  ▸ 보험종류: ${data.insuranceType}`)
+  textLines.push(`  ▸ 납입기간: ${data.paymentPeriod} / 보장기간: ${data.coveragePeriod}`)
+  textLines.push('')
+  
+  // 주계약
+  textLines.push('┌──────────────────────────────────────────────────────────────┐')
+  textLines.push('│                      [ 주계약 보장내역 ]                      │')
+  textLines.push('├────────┬────────────────────┬──────────┬──────────┤')
+  textLines.push('│  구분  │        보장명        │  보장금액  │  보험료  │')
+  textLines.push('├────────┼────────────────────┼──────────┼──────────┤')
+  data.mainCoverage.forEach(item => {
+    const cat = item.category.padEnd(6, ' ')
+    const name = item.name.substring(0, 18).padEnd(18, ' ')
+    const coverage = item.coverage.padStart(8, ' ')
+    const premium = item.premium.padStart(8, ' ')
+    textLines.push(`│ ${cat} │ ${name} │ ${coverage} │ ${premium} │`)
+    if (item.note) {
+      textLines.push(`│        │   └ ${item.note.substring(0, 36).padEnd(38, ' ')}│`)
+    }
+  })
+  textLines.push('└────────┴────────────────────┴──────────┴──────────┘')
+  textLines.push('')
+  
+  // 특약
+  textLines.push('┌──────────────────────────────────────────────────────────────┐')
+  textLines.push('│                       [ 특약 보장내역 ]                       │')
+  textLines.push('├────┬──────────────────────┬──────────┬────────┬────────┤')
+  textLines.push('│ No │        특약명          │  보장금액  │ 보험료 │  만기  │')
+  textLines.push('├────┼──────────────────────┼──────────┼────────┼────────┤')
+  data.riders.forEach((item, idx) => {
+    const no = String(idx + 1).padStart(2, ' ')
+    const name = item.name.substring(0, 20).padEnd(20, ' ')
+    const coverage = item.coverage.padStart(8, ' ')
+    const premium = item.premium.padStart(6, ' ')
+    const period = item.period.padStart(6, ' ')
+    textLines.push(`│ ${no} │ ${name} │ ${coverage} │ ${premium} │ ${period} │`)
+    if (item.note) {
+      textLines.push(`│    │   └ ${item.note.substring(0, 40).padEnd(43, ' ')}│`)
+    }
+  })
+  textLines.push('└────┴──────────────────────┴──────────┴────────┴────────┘')
+  textLines.push('')
+  
+  // 합계
+  textLines.push('┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓')
+  textLines.push(`┃                월 납입 보험료 합계:  ${data.monthlyPremium.padStart(12, ' ')}          ┃`)
+  textLines.push('┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛')
+  textLines.push('')
+  
+  // 설계 이유
+  if (data.designReason) {
+    textLines.push('【 이 설계를 추천하는 이유 】')
+    textLines.push(data.designReason)
+    textLines.push('')
+  }
+  
+  // 유의사항
+  textLines.push('【 설계 특이사항 및 유의점 】')
+  data.specialNotes.forEach(note => {
+    textLines.push(`  ▸ ${note}`)
+  })
+  textLines.push('')
+  textLines.push('────────────────────────────────────────────────────────────────')
+  textLines.push('              보험엑시트 | 2026년 기준 | 실제 보험료는 상담 필요')
+  textLines.push('────────────────────────────────────────────────────────────────')
+  
+  const textVersion = textLines.join('\n')
+  
+  // ===== HTML 버전 (화면 표시용 - 반응형) =====
+  const mainRowsHtml = data.mainCoverage.map(item => `
+    <tr>
+      <td>${item.category}</td>
+      <td>${item.name}${item.note ? `<br><small style="color:#888;font-size:10px;">└ ${item.note}</small>` : ''}</td>
+      <td style="text-align:right;">${item.coverage}</td>
+      <td style="text-align:right;">${item.premium}</td>
     </tr>
   `).join('')
   
-  // 특약 행 생성
-  const riderRows = data.riders.map((item, idx) => `
-    <tr style="background: ${idx % 2 === 0 ? '#fffbeb' : '#ffffff'};">
-      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: center; font-size: 13px; font-weight: 600; color: #374151;">${idx + 1}</td>
-      <td style="border: 1px solid #d1d5db; padding: 10px 14px;">
-        <div style="font-weight: 500;">${item.name}</div>
-        ${item.note ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${item.note}</div>` : ''}
-      </td>
-      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: right; font-weight: 700; color: #059669; font-size: 15px;">${item.coverage}</td>
-      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: right; font-weight: 500;">${item.premium}</td>
-      <td style="border: 1px solid #d1d5db; padding: 10px 14px; text-align: center; color: #6b7280; font-size: 13px;">${item.period}</td>
+  const riderRowsHtml = data.riders.map((item, idx) => `
+    <tr>
+      <td style="text-align:center;">${idx + 1}</td>
+      <td>${item.name}${item.note ? `<br><small style="color:#888;font-size:10px;">└ ${item.note}</small>` : ''}</td>
+      <td style="text-align:right;">${item.coverage}</td>
+      <td style="text-align:right;">${item.premium}</td>
+      <td style="text-align:center;">${item.period}</td>
     </tr>
   `).join('')
   
-  // 특이사항 행 생성
-  const notesHtml = data.specialNotes.map(note => `<li style="margin-bottom: 6px; padding-left: 4px;">${note}</li>`).join('')
+  const notesHtml = data.specialNotes.map(note => `<li style="margin:2px 0;">${note}</li>`).join('')
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Noto Sans KR', sans-serif; background: #f3f4f6; padding: 20px; }
-    .container { max-width: 850px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
-    .header { background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3b82f6 100%); color: white; padding: 24px 28px; }
-    .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .company-name { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
-    .doc-type { font-size: 13px; background: rgba(255,255,255,0.25); padding: 8px 20px; border-radius: 25px; font-weight: 600; }
-    .product-name { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
-    .date { font-size: 12px; opacity: 0.85; }
-    .customer-info-section { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); padding: 20px 28px; border-bottom: 3px solid #3b82f6; }
-    .customer-title { font-size: 14px; font-weight: 700; color: #1e40af; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-    .customer-title::before { content: ''; width: 4px; height: 18px; background: #3b82f6; border-radius: 2px; }
-    .customer-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .customer-item { background: white; padding: 14px 16px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .customer-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 500; }
-    .customer-value { font-size: 15px; font-weight: 700; color: #1f2937; }
-    .concern-box { margin-top: 16px; background: white; padding: 14px 18px; border-radius: 10px; border-left: 4px solid #f59e0b; }
-    .concern-label { font-size: 11px; color: #92400e; margin-bottom: 6px; font-weight: 600; }
-    .concern-text { font-size: 13px; color: #374151; line-height: 1.6; }
-    .info-section { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #e5e7eb; border-bottom: 2px solid #1e40af; }
-    .info-item { background: white; padding: 14px 18px; text-align: center; }
-    .info-label { font-size: 11px; color: #6b7280; margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-    .info-value { font-size: 15px; font-weight: 700; color: #1f2937; }
-    .section-title { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 12px 20px; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-    .section-title::before { content: ''; width: 6px; height: 6px; background: white; border-radius: 50%; }
-    .premium-summary { display: flex; justify-content: space-between; align-items: center; padding: 20px 28px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-bottom: 3px solid #f59e0b; }
-    .premium-label { font-size: 18px; font-weight: 700; color: #92400e; }
-    .premium-value { font-size: 32px; font-weight: 800; color: #b45309; letter-spacing: -1px; }
-    .reason-section { padding: 20px 28px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-bottom: 2px solid #22c55e; }
-    .reason-title { font-size: 14px; font-weight: 700; color: #166534; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
-    .reason-title::before { content: ''; width: 4px; height: 18px; background: #22c55e; border-radius: 2px; }
-    .reason-text { font-size: 13px; color: #166534; line-height: 1.7; background: white; padding: 14px 18px; border-radius: 10px; }
-    .notes { padding: 20px 28px; background: #f9fafb; border-top: 1px solid #e5e7eb; }
-    .notes-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 10px; }
-    .notes-list { font-size: 12px; color: #4b5563; padding-left: 18px; line-height: 1.8; }
-    .footer { padding: 14px 28px; background: #1f2937; border-top: 1px solid #374151; font-size: 11px; color: #9ca3af; display: flex; justify-content: space-between; align-items: center; }
-    .footer-brand { font-weight: 600; color: #d1d5db; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <!-- 헤더 -->
-    <div class="header">
-      <div class="header-top">
-        <span class="company-name">${data.companyName}</span>
-        <span class="doc-type">맞춤 설계서</span>
-      </div>
-      <div class="product-name">${data.productName}</div>
-      <div class="date">작성일: ${dateStr}</div>
-    </div>
-    
-    <!-- 고객 맞춤 정보 -->
-    <div class="customer-info-section">
-      <div class="customer-title">고객 맞춤 설계 정보</div>
-      <div class="customer-grid">
-        <div class="customer-item">
-          <div class="customer-label">고객 유형</div>
-          <div class="customer-value">${data.customerTarget}</div>
-        </div>
-        <div class="customer-item">
-          <div class="customer-label">예상 연령</div>
-          <div class="customer-value">${data.customerAge}</div>
-        </div>
-        <div class="customer-item">
-          <div class="customer-label">성별</div>
-          <div class="customer-value">${data.customerGender}</div>
-        </div>
-      </div>
-      ${data.customerConcern ? `
-      <div class="concern-box">
-        <div class="concern-label">고객 고민/니즈</div>
-        <div class="concern-text">${data.customerConcern}</div>
-      </div>
-      ` : ''}
-    </div>
-    
-    <!-- 기본 정보 -->
-    <div class="info-section">
-      <div class="info-item">
-        <div class="info-label">보험종류</div>
-        <div class="info-value">${data.insuranceType}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">피보험자</div>
-        <div class="info-value">${data.customerAge} / ${data.customerGender}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">납입기간</div>
-        <div class="info-value">${data.paymentPeriod}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">보장기간</div>
-        <div class="info-value">${data.coveragePeriod}</div>
-      </div>
-    </div>
-    
-    <!-- 주계약 -->
-    <div class="section-title">주계약 보장내역</div>
-    <table style="width: 100%; border-collapse: collapse;">
-      <thead>
-        <tr style="background: #e0e7ff;">
-          <th style="border: 1px solid #d1d5db; padding: 10px; width: 15%; font-size: 13px;">구분</th>
-          <th style="border: 1px solid #d1d5db; padding: 10px; font-size: 13px;">보장명</th>
-          <th style="border: 1px solid #d1d5db; padding: 10px; width: 20%; font-size: 13px;">보장금액</th>
-          <th style="border: 1px solid #d1d5db; padding: 10px; width: 15%; font-size: 13px;">보험료</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${mainRows}
-      </tbody>
-    </table>
-    
-    <!-- 특약 -->
-    <div class="section-title">특약 보장내역</div>
-    <table style="width: 100%; border-collapse: collapse;">
-      <thead>
-        <tr style="background: #fef9c3;">
-          <th style="border: 1px solid #d1d5db; padding: 10px; width: 8%; font-size: 13px;">No</th>
-          <th style="border: 1px solid #d1d5db; padding: 10px; font-size: 13px;">특약명</th>
-          <th style="border: 1px solid #d1d5db; padding: 10px; width: 18%; font-size: 13px;">보장금액</th>
-          <th style="border: 1px solid #d1d5db; padding: 10px; width: 15%; font-size: 13px;">보험료</th>
-          <th style="border: 1px solid #d1d5db; padding: 10px; width: 12%; font-size: 13px;">보장만기</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${riderRows}
-      </tbody>
-    </table>
-    
-    <!-- 보험료 합계 -->
-    <div class="premium-summary">
-      <span class="premium-label">월 납입 보험료 합계</span>
-      <span class="premium-value">${data.monthlyPremium}</span>
-    </div>
-    
-    <!-- 설계 이유 -->
-    ${data.designReason ? `
-    <div class="reason-section">
-      <div class="reason-title">이 설계를 추천하는 이유</div>
-      <div class="reason-text">${data.designReason}</div>
-    </div>
-    ` : ''}
-    
-    <!-- 특이사항 -->
-    <div class="notes">
-      <div class="notes-title">설계 특이사항 및 유의점</div>
-      <ul class="notes-list">
-        ${notesHtml}
-      </ul>
-    </div>
-    
-    <!-- 푸터 -->
-    <div class="footer">
-      <span class="footer-brand">보험엑시트</span>
-      <span>본 설계서는 참고용이며, 실제 보험료는 가입 시점에 따라 변경될 수 있습니다. | 2026년 기준</span>
+  const htmlVersion = `
+<style>
+.ds-sheet { font-family: 'Pretendard', -apple-system, sans-serif; background: #fff; color: #111; padding: 12px; font-size: 12px; line-height: 1.4; }
+.ds-sheet * { box-sizing: border-box; }
+.ds-header { background: linear-gradient(135deg, #1a5a3a 0%, #0d7a42 100%); color: #fff; padding: 12px; border-radius: 6px 6px 0 0; }
+.ds-company { font-size: 11px; opacity: 0.9; }
+.ds-product { font-size: 14px; font-weight: 700; margin: 2px 0; }
+.ds-date { font-size: 10px; opacity: 0.8; }
+.ds-info { background: #f8f9fa; padding: 10px 12px; border: 1px solid #e9ecef; }
+.ds-info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.ds-info-item { display: flex; gap: 6px; font-size: 11px; }
+.ds-info-label { color: #666; min-width: 48px; }
+.ds-info-value { color: #111; font-weight: 500; }
+.ds-section { margin: 8px 0; }
+.ds-section-title { font-size: 11px; font-weight: 700; color: #1a5a3a; margin-bottom: 4px; padding-left: 8px; border-left: 3px solid #1a5a3a; }
+.ds-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.ds-table th { background: #e8f5e9; padding: 6px 4px; border: 1px solid #c8e6c9; font-weight: 600; font-size: 10px; }
+.ds-table td { padding: 5px 4px; border: 1px solid #e0e0e0; }
+.ds-table tr:nth-child(even) { background: #fafafa; }
+.ds-total { background: linear-gradient(135deg, #1a5a3a 0%, #0d7a42 100%); color: #fff; padding: 10px 12px; margin: 8px 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+.ds-total-label { font-size: 12px; }
+.ds-total-value { font-size: 16px; font-weight: 700; }
+.ds-reason { background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 4px; padding: 8px; margin: 8px 0; }
+.ds-reason-title { font-size: 10px; font-weight: 700; color: #e65100; margin-bottom: 4px; }
+.ds-reason-text { font-size: 11px; color: #333; }
+.ds-notes { background: #f5f5f5; padding: 8px; border-radius: 4px; margin: 8px 0; }
+.ds-notes-title { font-size: 10px; font-weight: 700; color: #666; margin-bottom: 4px; }
+.ds-notes ul { margin: 0; padding-left: 16px; font-size: 10px; color: #555; }
+.ds-footer { text-align: center; font-size: 9px; color: #999; padding: 8px; border-top: 1px solid #eee; }
+@media (max-width: 480px) {
+  .ds-sheet { padding: 8px; font-size: 11px; }
+  .ds-table { font-size: 10px; }
+  .ds-table th, .ds-table td { padding: 4px 2px; }
+  .ds-info-grid { grid-template-columns: 1fr; }
+}
+</style>
+<div class="ds-sheet">
+  <div class="ds-header">
+    <div class="ds-company">${data.companyName}</div>
+    <div class="ds-product">${data.productName}</div>
+    <div class="ds-date">작성일: ${dateStr}</div>
+  </div>
+  
+  <div class="ds-info">
+    <div class="ds-info-grid">
+      <div class="ds-info-item"><span class="ds-info-label">고객유형</span><span class="ds-info-value">${data.customerTarget}</span></div>
+      <div class="ds-info-item"><span class="ds-info-label">연령/성별</span><span class="ds-info-value">${data.customerAge} / ${data.customerGender}</span></div>
+      <div class="ds-info-item"><span class="ds-info-label">보험종류</span><span class="ds-info-value">${data.insuranceType}</span></div>
+      <div class="ds-info-item"><span class="ds-info-label">납입/보장</span><span class="ds-info-value">${data.paymentPeriod} / ${data.coveragePeriod}</span></div>
     </div>
   </div>
-</body>
-</html>
+  
+  <div class="ds-section">
+    <div class="ds-section-title">주계약 보장내역</div>
+    <table class="ds-table">
+      <thead><tr><th style="width:18%;">구분</th><th>보장명</th><th style="width:20%;">보장금액</th><th style="width:18%;">보험료</th></tr></thead>
+      <tbody>${mainRowsHtml}</tbody>
+    </table>
+  </div>
+  
+  <div class="ds-section">
+    <div class="ds-section-title">특약 보장내역</div>
+    <table class="ds-table">
+      <thead><tr><th style="width:8%;">No</th><th>특약명</th><th style="width:18%;">보장금액</th><th style="width:15%;">보험료</th><th style="width:12%;">만기</th></tr></thead>
+      <tbody>${riderRowsHtml}</tbody>
+    </table>
+  </div>
+  
+  <div class="ds-total">
+    <span class="ds-total-label">월 납입 보험료 합계</span>
+    <span class="ds-total-value">${data.monthlyPremium}</span>
+  </div>
+  
+  ${data.designReason ? `
+  <div class="ds-reason">
+    <div class="ds-reason-title">이 설계를 추천하는 이유</div>
+    <div class="ds-reason-text">${data.designReason}</div>
+  </div>
+  ` : ''}
+  
+  <div class="ds-notes">
+    <div class="ds-notes-title">설계 특이사항 및 유의점</div>
+    <ul>${notesHtml}</ul>
+  </div>
+  
+  <div class="ds-footer">보험엑시트 | 2026년 기준 | 실제 보험료는 상담이 필요합니다</div>
+</div>
   `
+  
+  return { text: textVersion, html: htmlVersion }
 }
 
 const mainPageHtml = `
@@ -732,7 +730,7 @@ const mainPageHtml = `
           </div>
           <div class="flex items-center gap-1.5">
             <span class="text-xs sm:text-sm font-bold text-white">보험 콘텐츠 마스터</span>
-            <span class="text-2xs sm:text-xs text-gray-400 font-medium">V6.3</span>
+            <span class="text-2xs sm:text-xs text-gray-400 font-medium">V6.4</span>
           </div>
         </a>
         <div class="flex items-center gap-1.5 sm:gap-2">
@@ -1090,20 +1088,25 @@ const mainPageHtml = `
             </div>
           </div>
           
-          <!-- 설계서 -->
+          <!-- 설계서 (텍스트 표 형식 - 복사 가능) -->
           <div id="design-section" class="result-card p-3 hidden">
             <div class="flex items-center justify-between mb-2">
               <div class="flex items-center gap-1.5">
                 <div class="w-6 h-6 rounded-md bg-emerald-500/20 flex items-center justify-center">
-                  <i class="fas fa-file-image text-emerald-400 text-2xs"></i>
+                  <i class="fas fa-table text-emerald-400 text-2xs"></i>
                 </div>
                 <span class="font-semibold text-white text-xs">설계서</span>
+                <span class="text-gray-400 text-2xs">(복사용)</span>
               </div>
-              <button onclick="downloadDesignImage()" class="px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-2xs">
-                <i class="fas fa-download"></i>
-              </button>
+              <div class="flex gap-1">
+                <button onclick="copyDesignText()" class="px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-2xs" title="텍스트 복사 (카페/블로그용)">
+                  <i class="fas fa-copy mr-1"></i>복사
+                </button>
+              </div>
             </div>
-            <div id="design-preview" class="design-preview overflow-auto max-h-64 sm:max-h-80"></div>
+            <div id="design-preview" class="design-preview overflow-auto max-h-80 sm:max-h-96 lg:max-h-[500px] rounded-lg"></div>
+            <!-- 복사용 텍스트 (숨김) -->
+            <textarea id="design-text-content" class="hidden"></textarea>
           </div>
         </div>
         
@@ -1253,7 +1256,7 @@ const mainPageHtml = `
             <i class="fas fa-shield-alt text-white text-xs"></i>
           </div>
           <div>
-            <p class="font-semibold text-white text-xs">보험 콘텐츠 마스터 V6.3</p>
+            <p class="font-semibold text-white text-xs">보험 콘텐츠 마스터 V6.4</p>
             <p class="text-gray-400 text-2xs">2026 보험엑시트</p>
           </div>
         </div>
@@ -1356,20 +1359,22 @@ const mainPageHtml = `
       showToast('PDF 다운로드 완료!');
     }
     
-    async function downloadDesignImage() {
-      const preview = document.getElementById('design-preview');
-      if (!preview.innerHTML) { showToast('설계서가 없습니다'); return; }
+    // 설계서 텍스트 복사 (엑셀/표 형식 - 네이버 카페/블로그용)
+    function copyDesignText() {
+      const textContent = document.getElementById('design-text-content').value;
+      if (!textContent) { showToast('설계서가 없습니다'); return; }
       
-      try {
-        const canvas = await html2canvas(preview, { scale: 2, useCORS: true });
-        const link = document.createElement('a');
-        link.download = 'insurance_design_' + new Date().toISOString().slice(0,10) + '.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        showToast('이미지 다운로드 완료!');
-      } catch (e) {
-        showToast('이미지 저장 실패');
-      }
+      navigator.clipboard.writeText(textContent).then(() => {
+        showToast('설계서 텍스트 복사 완료! (카페/블로그에 붙여넣기)');
+      }).catch(() => {
+        // 폴백: textarea 선택 후 복사
+        const textarea = document.getElementById('design-text-content');
+        textarea.classList.remove('hidden');
+        textarea.select();
+        document.execCommand('copy');
+        textarea.classList.add('hidden');
+        showToast('설계서 복사 완료!');
+      });
     }
 
     function updateProgress(step, percent, status) {
@@ -1452,6 +1457,10 @@ const mainPageHtml = `
           document.getElementById('design-section').classList.remove('hidden');
           const preview = document.getElementById('design-preview');
           preview.innerHTML = data.designHtml;
+          // 텍스트 버전 저장 (복사용)
+          if (data.designText) {
+            document.getElementById('design-text-content').value = data.designText;
+          }
         } else {
           document.getElementById('design-section').classList.add('hidden');
         }
@@ -1569,7 +1578,7 @@ const adminPageHtml = `
         </a>
         <div>
           <h1 class="text-base sm:text-lg font-bold text-white">관리자 대시보드</h1>
-          <p class="text-gray-400 text-xs">보험 콘텐츠 마스터 V6.3</p>
+          <p class="text-gray-400 text-xs">보험 콘텐츠 마스터 V6.4</p>
         </div>
       </div>
       <a href="/" class="px-3 py-1.5 rounded-lg bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 transition-all text-xs">
@@ -1618,7 +1627,7 @@ const adminPageHtml = `
           </div>
           <div>
             <p class="text-gray-300 text-2xs sm:text-xs">버전</p>
-            <p class="text-white font-semibold text-xs sm:text-sm">V6.3</p>
+            <p class="text-white font-semibold text-xs sm:text-sm">V6.4</p>
           </div>
         </div>
       </div>
@@ -1659,7 +1668,7 @@ const adminPageHtml = `
     </div>
     
     <div class="glass-card p-3 sm:p-4">
-      <h3 class="font-semibold text-white text-sm mb-3"><i class="fas fa-robot text-green-400 mr-1.5"></i>V6.3 업데이트</h3>
+      <h3 class="font-semibold text-white text-sm mb-3"><i class="fas fa-robot text-green-400 mr-1.5"></i>V6.4 업데이트</h3>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1">
         <div class="flex items-center gap-1.5 text-gray-300 text-xs"><i class="fas fa-check text-green-400 text-2xs"></i>키워드 복사</div>
         <div class="flex items-center gap-1.5 text-gray-300 text-xs"><i class="fas fa-check text-green-400 text-2xs"></i>이모티콘 제거</div>
@@ -1689,10 +1698,10 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '6.3', 
+  version: '6.4', 
   ai: 'gemini + naver', 
   year: 2026,
-  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui'],
+  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy'],
   timestamp: new Date().toISOString() 
 }))
 
@@ -1821,8 +1830,9 @@ app.post('/api/generate/qna-full', async (c) => {
     return { age, gender, ageNum }
   })()
 
-  // 6. 설계서 이미지 생성 (엑셀 스타일 - 고객 맞춤형)
+  // 6. 설계서 생성 (텍스트 표 형식 - 복사/붙여넣기용 + HTML 표시용)
   let designHtml = ''
+  let designText = ''
   if (generateDesign) {
     const designPrompt = `${target}를 위한 ${insuranceType} 보험 설계서용 상세 보장 내역을 JSON으로 생성해주세요.
 
@@ -1874,7 +1884,8 @@ app.post('/api/generate/qna-full', async (c) => {
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0])
         
-        designHtml = generateInsuranceDesignHtml({
+        // 텍스트 + HTML 둘 다 생성
+        const designResult = generateInsuranceDesignData({
           companyName: parsed.companyName || '삼성생명',
           productName: parsed.productName || `무배당 ${insuranceType} 2026`,
           insuranceType: insuranceType,
@@ -1891,6 +1902,9 @@ app.post('/api/generate/qna-full', async (c) => {
           specialNotes: parsed.specialNotes || [],
           designReason: parsed.designReason || ''
         })
+        
+        designHtml = designResult.html
+        designText = designResult.text
       }
     } catch (e) {
       console.log('Design generation error:', e)
@@ -1908,7 +1922,8 @@ app.post('/api/generate/qna-full', async (c) => {
       comment2Match ? comment2Match[1].trim() : '전문가 답변 감사합니다.',
       comment3Match ? comment3Match[1].trim() : '저도 상담 받아봐야겠네요.'
     ].join('\n\n')),
-    designHtml: designHtml
+    designHtml: designHtml,
+    designText: designText
   })
 })
 

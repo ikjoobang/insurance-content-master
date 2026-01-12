@@ -502,14 +502,20 @@ const mainPageHtml = `
       .glass-card { border-radius: 16px; }
     }
     
-    /* 입력 필드 */
+    /* 입력 필드 - PC에서 더 크게 */
     .input-premium {
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 10px;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
       transition: all 0.15s ease;
       font-weight: 400;
+    }
+    @media (min-width: 1024px) {
+      .input-premium { font-size: 1rem; border-radius: 12px; }
+    }
+    @media (min-width: 1440px) {
+      .input-premium { font-size: 1.05rem; }
     }
     .input-premium:focus {
       background: rgba(255, 255, 255, 0.05);
@@ -519,13 +525,13 @@ const mainPageHtml = `
     }
     .input-premium::placeholder { color: rgba(255, 255, 255, 0.45); font-weight: 400; }
     
-    /* 칩 버튼 - 컴팩트 + 가독성 개선 */
+    /* 칩 버튼 - PC에서 더 크게! */
     .chip {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 0.8rem;
+      padding: 8px 12px;
+      font-size: 0.85rem;
       font-weight: 500;
       color: rgba(255, 255, 255, 0.85);
       transition: all 0.15s ease;
@@ -533,10 +539,13 @@ const mainPageHtml = `
       white-space: nowrap;
     }
     @media (min-width: 768px) {
-      .chip { padding: 7px 12px; font-size: 0.82rem; border-radius: 8px; }
+      .chip { padding: 10px 16px; font-size: 0.9rem; border-radius: 8px; }
     }
     @media (min-width: 1024px) {
-      .chip { padding: 8px 14px; font-size: 0.85rem; }
+      .chip { padding: 12px 20px; font-size: 0.95rem; border-radius: 10px; }
+    }
+    @media (min-width: 1440px) {
+      .chip { padding: 14px 24px; font-size: 1rem; }
     }
     .chip:hover {
       background: rgba(255, 255, 255, 0.1);
@@ -687,8 +696,22 @@ const mainPageHtml = `
       box-shadow: 0 8px 32px rgba(0,0,0,0.35);
     }
     
-    /* 컨테이너 - 화면 최대 활용 */
-    .container-wide { max-width: 1600px; width: 100%; }
+    /* 컨테이너 - PC에서 전체 화면 활용! */
+    .container-wide { 
+      max-width: 100%; 
+      width: 100%; 
+    }
+    /* 모바일에서는 약간의 여백, PC에서는 전체 너비 */
+    @media (min-width: 1024px) {
+      .container-wide { 
+        max-width: calc(100% - 48px); /* 좌우 24px씩만 여백 */
+      }
+    }
+    @media (min-width: 1440px) {
+      .container-wide { 
+        max-width: calc(100% - 64px); /* 좌우 32px씩만 여백 */
+      }
+    }
     .container-full { max-width: 100%; }
     
     /* 모바일 터치 */
@@ -700,12 +723,15 @@ const mainPageHtml = `
     .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     .scrollbar-hide::-webkit-scrollbar { display: none; }
     
-    /* 그리드 레이아웃 확장 */
+    /* 그리드 레이아웃 확장 - PC에서 더 넓게! */
     @media (min-width: 1280px) {
       .xl-grid-3 { grid-template-columns: repeat(3, 1fr); }
     }
     @media (min-width: 1536px) {
       .xxl-gap { gap: 1.5rem; }
+    }
+    @media (min-width: 1920px) {
+      .xxl-gap { gap: 2rem; }
     }
     
     /* 섹션 간격 최적화 */
@@ -716,13 +742,18 @@ const mainPageHtml = `
     
     /* 텍스트 최적화 */
     .text-balance { text-wrap: balance; }
+    
+    /* PC 전용 - 더 넓은 그리드 */
+    @media (min-width: 1024px) {
+      .lg-full-width { width: 100% !important; max-width: 100% !important; }
+    }
   </style>
 </head>
 <body class="min-h-screen">
   
-  <!-- 네비게이션 - 최소화 -->
-  <nav class="fixed top-0 left-0 right-0 z-50 px-2 py-1.5 sm:px-3 sm:py-2">
-    <div class="container-wide mx-auto">
+  <!-- 네비게이션 - PC에서 전체 너비 -->
+  <nav class="fixed top-0 left-0 right-0 z-50 px-2 py-1.5 sm:px-3 sm:py-2 lg:px-6 xl:px-8">
+    <div class="w-full">
       <div class="glass-card px-3 py-1.5 sm:px-4 sm:py-2 flex items-center justify-between">
         <a href="/" class="flex items-center gap-2">
           <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center">
@@ -730,7 +761,7 @@ const mainPageHtml = `
           </div>
           <div class="flex items-center gap-1.5">
             <span class="text-xs sm:text-sm font-bold text-white">보험 콘텐츠 마스터</span>
-            <span class="text-2xs sm:text-xs text-gray-400 font-medium">V6.4</span>
+            <span class="text-2xs sm:text-xs text-gray-400 font-medium">V6.5</span>
           </div>
         </a>
         <div class="flex items-center gap-1.5 sm:gap-2">
@@ -746,9 +777,9 @@ const mainPageHtml = `
     </div>
   </nav>
 
-  <!-- 메인 섹션 -->
-  <section class="hero-gradient min-h-screen px-2 sm:px-3 lg:px-4 pt-12 sm:pt-14 pb-4 sm:pb-6">
-    <div class="container-wide mx-auto">
+  <!-- 메인 섹션 - PC에서 전체 너비 활용 -->
+  <section class="hero-gradient min-h-screen px-2 sm:px-3 lg:px-6 xl:px-8 2xl:px-12 pt-12 sm:pt-14 pb-4 sm:pb-6">
+    <div class="w-full">
       
       <!-- 헤더 - 더 컴팩트 -->
       <div class="text-center mb-3 sm:mb-4 lg:mb-5">
@@ -791,15 +822,15 @@ const mainPageHtml = `
         </button>
       </div>
       
-      <!-- 폼 영역 -->
-      <div class="glass-card p-3 sm:p-4 lg:p-5">
+      <!-- 폼 영역 - PC에서 전체 너비 활용 -->
+      <div class="glass-card p-3 sm:p-4 lg:p-6 xl:p-8">
         
-        <div id="form-qna" class="space-y-3 sm:space-y-4">
+        <div id="form-qna" class="space-y-4 sm:space-y-5 lg:space-y-6">
           <!-- 진행 상황 -->
-          <div id="qna-progress" class="hidden bg-white/8 rounded-lg p-3">
+          <div id="qna-progress" class="hidden bg-white/8 rounded-lg p-3 lg:p-4">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-white font-semibold text-xs">생성 중...</span>
-              <span id="progress-percent" class="text-primary font-bold text-xs">0%</span>
+              <span class="text-white font-semibold text-xs lg:text-sm">생성 중...</span>
+              <span id="progress-percent" class="text-primary font-bold text-xs lg:text-sm">0%</span>
             </div>
             <div class="flex items-center gap-0.5">
               <div id="step-1"><div class="step-badge pending">1</div></div>
@@ -812,47 +843,33 @@ const mainPageHtml = `
               <div class="flex-1 h-px bg-white/8"></div>
               <div id="step-5"><div class="step-badge pending">5</div></div>
             </div>
-            <p id="progress-status" class="text-gray-400 text-2xs mt-1.5 text-center">준비 중...</p>
+            <p id="progress-status" class="text-gray-400 text-2xs lg:text-xs mt-1.5 text-center">준비 중...</p>
           </div>
           
-          <!-- 3열 그리드 (대형 화면) / 2열 (중형) / 1열 (모바일) -->
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+          <!-- 4열 그리드 (초대형) / 3열 (대형) / 2열 (중형) / 1열 (모바일) -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 xl:gap-8">
             
-            <!-- 칼럼 1: 타겟 + 톤 -->
-            <div class="space-y-3">
-              <div>
-                <label class="block text-2xs sm:text-xs font-semibold text-white mb-1.5">
-                  <i class="fas fa-users text-blue-400 mr-1"></i>타겟 고객
-                </label>
-                <div class="flex flex-wrap gap-1 sm:gap-1.5" id="qna-target-chips">
-                  <button onclick="selectChip(this, 'qna-target')" data-value="20대 사회초년생" class="chip">20대</button>
-                  <button onclick="selectChip(this, 'qna-target')" data-value="30대 직장인" class="chip active">30대</button>
-                  <button onclick="selectChip(this, 'qna-target')" data-value="40대 가장" class="chip">40대</button>
-                  <button onclick="selectChip(this, 'qna-target')" data-value="50대 은퇴준비" class="chip">50대</button>
-                  <button onclick="selectChip(this, 'qna-target')" data-value="신혼부부" class="chip">신혼</button>
-                  <button onclick="selectChip(this, 'qna-target')" data-value="자영업자" class="chip">자영업</button>
-                </div>
-              </div>
-              
-              <div>
-                <label class="block text-2xs sm:text-xs font-semibold text-white mb-1.5">
-                  <i class="fas fa-comment-dots text-blue-400 mr-1"></i>문체 톤
-                </label>
-                <div class="flex flex-wrap gap-1 sm:gap-1.5" id="qna-tone-chips">
-                  <button onclick="selectChip(this, 'qna-tone')" data-value="친근한" class="chip active">친근</button>
-                  <button onclick="selectChip(this, 'qna-tone')" data-value="전문적인" class="chip">전문</button>
-                  <button onclick="selectChip(this, 'qna-tone')" data-value="설득력 있는" class="chip">설득</button>
-                  <button onclick="selectChip(this, 'qna-tone')" data-value="공감하는" class="chip">공감</button>
-                </div>
+            <!-- 칼럼 1: 타겟 고객 -->
+            <div>
+              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                <i class="fas fa-users text-blue-400 mr-1.5"></i>타겟 고객
+              </label>
+              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="qna-target-chips">
+                <button onclick="selectChip(this, 'qna-target')" data-value="20대 사회초년생" class="chip">20대</button>
+                <button onclick="selectChip(this, 'qna-target')" data-value="30대 직장인" class="chip active">30대</button>
+                <button onclick="selectChip(this, 'qna-target')" data-value="40대 가장" class="chip">40대</button>
+                <button onclick="selectChip(this, 'qna-target')" data-value="50대 은퇴준비" class="chip">50대</button>
+                <button onclick="selectChip(this, 'qna-target')" data-value="신혼부부" class="chip">신혼</button>
+                <button onclick="selectChip(this, 'qna-target')" data-value="자영업자" class="chip">자영업</button>
               </div>
             </div>
             
             <!-- 칼럼 2: 보험 종류 -->
             <div>
-              <label class="block text-2xs sm:text-xs font-semibold text-white mb-1.5">
-                <i class="fas fa-shield-alt text-blue-400 mr-1"></i>보험 종류
+              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                <i class="fas fa-shield-alt text-blue-400 mr-1.5"></i>보험 종류
               </label>
-              <div class="flex flex-wrap gap-1 sm:gap-1.5" id="qna-insurance-chips">
+              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="qna-insurance-chips">
                 <button onclick="selectChip(this, 'qna-insurance')" data-value="종신보험" class="chip active">종신</button>
                 <button onclick="selectChip(this, 'qna-insurance')" data-value="암보험" class="chip">암보험</button>
                 <button onclick="selectChip(this, 'qna-insurance')" data-value="실손보험" class="chip">실손</button>
@@ -864,25 +881,36 @@ const mainPageHtml = `
               </div>
             </div>
             
-            <!-- 칼럼 3: 고민 + 옵션 + 버튼 -->
-            <div class="space-y-3 md:col-span-2 xl:col-span-1">
+            <!-- 칼럼 3: 문체 톤 -->
+            <div>
+              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                <i class="fas fa-comment-dots text-blue-400 mr-1.5"></i>문체 톤
+              </label>
+              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="qna-tone-chips">
+                <button onclick="selectChip(this, 'qna-tone')" data-value="친근한" class="chip active">친근</button>
+                <button onclick="selectChip(this, 'qna-tone')" data-value="전문적인" class="chip">전문</button>
+                <button onclick="selectChip(this, 'qna-tone')" data-value="설득력 있는" class="chip">설득</button>
+                <button onclick="selectChip(this, 'qna-tone')" data-value="공감하는" class="chip">공감</button>
+              </div>
+            </div>
+            
+            <!-- 칼럼 4: 고민 + 버튼 -->
+            <div class="space-y-3 lg:space-y-4">
               <div>
-                <label class="block text-2xs sm:text-xs font-semibold text-white mb-1.5">
-                  <i class="fas fa-edit text-blue-400 mr-1"></i>핵심 고민 <span class="text-gray-400 text-2xs">(선택)</span>
+                <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                  <i class="fas fa-edit text-blue-400 mr-1.5"></i>핵심 고민 <span class="text-gray-400 text-xs lg:text-sm">(선택)</span>
                 </label>
-                <textarea id="qna-concern" rows="2" placeholder="비워두면 AI가 자동 생성" class="input-premium w-full px-3 py-2 text-white resize-none text-xs sm:text-sm"></textarea>
+                <textarea id="qna-concern" rows="2" placeholder="비워두면 AI가 자동 생성" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white resize-none text-sm lg:text-base"></textarea>
               </div>
               
-              <div class="flex items-center justify-between gap-3">
-                <label class="flex items-center gap-2 cursor-pointer bg-blue-500/10 border border-blue-500/15 rounded-lg px-3 py-2">
-                  <input type="checkbox" id="generate-design" checked class="w-3.5 h-3.5 rounded bg-white/10 border-white/20 text-primary focus:ring-primary">
-                  <div>
-                    <span class="text-white font-medium text-xs">설계서 생성</span>
-                  </div>
+              <div class="flex items-center gap-3 lg:gap-4">
+                <label class="flex items-center gap-2 cursor-pointer bg-blue-500/10 border border-blue-500/15 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3">
+                  <input type="checkbox" id="generate-design" checked class="w-4 h-4 lg:w-5 lg:h-5 rounded bg-white/10 border-white/20 text-primary focus:ring-primary">
+                  <span class="text-white font-medium text-xs lg:text-sm">설계서 생성</span>
                 </label>
                 
-                <button onclick="generateQnAFull()" id="btn-qna" class="btn-primary flex-1 py-2.5 sm:py-3 text-white text-xs sm:text-sm flex items-center justify-center gap-1.5 touch-target">
-                  <i class="fas fa-magic text-xs"></i>
+                <button onclick="generateQnAFull()" id="btn-qna" class="btn-primary flex-1 py-3 lg:py-4 text-white text-sm lg:text-base flex items-center justify-center gap-2 touch-target">
+                  <i class="fas fa-magic"></i>
                   <span>Q&A 생성</span>
                 </button>
               </div>
@@ -890,100 +918,97 @@ const mainPageHtml = `
           </div>
         </div>
         
-        <div id="form-blog" class="space-y-3 sm:space-y-4 hidden">
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-            <!-- 칼럼 1: 유형 + 타겟 -->
-            <div class="space-y-3">
-              <div>
-                <label class="block text-2xs sm:text-xs font-semibold text-white mb-1.5">
-                  <i class="fas fa-file-alt text-orange-400 mr-1"></i>콘텐츠 유형
-                </label>
-                <div class="flex flex-wrap gap-1 sm:gap-1.5" id="blog-type-chips">
-                  <button onclick="selectChip(this, 'blog-type')" data-value="정보성" class="chip active">정보성</button>
-                  <button onclick="selectChip(this, 'blog-type')" data-value="후기성" class="chip">후기성</button>
-                  <button onclick="selectChip(this, 'blog-type')" data-value="비교분석" class="chip">비교</button>
-                  <button onclick="selectChip(this, 'blog-type')" data-value="뉴스형" class="chip">뉴스</button>
-                </div>
-              </div>
-              
-              <div>
-                <label class="block text-2xs sm:text-xs font-semibold text-white mb-1.5">
-                  <i class="fas fa-users text-orange-400 mr-1"></i>타겟 독자
-                </label>
-                <div class="flex flex-wrap gap-1 sm:gap-1.5" id="blog-target-chips">
-                  <button onclick="selectChip(this, 'blog-target')" data-value="20대" class="chip">20대</button>
-                  <button onclick="selectChip(this, 'blog-target')" data-value="30대" class="chip active">30대</button>
-                  <button onclick="selectChip(this, 'blog-target')" data-value="40대" class="chip">40대</button>
-                  <button onclick="selectChip(this, 'blog-target')" data-value="50대 이상" class="chip">50대+</button>
-                  <button onclick="selectChip(this, 'blog-target')" data-value="전 연령" class="chip">전체</button>
-                </div>
+        <div id="form-blog" class="space-y-4 sm:space-y-5 lg:space-y-6 hidden">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 xl:gap-8">
+            <!-- 칼럼 1: 콘텐츠 유형 -->
+            <div>
+              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                <i class="fas fa-file-alt text-orange-400 mr-1.5"></i>콘텐츠 유형
+              </label>
+              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="blog-type-chips">
+                <button onclick="selectChip(this, 'blog-type')" data-value="정보성" class="chip active">정보성</button>
+                <button onclick="selectChip(this, 'blog-type')" data-value="후기성" class="chip">후기성</button>
+                <button onclick="selectChip(this, 'blog-type')" data-value="비교분석" class="chip">비교</button>
+                <button onclick="selectChip(this, 'blog-type')" data-value="뉴스형" class="chip">뉴스</button>
               </div>
             </div>
             
-            <!-- 칼럼 2: 주제 + 키워드/지역 -->
-            <div class="space-y-3">
-              <div>
-                <label class="block text-2xs sm:text-xs font-semibold text-white mb-1.5">
-                  <i class="fas fa-heading text-orange-400 mr-1"></i>블로그 주제 <span class="text-red-400">*</span>
-                </label>
-                <input type="text" id="blog-topic" placeholder="예: 30대 종신보험 추천" class="input-premium w-full px-3 py-2 text-white text-xs sm:text-sm">
-              </div>
-              
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="block text-2xs sm:text-xs font-semibold text-white mb-1.5">
-                    <i class="fas fa-key text-orange-400 mr-1"></i>키워드
-                  </label>
-                  <input type="text" id="blog-keywords" placeholder="쉼표 구분" class="input-premium w-full px-3 py-2 text-white text-xs sm:text-sm">
-                </div>
-                <div>
-                  <label class="block text-2xs sm:text-xs font-semibold text-white mb-1.5">
-                    <i class="fas fa-map-marker-alt text-orange-400 mr-1"></i>지역
-                  </label>
-                  <input type="text" id="blog-region" placeholder="서울 강남" class="input-premium w-full px-3 py-2 text-white text-xs sm:text-sm">
-                </div>
+            <!-- 칼럼 2: 타겟 독자 -->
+            <div>
+              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                <i class="fas fa-users text-orange-400 mr-1.5"></i>타겟 독자
+              </label>
+              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="blog-target-chips">
+                <button onclick="selectChip(this, 'blog-target')" data-value="20대" class="chip">20대</button>
+                <button onclick="selectChip(this, 'blog-target')" data-value="30대" class="chip active">30대</button>
+                <button onclick="selectChip(this, 'blog-target')" data-value="40대" class="chip">40대</button>
+                <button onclick="selectChip(this, 'blog-target')" data-value="50대 이상" class="chip">50대+</button>
+                <button onclick="selectChip(this, 'blog-target')" data-value="전 연령" class="chip">전체</button>
               </div>
             </div>
             
-            <!-- 칼럼 3: 버튼 -->
-            <div class="flex items-end md:col-span-2 xl:col-span-1">
-              <button onclick="generateBlog()" id="btn-blog" class="btn-primary w-full py-2.5 sm:py-3 text-white text-xs sm:text-sm flex items-center justify-center gap-1.5 touch-target" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
-                <i class="fas fa-pen-fancy text-xs"></i>
+            <!-- 칼럼 3: 블로그 주제 -->
+            <div>
+              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                <i class="fas fa-heading text-orange-400 mr-1.5"></i>블로그 주제 <span class="text-red-400">*</span>
+              </label>
+              <input type="text" id="blog-topic" placeholder="예: 30대 종신보험 추천" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white text-sm lg:text-base">
+            </div>
+            
+            <!-- 칼럼 4: 키워드/지역 + 버튼 -->
+            <div class="space-y-3 lg:space-y-4">
+              <div class="grid grid-cols-2 gap-2 lg:gap-3">
+                <div>
+                  <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                    <i class="fas fa-key text-orange-400 mr-1.5"></i>키워드
+                  </label>
+                  <input type="text" id="blog-keywords" placeholder="쉼표 구분" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white text-sm lg:text-base">
+                </div>
+                <div>
+                  <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                    <i class="fas fa-map-marker-alt text-orange-400 mr-1.5"></i>지역
+                  </label>
+                  <input type="text" id="blog-region" placeholder="서울 강남" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white text-sm lg:text-base">
+                </div>
+              </div>
+              
+              <button onclick="generateBlog()" id="btn-blog" class="btn-primary w-full py-3 lg:py-4 text-white text-sm lg:text-base flex items-center justify-center gap-2 touch-target" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
+                <i class="fas fa-pen-fancy"></i>
                 <span>블로그 생성</span>
               </button>
             </div>
           </div>
         </div>
         
-        <div id="form-analyze" class="space-y-3 sm:space-y-4 hidden">
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-            <!-- 칼럼 1-2: 분석할 글 -->
-            <div class="md:col-span-2 xl:col-span-2">
-              <label class="block text-2xs sm:text-xs font-semibold text-white mb-1.5">
-                <i class="fas fa-file-alt text-purple-400 mr-1"></i>분석할 블로그 글 <span class="text-red-400">*</span>
+        <div id="form-analyze" class="space-y-4 sm:space-y-5 lg:space-y-6 hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 xl:gap-8">
+            <!-- 칼럼 1-2: 분석할 글 (큰 화면에서 더 넓게) -->
+            <div class="lg:col-span-2 2xl:col-span-2">
+              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                <i class="fas fa-file-alt text-purple-400 mr-1.5"></i>분석할 블로그 글 <span class="text-red-400">*</span>
               </label>
-              <textarea id="analyze-content" rows="4" placeholder="네이버 블로그에 작성한 글을 붙여넣으세요" class="input-premium w-full px-3 py-2 text-white resize-none text-xs sm:text-sm"></textarea>
+              <textarea id="analyze-content" rows="5" placeholder="네이버 블로그에 작성한 글을 붙여넣으세요" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white resize-none text-sm lg:text-base"></textarea>
             </div>
             
-            <!-- 칼럼 3: 키워드/지역 + 버튼 -->
-            <div class="space-y-3">
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="block text-2xs sm:text-xs font-semibold text-white mb-1.5">
-                    <i class="fas fa-key text-purple-400 mr-1"></i>키워드
-                  </label>
-                  <input type="text" id="analyze-keyword" placeholder="종신보험" class="input-premium w-full px-3 py-2 text-white text-xs sm:text-sm">
-                </div>
-                <div>
-                  <label class="block text-2xs sm:text-xs font-semibold text-white mb-1.5">
-                    <i class="fas fa-map-marker-alt text-purple-400 mr-1"></i>지역
-                  </label>
-                  <input type="text" id="analyze-region" placeholder="강남구" class="input-premium w-full px-3 py-2 text-white text-xs sm:text-sm">
-                </div>
+            <!-- 칼럼 3: 키워드 -->
+            <div>
+              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                <i class="fas fa-key text-purple-400 mr-1.5"></i>키워드
+              </label>
+              <input type="text" id="analyze-keyword" placeholder="종신보험" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white text-sm lg:text-base">
+            </div>
+            
+            <!-- 칼럼 4: 지역 + 버튼 -->
+            <div class="space-y-3 lg:space-y-4">
+              <div>
+                <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                  <i class="fas fa-map-marker-alt text-purple-400 mr-1.5"></i>지역
+                </label>
+                <input type="text" id="analyze-region" placeholder="강남구" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white text-sm lg:text-base">
               </div>
               
-              <button onclick="analyzeBlog()" id="btn-analyze" class="btn-primary w-full py-2.5 sm:py-3 text-white text-xs sm:text-sm flex items-center justify-center gap-1.5 touch-target" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);">
-                <i class="fas fa-search-plus text-xs"></i>
+              <button onclick="analyzeBlog()" id="btn-analyze" class="btn-primary w-full py-3 lg:py-4 text-white text-sm lg:text-base flex items-center justify-center gap-2 touch-target" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);">
+                <i class="fas fa-search-plus"></i>
                 <span>SEO 분석</span>
               </button>
             </div>
@@ -993,125 +1018,120 @@ const mainPageHtml = `
     </div>
   </section>
 
-  <section id="resultsSection" class="hidden py-4 sm:py-6 px-2 sm:px-3 lg:px-4">
-    <div class="container-wide mx-auto">
+  <section id="resultsSection" class="hidden py-4 sm:py-6 lg:py-8 px-2 sm:px-3 lg:px-6 xl:px-8 2xl:px-12">
+    <div class="w-full">
       
-      <div class="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+      <div class="flex items-center justify-between gap-3 mb-4 sm:mb-5 lg:mb-6">
         <div>
-          <h2 class="text-sm sm:text-base lg:text-lg font-bold text-white">생성 결과</h2>
-          <p id="resultsInfo" class="text-gray-300 text-2xs sm:text-xs"></p>
+          <h2 class="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-white">생성 결과</h2>
+          <p id="resultsInfo" class="text-gray-300 text-xs sm:text-sm lg:text-base"></p>
         </div>
-        <div class="flex gap-1.5">
-          <button onclick="downloadTxt()" class="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/5 text-gray-100 hover:bg-white/10 transition-all border border-white/8 text-xs">
-            <i class="fas fa-file-alt text-2xs"></i><span class="hidden sm:inline">TXT</span>
+        <div class="flex gap-2 lg:gap-3">
+          <button onclick="downloadTxt()" class="flex items-center gap-1.5 px-3 py-2 lg:px-4 lg:py-2.5 rounded-lg bg-white/5 text-gray-100 hover:bg-white/10 transition-all border border-white/8 text-xs lg:text-sm">
+            <i class="fas fa-file-alt"></i><span class="hidden sm:inline">TXT</span>
           </button>
-          <button onclick="downloadPdf()" class="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all border border-red-500/15 text-xs">
-            <i class="fas fa-file-pdf text-2xs"></i><span class="hidden sm:inline">PDF</span>
+          <button onclick="downloadPdf()" class="flex items-center gap-1.5 px-3 py-2 lg:px-4 lg:py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all border border-red-500/15 text-xs lg:text-sm">
+            <i class="fas fa-file-pdf"></i><span class="hidden sm:inline">PDF</span>
           </button>
         </div>
       </div>
       
-      <!-- Q&A 결과 - 3열 그리드 -->
+      <!-- Q&A 결과 - PC에서 4열 그리드 -->
       <div id="result-qna" class="hidden">
-        <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 mb-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5 xl:gap-6 mb-4 lg:mb-6">
           <!-- 키워드 -->
-          <div class="result-card p-3">
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-1.5">
-                <div class="w-6 h-6 rounded-md bg-primary/20 flex items-center justify-center">
-                  <i class="fas fa-search text-primary text-2xs"></i>
+          <div class="result-card p-4 lg:p-5">
+            <div class="flex items-center justify-between mb-3 lg:mb-4">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-md bg-primary/20 flex items-center justify-center">
+                  <i class="fas fa-search text-primary text-xs lg:text-sm"></i>
                 </div>
-                <span class="font-semibold text-white text-xs">키워드</span>
+                <span class="font-semibold text-white text-sm lg:text-base">키워드</span>
               </div>
-              <button onclick="copyKeywords()" class="px-2 py-1 rounded-md bg-primary/20 text-primary hover:bg-primary/30 text-2xs">
+              <button onclick="copyKeywords()" class="px-3 py-1.5 rounded-md bg-primary/20 text-primary hover:bg-primary/30 text-xs lg:text-sm">
                 <i class="fas fa-copy"></i>
               </button>
             </div>
-            <div id="qna-keywords" class="flex flex-wrap gap-1"></div>
+            <div id="qna-keywords" class="flex flex-wrap gap-1.5 lg:gap-2"></div>
           </div>
           
           <!-- 질문 -->
-          <div class="result-card p-3">
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-1.5">
-                <div class="w-6 h-6 rounded-md bg-blue-500/20 flex items-center justify-center">
-                  <i class="fas fa-question text-blue-400 text-2xs"></i>
+          <div class="result-card p-4 lg:p-5">
+            <div class="flex items-center justify-between mb-3 lg:mb-4">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-md bg-blue-500/20 flex items-center justify-center">
+                  <i class="fas fa-question text-blue-400 text-xs lg:text-sm"></i>
                 </div>
-                <span class="font-semibold text-white text-xs">질문</span>
-                <span class="text-gray-400 text-2xs">(세컨)</span>
+                <span class="font-semibold text-white text-sm lg:text-base">질문</span>
+                <span class="text-gray-400 text-xs lg:text-sm">(세컨)</span>
               </div>
-              <button onclick="copyText('qna-q')" class="px-2 py-1 rounded-md bg-white/5 text-gray-100 hover:bg-white/10 text-2xs">
+              <button onclick="copyText('qna-q')" class="px-3 py-1.5 rounded-md bg-white/5 text-gray-100 hover:bg-white/10 text-xs lg:text-sm">
                 <i class="fas fa-copy"></i>
               </button>
             </div>
-            <div id="qna-q" class="result-content text-gray-100 whitespace-pre-wrap leading-relaxed bg-white/8 rounded-lg p-2.5 text-xs"></div>
+            <div id="qna-q" class="result-content text-gray-100 whitespace-pre-wrap leading-relaxed bg-white/8 rounded-lg p-3 lg:p-4 text-sm lg:text-base"></div>
           </div>
           
           <!-- 댓글 -->
-          <div class="result-card p-3">
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-1.5">
-                <div class="w-6 h-6 rounded-md bg-yellow-500/20 flex items-center justify-center">
-                  <i class="fas fa-comments text-yellow-400 text-2xs"></i>
+          <div class="result-card p-4 lg:p-5">
+            <div class="flex items-center justify-between mb-3 lg:mb-4">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-md bg-yellow-500/20 flex items-center justify-center">
+                  <i class="fas fa-comments text-yellow-400 text-xs lg:text-sm"></i>
                 </div>
-                <span class="font-semibold text-white text-xs">댓글</span>
+                <span class="font-semibold text-white text-sm lg:text-base">댓글</span>
               </div>
-              <button onclick="copyText('qna-c')" class="px-2 py-1 rounded-md bg-white/5 text-gray-100 hover:bg-white/10 text-2xs">
+              <button onclick="copyText('qna-c')" class="px-3 py-1.5 rounded-md bg-white/5 text-gray-100 hover:bg-white/10 text-xs lg:text-sm">
                 <i class="fas fa-copy"></i>
               </button>
             </div>
-            <div id="qna-c" class="result-content text-gray-100 whitespace-pre-wrap leading-relaxed bg-white/8 rounded-lg p-2.5 text-xs"></div>
-          </div>
-        </div>
-        
-        <!-- 답변 + 설계서 - 2열 -->
-        <div class="grid grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-3 mb-3">
-          <div class="result-card p-3">
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-1.5">
-                <div class="w-6 h-6 rounded-md bg-primary/20 flex items-center justify-center">
-                  <i class="fas fa-user-tie text-primary text-2xs"></i>
-                </div>
-                <span class="font-semibold text-white text-xs">전문가 답변</span>
-                <span class="text-gray-400 text-2xs">(본계정)</span>
-                <span id="qna-char" class="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-2xs font-semibold">0자</span>
-              </div>
-              <button onclick="copyText('qna-a')" class="px-2 py-1 rounded-md bg-primary/20 text-primary hover:bg-primary/30 text-2xs">
-                <i class="fas fa-copy"></i>
-              </button>
-            </div>
-            <div id="qna-a" class="result-content text-gray-100 whitespace-pre-wrap leading-relaxed bg-white/8 rounded-lg p-2.5 text-xs"></div>
-            
-            <div id="qna-highlights" class="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/15 rounded-lg hidden">
-              <h4 class="font-semibold text-yellow-400 text-2xs mb-1">핵심 포인트</h4>
-              <ul id="qna-highlights-list" class="text-gray-100 text-2xs space-y-0.5"></ul>
-            </div>
+            <div id="qna-c" class="result-content text-gray-100 whitespace-pre-wrap leading-relaxed bg-white/8 rounded-lg p-3 lg:p-4 text-sm lg:text-base"></div>
           </div>
           
-          <!-- 설계서 (텍스트 표 형식 - 복사 가능) -->
-          <div id="design-section" class="result-card p-3 hidden">
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-1.5">
-                <div class="w-6 h-6 rounded-md bg-emerald-500/20 flex items-center justify-center">
-                  <i class="fas fa-table text-emerald-400 text-2xs"></i>
+          <!-- 전문가 답변 -->
+          <div class="result-card p-4 lg:p-5">
+            <div class="flex items-center justify-between mb-3 lg:mb-4">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-md bg-primary/20 flex items-center justify-center">
+                  <i class="fas fa-user-tie text-primary text-xs lg:text-sm"></i>
                 </div>
-                <span class="font-semibold text-white text-xs">설계서</span>
-                <span class="text-gray-400 text-2xs">(복사용)</span>
+                <span class="font-semibold text-white text-sm lg:text-base">전문가 답변</span>
+                <span class="text-gray-400 text-xs lg:text-sm">(본계정)</span>
+                <span id="qna-char" class="px-2 py-1 rounded-full bg-primary/20 text-primary text-xs lg:text-sm font-semibold">0자</span>
               </div>
-              <div class="flex gap-1">
-                <button onclick="copyDesignText()" class="px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-2xs" title="텍스트 복사 (카페/블로그용)">
-                  <i class="fas fa-copy mr-1"></i>복사
-                </button>
-              </div>
+              <button onclick="copyText('qna-a')" class="px-3 py-1.5 rounded-md bg-primary/20 text-primary hover:bg-primary/30 text-xs lg:text-sm">
+                <i class="fas fa-copy"></i>
+              </button>
             </div>
-            <div id="design-preview" class="design-preview overflow-auto max-h-80 sm:max-h-96 lg:max-h-[500px] rounded-lg"></div>
-            <!-- 복사용 텍스트 (숨김) -->
-            <textarea id="design-text-content" class="hidden"></textarea>
+            <div id="qna-a" class="result-content text-gray-100 whitespace-pre-wrap leading-relaxed bg-white/8 rounded-lg p-3 lg:p-4 text-sm lg:text-base"></div>
+            
+            <div id="qna-highlights" class="mt-3 lg:mt-4 p-3 lg:p-4 bg-yellow-500/10 border border-yellow-500/15 rounded-lg hidden">
+              <h4 class="font-semibold text-yellow-400 text-xs lg:text-sm mb-2">핵심 포인트</h4>
+              <ul id="qna-highlights-list" class="text-gray-100 text-xs lg:text-sm space-y-1"></ul>
+            </div>
           </div>
         </div>
         
-        <button onclick="copyAllQnA()" class="btn-primary w-full py-2.5 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5">
-          <i class="fas fa-copy text-xs"></i>
+        <!-- 설계서 (텍스트 표 형식 - 복사 가능) - 전체 너비 -->
+        <div id="design-section" class="result-card p-4 lg:p-6 hidden mb-4 lg:mb-6">
+          <div class="flex items-center justify-between mb-3 lg:mb-4">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-md bg-emerald-500/20 flex items-center justify-center">
+                <i class="fas fa-table text-emerald-400 text-xs lg:text-sm"></i>
+              </div>
+              <span class="font-semibold text-white text-sm lg:text-base">설계서</span>
+              <span class="text-gray-400 text-xs lg:text-sm">(복사용)</span>
+            </div>
+            <button onclick="copyDesignText()" class="px-4 py-2 lg:px-5 lg:py-2.5 rounded-md bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-sm lg:text-base font-medium" title="텍스트 복사 (카페/블로그용)">
+              <i class="fas fa-copy mr-2"></i>복사하기
+            </button>
+          </div>
+          <div id="design-preview" class="design-preview overflow-auto max-h-[400px] lg:max-h-[600px] xl:max-h-[700px] rounded-lg"></div>
+          <textarea id="design-text-content" class="hidden"></textarea>
+        </div>
+        
+        <button onclick="copyAllQnA()" class="btn-primary w-full py-3 lg:py-4 text-white font-semibold text-sm lg:text-base flex items-center justify-center gap-2">
+          <i class="fas fa-copy"></i>
           <span>전체 복사</span>
         </button>
       </div>
@@ -1256,7 +1276,7 @@ const mainPageHtml = `
             <i class="fas fa-shield-alt text-white text-xs"></i>
           </div>
           <div>
-            <p class="font-semibold text-white text-xs">보험 콘텐츠 마스터 V6.4</p>
+            <p class="font-semibold text-white text-xs">보험 콘텐츠 마스터 V6.5</p>
             <p class="text-gray-400 text-2xs">2026 보험엑시트</p>
           </div>
         </div>
@@ -1578,7 +1598,7 @@ const adminPageHtml = `
         </a>
         <div>
           <h1 class="text-base sm:text-lg font-bold text-white">관리자 대시보드</h1>
-          <p class="text-gray-400 text-xs">보험 콘텐츠 마스터 V6.4</p>
+          <p class="text-gray-400 text-xs">보험 콘텐츠 마스터 V6.5</p>
         </div>
       </div>
       <a href="/" class="px-3 py-1.5 rounded-lg bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 transition-all text-xs">
@@ -1627,7 +1647,7 @@ const adminPageHtml = `
           </div>
           <div>
             <p class="text-gray-300 text-2xs sm:text-xs">버전</p>
-            <p class="text-white font-semibold text-xs sm:text-sm">V6.4</p>
+            <p class="text-white font-semibold text-xs sm:text-sm">V6.5</p>
           </div>
         </div>
       </div>
@@ -1668,7 +1688,7 @@ const adminPageHtml = `
     </div>
     
     <div class="glass-card p-3 sm:p-4">
-      <h3 class="font-semibold text-white text-sm mb-3"><i class="fas fa-robot text-green-400 mr-1.5"></i>V6.4 업데이트</h3>
+      <h3 class="font-semibold text-white text-sm mb-3"><i class="fas fa-robot text-green-400 mr-1.5"></i>V6.5 업데이트</h3>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1">
         <div class="flex items-center gap-1.5 text-gray-300 text-xs"><i class="fas fa-check text-green-400 text-2xs"></i>키워드 복사</div>
         <div class="flex items-center gap-1.5 text-gray-300 text-xs"><i class="fas fa-check text-green-400 text-2xs"></i>이모티콘 제거</div>
@@ -1698,10 +1718,10 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '6.4', 
+  version: '6.5', 
   ai: 'gemini + naver', 
   year: 2026,
-  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy'],
+  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout'],
   timestamp: new Date().toISOString() 
 }))
 

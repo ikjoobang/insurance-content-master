@@ -827,7 +827,6 @@ const mainPageHtml = `
           </div>
           <div class="text-left">
             <div class="text-xs sm:text-sm font-semibold text-white">블로그 생성</div>
-            <div class="text-2xs text-gray-400">1,700자+</div>
           </div>
         </button>
         
@@ -939,12 +938,12 @@ const mainPageHtml = `
         </div>
         
         <div id="form-blog" class="hidden">
-          <!-- 블로그 생성은 XIVIX SEO Master로 연결 -->
-          <div class="relative w-full" style="height: calc(100vh - 180px); min-height: 500px;">
+          <!-- 블로그 생성은 XIVIX SEO Master로 연결 (화면 최대 활용) -->
+          <div class="relative w-full" style="height: calc(100vh - 120px); min-height: 600px;">
             <iframe 
               id="blog-iframe"
               src="https://xivix-seo-master.pages.dev/" 
-              class="w-full h-full border-0 rounded-xl"
+              class="w-full h-full border-0 rounded-lg"
               style="background: #0a0a0a;"
               allow="clipboard-read; clipboard-write"
             ></iframe>

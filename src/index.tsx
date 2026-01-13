@@ -781,7 +781,7 @@ const mainPageHtml = `
           </div>
           <div class="flex items-center gap-1.5">
             <span class="text-xs sm:text-sm font-bold text-white">보험 콘텐츠 마스터</span>
-            <span class="text-2xs sm:text-xs text-gray-400 font-medium">V6.7</span>
+            <span class="text-2xs sm:text-xs text-gray-400 font-medium">V6.8</span>
           </div>
         </a>
         <div class="flex items-center gap-1.5 sm:gap-2">
@@ -938,65 +938,16 @@ const mainPageHtml = `
           </div>
         </div>
         
-        <div id="form-blog" class="space-y-4 sm:space-y-5 lg:space-y-6 hidden">
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 xl:gap-8">
-            <!-- 칼럼 1: 콘텐츠 유형 -->
-            <div>
-              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
-                <i class="fas fa-file-alt text-orange-400 mr-1.5"></i>콘텐츠 유형
-              </label>
-              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="blog-type-chips">
-                <button onclick="selectChip(this, 'blog-type')" data-value="정보성" class="chip active">정보성</button>
-                <button onclick="selectChip(this, 'blog-type')" data-value="후기성" class="chip">후기성</button>
-                <button onclick="selectChip(this, 'blog-type')" data-value="비교분석" class="chip">비교</button>
-                <button onclick="selectChip(this, 'blog-type')" data-value="뉴스형" class="chip">뉴스</button>
-              </div>
-            </div>
-            
-            <!-- 칼럼 2: 타겟 독자 -->
-            <div>
-              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
-                <i class="fas fa-users text-orange-400 mr-1.5"></i>타겟 독자
-              </label>
-              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="blog-target-chips">
-                <button onclick="selectChip(this, 'blog-target')" data-value="20대" class="chip">20대</button>
-                <button onclick="selectChip(this, 'blog-target')" data-value="30대" class="chip active">30대</button>
-                <button onclick="selectChip(this, 'blog-target')" data-value="40대" class="chip">40대</button>
-                <button onclick="selectChip(this, 'blog-target')" data-value="50대 이상" class="chip">50대+</button>
-                <button onclick="selectChip(this, 'blog-target')" data-value="전 연령" class="chip">전체</button>
-              </div>
-            </div>
-            
-            <!-- 칼럼 3: 블로그 주제 -->
-            <div>
-              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
-                <i class="fas fa-heading text-orange-400 mr-1.5"></i>블로그 주제 <span class="text-red-400">*</span>
-              </label>
-              <input type="text" id="blog-topic" placeholder="예: 30대 종신보험 추천" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white text-sm lg:text-base">
-            </div>
-            
-            <!-- 칼럼 4: 키워드/지역 + 버튼 -->
-            <div class="space-y-3 lg:space-y-4">
-              <div class="grid grid-cols-2 gap-2 lg:gap-3">
-                <div>
-                  <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
-                    <i class="fas fa-key text-orange-400 mr-1.5"></i>키워드
-                  </label>
-                  <input type="text" id="blog-keywords" placeholder="쉼표 구분" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white text-sm lg:text-base">
-                </div>
-                <div>
-                  <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
-                    <i class="fas fa-map-marker-alt text-orange-400 mr-1.5"></i>지역
-                  </label>
-                  <input type="text" id="blog-region" placeholder="서울 강남" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white text-sm lg:text-base">
-                </div>
-              </div>
-              
-              <button onclick="generateBlog()" id="btn-blog" class="btn-primary w-full py-3 lg:py-4 text-white text-sm lg:text-base flex items-center justify-center gap-2 touch-target" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
-                <i class="fas fa-pen-fancy"></i>
-                <span>블로그 생성</span>
-              </button>
-            </div>
+        <div id="form-blog" class="hidden">
+          <!-- 블로그 생성은 XIVIX SEO Master로 연결 -->
+          <div class="relative w-full" style="height: calc(100vh - 180px); min-height: 500px;">
+            <iframe 
+              id="blog-iframe"
+              src="https://xivix-seo-master.pages.dev/" 
+              class="w-full h-full border-0 rounded-xl"
+              style="background: #0a0a0a;"
+              allow="clipboard-read; clipboard-write"
+            ></iframe>
           </div>
         </div>
         
@@ -1296,7 +1247,7 @@ const mainPageHtml = `
             <i class="fas fa-shield-alt text-white text-xs"></i>
           </div>
           <div>
-            <p class="font-semibold text-white text-xs">보험 콘텐츠 마스터 V6.7</p>
+            <p class="font-semibold text-white text-xs">보험 콘텐츠 마스터 V6.8</p>
             <p class="text-gray-400 text-2xs">2026 보험엑시트</p>
           </div>
         </div>
@@ -1328,7 +1279,12 @@ const mainPageHtml = `
       document.getElementById('card-' + feature).classList.add('active');
       document.querySelectorAll('[id^="form-"]').forEach(f => f.classList.add('hidden'));
       document.getElementById('form-' + feature).classList.remove('hidden');
-      document.getElementById('resultsSection').classList.add('hidden');
+      // 블로그 탭은 iframe으로 처리되므로 결과 섹션 항상 숨김
+      if (feature === 'blog') {
+        document.getElementById('resultsSection').classList.add('hidden');
+      } else {
+        document.getElementById('resultsSection').classList.add('hidden');
+      }
     }
 
     function selectChip(btn, group) {
@@ -1761,7 +1717,7 @@ const adminPageHtml = `
         </a>
         <div>
           <h1 class="text-base sm:text-lg font-bold text-white">관리자 대시보드</h1>
-          <p class="text-gray-400 text-xs">보험 콘텐츠 마스터 V6.7</p>
+          <p class="text-gray-400 text-xs">보험 콘텐츠 마스터 V6.8</p>
         </div>
       </div>
       <a href="/" class="px-3 py-1.5 rounded-lg bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 transition-all text-xs">
@@ -1810,7 +1766,7 @@ const adminPageHtml = `
           </div>
           <div>
             <p class="text-gray-300 text-2xs sm:text-xs">버전</p>
-            <p class="text-white font-semibold text-xs sm:text-sm">V6.7</p>
+            <p class="text-white font-semibold text-xs sm:text-sm">V6.8</p>
           </div>
         </div>
       </div>
@@ -1851,7 +1807,7 @@ const adminPageHtml = `
     </div>
     
     <div class="glass-card p-3 sm:p-4">
-      <h3 class="font-semibold text-white text-sm mb-3"><i class="fas fa-robot text-green-400 mr-1.5"></i>V6.7 업데이트</h3>
+      <h3 class="font-semibold text-white text-sm mb-3"><i class="fas fa-robot text-green-400 mr-1.5"></i>V6.8 업데이트</h3>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1">
         <div class="flex items-center gap-1.5 text-gray-300 text-xs"><i class="fas fa-check text-green-400 text-2xs"></i>키워드 복사</div>
         <div class="flex items-center gap-1.5 text-gray-300 text-xs"><i class="fas fa-check text-green-400 text-2xs"></i>이모티콘 제거</div>
@@ -1881,7 +1837,7 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '6.7', 
+  version: '6.8', 
   ai: 'gemini + naver', 
   year: 2026,
   features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection'],

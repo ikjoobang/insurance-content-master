@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 
 type Bindings = {
-  GEMINI_API_KEYS?: string
+  GEMINI_API_KEY?: string
   NAVER_CLIENT_ID?: string
   NAVER_CLIENT_SECRET?: string
 }
@@ -11,42 +11,11 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('/*', cors())
 
-// Gemini API 키 로테이션
-const GEMINI_KEYS = [
-  'AIzaSyD_XMMAwxEKl23JgQZsUPF9H6cKBiIqZQA',
-  'AIzaSyBjbZvUc-YKSFnMhco9sLVKEli2RXbbQuw',
-  'AIzaSyCRVYPJ23CWgTL0u4boCbwbcsts0wD8D7M'
-]
+// API 키는 환경 변수에서 가져옴 (Cloudflare Secrets)
+// 코드에 직접 키를 넣지 않음 - 보안!
 
-// 네이버 API 자격증명
-const NAVER_CLIENT_ID = 'fUhHJ1HWyF6fFw_aBfkg'
-const NAVER_CLIENT_SECRET = 'gA4jUFDYK0'
-
-let currentKeyIndex = 0
-let failedKeys = new Set<number>()
-
-function getNextApiKey(): string | null {
-  if (failedKeys.size >= GEMINI_KEYS.length) failedKeys.clear()
-  for (let i = 0; i < GEMINI_KEYS.length; i++) {
-    const idx = (currentKeyIndex + i) % GEMINI_KEYS.length
-    if (!failedKeys.has(idx)) {
-      currentKeyIndex = (idx + 1) % GEMINI_KEYS.length
-      return GEMINI_KEYS[idx]
-    }
-  }
-  return GEMINI_KEYS[0]
-}
-
-function markKeyFailed(key: string) {
-  const idx = GEMINI_KEYS.indexOf(key)
-  if (idx !== -1) failedKeys.add(idx)
-}
-
-async function callGeminiAPI(prompt: string, retries = 3): Promise<string> {
+async function callGeminiAPI(prompt: string, apiKey: string, retries = 3): Promise<string> {
   for (let attempt = 0; attempt < retries; attempt++) {
-    const apiKey = getNextApiKey()
-    if (!apiKey) throw new Error('No API keys available')
-    
     try {
       const response = await fetch(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
@@ -60,14 +29,14 @@ async function callGeminiAPI(prompt: string, retries = 3): Promise<string> {
         }
       )
       
-      if (!response.ok) { markKeyFailed(apiKey); continue }
+      if (!response.ok) continue
       const data = await response.json() as any
       return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
     } catch (error) {
-      markKeyFailed(apiKey)
+      continue
     }
   }
-  throw new Error('All API keys failed')
+  throw new Error('API call failed')
 }
 
 // 텍스트 정리 함수 (이모티콘, ##, ** 완전 제거)
@@ -107,14 +76,14 @@ function cleanText(text: string): string {
 }
 
 // 네이버 검색 API (키워드 추출용)
-async function searchNaverKeywords(query: string): Promise<string[]> {
+async function searchNaverKeywords(query: string, clientId: string, clientSecret: string): Promise<string[]> {
   try {
     const response = await fetch(
       `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(query)}&display=30&sort=sim`,
       {
         headers: {
-          'X-Naver-Client-Id': NAVER_CLIENT_ID,
-          'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
+          'X-Naver-Client-Id': clientId,
+          'X-Naver-Client-Secret': clientSecret
         }
       }
     )
@@ -156,14 +125,14 @@ async function searchNaverKeywords(query: string): Promise<string[]> {
 }
 
 // 연관 검색어 API
-async function getRelatedKeywords(query: string): Promise<string[]> {
+async function getRelatedKeywords(query: string, clientId: string, clientSecret: string): Promise<string[]> {
   try {
     const response = await fetch(
       `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(query)}&display=10`,
       {
         headers: {
-          'X-Naver-Client-Id': NAVER_CLIENT_ID,
-          'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
+          'X-Naver-Client-Id': clientId,
+          'X-Naver-Client-Secret': clientSecret
         }
       }
     )
@@ -812,7 +781,7 @@ const mainPageHtml = `
           </div>
           <div class="flex items-center gap-1.5">
             <span class="text-xs sm:text-sm font-bold text-white">보험 콘텐츠 마스터</span>
-            <span class="text-2xs sm:text-xs text-gray-400 font-medium">V6.6</span>
+            <span class="text-2xs sm:text-xs text-gray-400 font-medium">V6.7</span>
           </div>
         </a>
         <div class="flex items-center gap-1.5 sm:gap-2">
@@ -1327,7 +1296,7 @@ const mainPageHtml = `
             <i class="fas fa-shield-alt text-white text-xs"></i>
           </div>
           <div>
-            <p class="font-semibold text-white text-xs">보험 콘텐츠 마스터 V6.6</p>
+            <p class="font-semibold text-white text-xs">보험 콘텐츠 마스터 V6.7</p>
             <p class="text-gray-400 text-2xs">2026 보험엑시트</p>
           </div>
         </div>
@@ -1614,30 +1583,10 @@ const mainPageHtml = `
       setLoading('btn-analyze', false);
     }
 
-    // ========== 보안 강화 코드 (해킹/복사/캡처 방지) ==========
+    // ========== 보안 강화 코드 (복사/캡처 방지 - 가벼운 버전) ==========
     
-    // 1. 개발자 도구 감지 및 차단
     (function() {
-      // 개발자 도구 열림 감지 (창 크기 기반)
-      let devtoolsOpen = false;
-      const threshold = 160;
-      
-      function detectDevTools() {
-        const widthThreshold = window.outerWidth - window.innerWidth > threshold;
-        const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-        
-        if (widthThreshold || heightThreshold) {
-          if (!devtoolsOpen) {
-            devtoolsOpen = true;
-            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#050505;"><div style="text-align:center;color:#fff;"><h1 style="font-size:2rem;margin-bottom:1rem;">⚠️ 접근 제한</h1><p style="color:#999;">개발자 도구 사용이 감지되었습니다.</p><p style="color:#999;margin-top:0.5rem;">페이지를 새로고침하여 정상 이용해주세요.</p></div></div>';
-          }
-        }
-      }
-      
-      // 주기적 감지
-      setInterval(detectDevTools, 500);
-      
-      // 2. 키보드 단축키 차단
+      // 키보드 단축키 차단 (개발자 도구 감지는 제거 - 너무 예민함)
       document.addEventListener('keydown', function(e) {
         // F12 차단
         if (e.key === 'F12' || e.keyCode === 123) {
@@ -1738,18 +1687,6 @@ const mainPageHtml = `
         }
       }, true);
       
-      // 8. console 무력화 (기본 보안)
-      const noop = function() {};
-      ['log', 'debug', 'info', 'warn', 'error', 'table', 'dir', 'trace'].forEach(function(method) {
-        console[method] = noop;
-      });
-      
-      // 9. 디버거 방지 (무한 루프 방지를 위해 조건부)
-      setInterval(function() {
-        if (devtoolsOpen) {
-          debugger;
-        }
-      }, 100);
     })();
     
     // 복사 버튼용 플래그 설정 함수 오버라이드
@@ -1824,7 +1761,7 @@ const adminPageHtml = `
         </a>
         <div>
           <h1 class="text-base sm:text-lg font-bold text-white">관리자 대시보드</h1>
-          <p class="text-gray-400 text-xs">보험 콘텐츠 마스터 V6.6</p>
+          <p class="text-gray-400 text-xs">보험 콘텐츠 마스터 V6.7</p>
         </div>
       </div>
       <a href="/" class="px-3 py-1.5 rounded-lg bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 transition-all text-xs">
@@ -1873,7 +1810,7 @@ const adminPageHtml = `
           </div>
           <div>
             <p class="text-gray-300 text-2xs sm:text-xs">버전</p>
-            <p class="text-white font-semibold text-xs sm:text-sm">V6.6</p>
+            <p class="text-white font-semibold text-xs sm:text-sm">V6.7</p>
           </div>
         </div>
       </div>
@@ -1914,7 +1851,7 @@ const adminPageHtml = `
     </div>
     
     <div class="glass-card p-3 sm:p-4">
-      <h3 class="font-semibold text-white text-sm mb-3"><i class="fas fa-robot text-green-400 mr-1.5"></i>V6.6 업데이트</h3>
+      <h3 class="font-semibold text-white text-sm mb-3"><i class="fas fa-robot text-green-400 mr-1.5"></i>V6.7 업데이트</h3>
       <div class="grid grid-cols-2 gap-x-4 gap-y-1">
         <div class="flex items-center gap-1.5 text-gray-300 text-xs"><i class="fas fa-check text-green-400 text-2xs"></i>키워드 복사</div>
         <div class="flex items-center gap-1.5 text-gray-300 text-xs"><i class="fas fa-check text-green-400 text-2xs"></i>이모티콘 제거</div>
@@ -1944,7 +1881,7 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '6.6', 
+  version: '6.7', 
   ai: 'gemini + naver', 
   year: 2026,
   features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection'],
@@ -1956,7 +1893,9 @@ app.get('/api/naver/keywords', async (c) => {
   const query = c.req.query('q')
   if (!query) return c.json({ error: 'Query required' }, 400)
   
-  const keywords = await searchNaverKeywords(query)
+  const clientId = c.env?.NAVER_CLIENT_ID || 'fUhHJ1HWyF6fFw_aBfkg'
+  const clientSecret = c.env?.NAVER_CLIENT_SECRET || 'gA4jUFDYK0'
+  const keywords = await searchNaverKeywords(query, clientId, clientSecret)
   return c.json({ keywords })
 })
 
@@ -1964,10 +1903,19 @@ app.get('/api/naver/keywords', async (c) => {
 app.post('/api/generate/qna-full', async (c) => {
   const { target, tone, insuranceType, concern, generateDesign } = await c.req.json()
   
+  // 환경 변수에서 API 키 가져오기 (Cloudflare Secrets)
+  const geminiKey = c.env?.GEMINI_API_KEY || ''
+  const naverClientId = c.env?.NAVER_CLIENT_ID || 'fUhHJ1HWyF6fFw_aBfkg'
+  const naverClientSecret = c.env?.NAVER_CLIENT_SECRET || 'gA4jUFDYK0'
+  
+  if (!geminiKey) {
+    return c.json({ error: 'API key not configured' }, 500)
+  }
+  
   // 1. 네이버 키워드 분석
   const searchQuery = `${target} ${insuranceType} 추천`
-  const naverKeywords = await searchNaverKeywords(searchQuery)
-  const relatedKeywords = await getRelatedKeywords(insuranceType)
+  const naverKeywords = await searchNaverKeywords(searchQuery, naverClientId, naverClientSecret)
+  const relatedKeywords = await getRelatedKeywords(insuranceType, naverClientId, naverClientSecret)
   
   const allKeywords = [...new Set([insuranceType, ...naverKeywords.slice(0, 5), ...relatedKeywords.slice(0, 3)])]
   const coreKeywords = allKeywords.slice(0, 6)
@@ -1982,7 +1930,7 @@ app.post('/api/generate/qna-full', async (c) => {
 현실적이고 구체적인 고민을 50자 이내로 작성해주세요.
 이모티콘이나 특수문자 없이 순수 텍스트만 작성하세요.
 반드시 한 문장으로 작성하세요.`
-    customerConcern = await callGeminiAPI(concernPrompt)
+    customerConcern = await callGeminiAPI(concernPrompt, geminiKey)
     customerConcern = cleanText(customerConcern.replace(/["\n]/g, '').trim())
   }
   
@@ -2038,7 +1986,7 @@ app.post('/api/generate/qna-full', async (c) => {
 [댓글3]
 (추천/감사 댓글 50-80자. 이모티콘 없이)`
 
-  const qnaResult = await callGeminiAPI(qnaPrompt)
+  const qnaResult = await callGeminiAPI(qnaPrompt, geminiKey)
   
   // 파싱
   const questionMatch = qnaResult.match(/\[질문\]([\s\S]*?)(?=\[답변\])/i)
@@ -2124,7 +2072,7 @@ app.post('/api/generate/qna-full', async (c) => {
 }`
 
     try {
-      const designData = await callGeminiAPI(designPrompt)
+      const designData = await callGeminiAPI(designPrompt, geminiKey)
       const jsonMatch = designData.match(/\{[\s\S]*\}/)
       
       if (jsonMatch) {
@@ -2177,6 +2125,11 @@ app.post('/api/generate/qna-full', async (c) => {
 app.post('/api/generate/blog', async (c) => {
   const { topic, keywords, region, type, target } = await c.req.json()
   
+  const geminiKey = c.env?.GEMINI_API_KEY || ''
+  if (!geminiKey) {
+    return c.json({ error: 'API key not configured' }, 500)
+  }
+  
   const prompt = `당신은 네이버 블로그 SEO 전문 작성 AI입니다.
 
 【중요 규칙】
@@ -2209,7 +2162,7 @@ app.post('/api/generate/blog', async (c) => {
 (10개)`
 
   try {
-    const result = await callGeminiAPI(prompt)
+    const result = await callGeminiAPI(prompt, geminiKey)
     
     const titleMatch = result.match(/\[제목\]\s*([\s\S]*?)(?=\[본문\])/i)
     const contentMatch = result.match(/\[본문\]\s*([\s\S]*?)(?=\[해시태그\])/i)
@@ -2232,6 +2185,11 @@ app.post('/api/generate/blog', async (c) => {
 // Analyze API
 app.post('/api/analyze/blog', async (c) => {
   const { content, keyword, region, type } = await c.req.json()
+  
+  const geminiKey = c.env?.GEMINI_API_KEY || ''
+  if (!geminiKey) {
+    return c.json({ error: 'API key not configured' }, 500)
+  }
   
   const prompt = `당신은 네이버 블로그 SEO 분석 전문가입니다.
 
@@ -2264,7 +2222,7 @@ GEO: (숫자)
 (개선안)`
 
   try {
-    const result = await callGeminiAPI(prompt)
+    const result = await callGeminiAPI(prompt, geminiKey)
     
     const seoMatch = result.match(/SEO:\s*(\d+)/i)
     const crankMatch = result.match(/C-RANK:\s*(\d+)/i)

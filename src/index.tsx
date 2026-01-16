@@ -1359,67 +1359,16 @@ const mainPageHtml = `
             <p id="progress-status" class="text-gray-400 text-2xs lg:text-xs mt-1.5 text-center">준비 중...</p>
           </div>
           
-          <!-- 4열 그리드 (초대형) / 3열 (대형) / 2열 (중형) / 1열 (모바일) -->
+          <!-- 새로운 UI 순서: 핵심고민(1순위) → 타겟 → 보험종류 → 문체톤 -->
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 xl:gap-8">
             
-            <!-- 칼럼 1: 타겟 고객 -->
-            <div>
-              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
-                <i class="fas fa-users text-blue-400 mr-1.5"></i>타겟 고객
-              </label>
-              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="qna-target-chips">
-                <button onclick="selectChip(this, 'qna-target')" data-value="20대 사회초년생" class="chip">20대</button>
-                <button onclick="selectChip(this, 'qna-target')" data-value="30대 직장인" class="chip active">30대</button>
-                <button onclick="selectChip(this, 'qna-target')" data-value="40대 가장" class="chip">40대</button>
-                <button onclick="selectChip(this, 'qna-target')" data-value="50대 은퇴준비" class="chip">50대</button>
-                <button onclick="selectChip(this, 'qna-target')" data-value="신혼부부" class="chip">신혼</button>
-                <button onclick="selectChip(this, 'qna-target')" data-value="자영업자" class="chip">자영업</button>
-              </div>
-            </div>
-            
-            <!-- 칼럼 2: 보험 종류 -->
-            <div>
-              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
-                <i class="fas fa-shield-alt text-blue-400 mr-1.5"></i>보험 종류
-              </label>
-              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="qna-insurance-chips">
-                <button onclick="selectChip(this, 'qna-insurance')" data-value="종신보험" class="chip active">종신</button>
-                <button onclick="selectChip(this, 'qna-insurance')" data-value="암보험" class="chip">암보험</button>
-                <button onclick="selectChip(this, 'qna-insurance')" data-value="실손보험" class="chip">실손</button>
-                <button onclick="selectChip(this, 'qna-insurance')" data-value="연금보험" class="chip">연금</button>
-                <button onclick="selectChip(this, 'qna-insurance')" data-value="저축보험" class="chip">저축</button>
-                <button onclick="selectChip(this, 'qna-insurance')" data-value="변액보험" class="chip">변액</button>
-                <button onclick="selectChip(this, 'qna-insurance')" data-value="어린이보험" class="chip">어린이</button>
-                <button onclick="selectChip(this, 'qna-insurance')" data-value="운전자보험" class="chip">운전자</button>
-              </div>
-            </div>
-            
-            <!-- 칼럼 3: 문체 톤 (중복 선택 가능) -->
-            <div>
-              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
-                <i class="fas fa-comment-dots text-blue-400 mr-1.5"></i>문체 톤 <span class="text-gray-400 text-xs">(중복 선택 가능)</span>
-              </label>
-              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="qna-tone-chips">
-                <button onclick="toggleToneChip(this)" data-value="친근한" class="chip-multi active">친근</button>
-                <button onclick="toggleToneChip(this)" data-value="전문적인" class="chip-multi">전문</button>
-                <button onclick="toggleToneChip(this)" data-value="설득력 있는" class="chip-multi">설득</button>
-                <button onclick="toggleToneChip(this)" data-value="공감하는" class="chip-multi">공감</button>
-                <button onclick="toggleToneChip(this)" data-value="보험초보" class="chip-multi chip-beginner" title="보험이 처음인 고객을 위한 쉬운 설명">
-                  <i class="fas fa-seedling mr-1"></i>보험초보
-                </button>
-                <button onclick="toggleToneChip(this)" data-value="제안서요청형" class="chip-multi chip-proposal" title="구체적인 설계/제안서를 요청하는 형식">
-                  <i class="fas fa-file-signature mr-1"></i>제안서 요청
-                </button>
-              </div>
-            </div>
-            
-            <!-- 칼럼 4: 고민 + 버튼 -->
+            <!-- 칼럼 1: 핵심 고민 (1순위 - 빨간색 강조) -->
             <div class="space-y-3 lg:space-y-4">
               <div>
                 <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
-                  <i class="fas fa-edit text-blue-400 mr-1.5"></i>핵심 고민 <span class="text-gray-400 text-xs lg:text-sm">(선택)</span>
+                  <i class="fas fa-fire text-red-500 mr-1.5"></i><span class="text-red-400">핵심 고민</span> <span class="text-red-300 text-xs lg:text-sm">(1순위)</span>
                 </label>
-                <textarea id="qna-concern" rows="2" placeholder="비워두면 AI가 자동 생성" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white resize-none text-sm lg:text-base"></textarea>
+                <textarea id="qna-concern" rows="3" placeholder="예: 설계사가 기존 보험 해지하고 새로 가입하라는데 손해 아닌가요?&#10;&#10;비워두면 AI가 자동 생성합니다" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white resize-none text-sm lg:text-base border-red-500/30 focus:border-red-500/50"></textarea>
               </div>
               
               <div class="flex items-center gap-3 lg:gap-4">
@@ -1431,6 +1380,57 @@ const mainPageHtml = `
                 <button onclick="generateQnAFull()" id="btn-qna" class="btn-primary flex-1 py-3 lg:py-4 text-white text-sm lg:text-base flex items-center justify-center gap-2 touch-target">
                   <i class="fas fa-magic"></i>
                   <span>Q&A 생성</span>
+                </button>
+              </div>
+            </div>
+            
+            <!-- 칼럼 2: 타겟 고객 (선택형) -->
+            <div>
+              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                <i class="fas fa-users text-blue-400 mr-1.5"></i>타겟 고객 <span class="text-gray-400 text-xs">(선택)</span>
+              </label>
+              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="qna-target-chips">
+                <button onclick="selectOptionalChip(this, 'qna-target')" data-value="20대 사회초년생" class="chip">20대</button>
+                <button onclick="selectOptionalChip(this, 'qna-target')" data-value="30대 직장인" class="chip">30대</button>
+                <button onclick="selectOptionalChip(this, 'qna-target')" data-value="40대 가장" class="chip">40대</button>
+                <button onclick="selectOptionalChip(this, 'qna-target')" data-value="50대 은퇴준비" class="chip">50대</button>
+                <button onclick="selectOptionalChip(this, 'qna-target')" data-value="신혼부부" class="chip">신혼</button>
+                <button onclick="selectOptionalChip(this, 'qna-target')" data-value="자영업자" class="chip">자영업</button>
+              </div>
+            </div>
+            
+            <!-- 칼럼 3: 보험 종류 (선택형) -->
+            <div>
+              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                <i class="fas fa-shield-alt text-blue-400 mr-1.5"></i>보험 종류 <span class="text-gray-400 text-xs">(선택)</span>
+              </label>
+              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="qna-insurance-chips">
+                <button onclick="selectOptionalChip(this, 'qna-insurance')" data-value="종신보험" class="chip">종신</button>
+                <button onclick="selectOptionalChip(this, 'qna-insurance')" data-value="암보험" class="chip">암보험</button>
+                <button onclick="selectOptionalChip(this, 'qna-insurance')" data-value="실손보험" class="chip">실손</button>
+                <button onclick="selectOptionalChip(this, 'qna-insurance')" data-value="연금보험" class="chip">연금</button>
+                <button onclick="selectOptionalChip(this, 'qna-insurance')" data-value="저축보험" class="chip">저축</button>
+                <button onclick="selectOptionalChip(this, 'qna-insurance')" data-value="변액보험" class="chip">변액</button>
+                <button onclick="selectOptionalChip(this, 'qna-insurance')" data-value="어린이보험" class="chip">어린이</button>
+                <button onclick="selectOptionalChip(this, 'qna-insurance')" data-value="운전자보험" class="chip">운전자</button>
+              </div>
+            </div>
+            
+            <!-- 칼럼 4: 문체 톤 (선택형, 중복 가능) -->
+            <div>
+              <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                <i class="fas fa-comment-dots text-blue-400 mr-1.5"></i>문체 톤 <span class="text-gray-400 text-xs">(선택, 중복 가능)</span>
+              </label>
+              <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="qna-tone-chips">
+                <button onclick="toggleOptionalToneChip(this)" data-value="친근한" class="chip-multi">친근</button>
+                <button onclick="toggleOptionalToneChip(this)" data-value="전문적인" class="chip-multi">전문</button>
+                <button onclick="toggleOptionalToneChip(this)" data-value="설득력 있는" class="chip-multi">설득</button>
+                <button onclick="toggleOptionalToneChip(this)" data-value="공감하는" class="chip-multi">공감</button>
+                <button onclick="toggleOptionalToneChip(this)" data-value="보험초보" class="chip-multi chip-beginner" title="보험이 처음인 고객을 위한 쉬운 설명">
+                  <i class="fas fa-seedling mr-1"></i>보험초보
+                </button>
+                <button onclick="toggleOptionalToneChip(this)" data-value="제안서요청형" class="chip-multi chip-proposal" title="구체적인 설계/제안서를 요청하는 형식">
+                  <i class="fas fa-file-signature mr-1"></i>제안서 요청
                 </button>
               </div>
             </div>
@@ -1997,10 +1997,11 @@ const mainPageHtml = `
   <script>
     let currentFeature = 'qna';
     let generatedKeywords = [];
+    // 기본값 없이 시작 (모두 선택형)
     const selections = {
-      'qna-target': '30대 직장인',
-      'qna-tone': '친근한',
-      'qna-insurance': '종신보험',
+      'qna-target': '',
+      'qna-tone': '',
+      'qna-insurance': '',
       'blog-type': '정보성',
       'blog-target': '30대',
       'analyze-type': '종합 분석'
@@ -2031,20 +2032,39 @@ const mainPageHtml = `
       }
     }
     
-    // 문체 톤 중복 선택 기능
-    let selectedTones = ['친근한']; // 기본값
+    // 선택형 칩 (토글 방식 - 선택/해제 가능)
+    function selectOptionalChip(btn, group) {
+      const wasActive = btn.classList.contains('active');
+      
+      // 같은 그룹의 다른 칩들 비활성화
+      btn.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      
+      if (wasActive) {
+        // 이미 선택된 상태면 해제 (값 비우기)
+        selections[group] = '';
+      } else {
+        // 새로 선택
+        btn.classList.add('active');
+        selections[group] = btn.dataset.value;
+      }
+      
+      // 보험종류 선택 시 종신/운전자 충돌 체크
+      if (group === 'qna-insurance') {
+        checkInsuranceConflict();
+      }
+    }
     
-    function toggleToneChip(btn) {
+    // 문체 톤 중복 선택 기능 (기본값 없음)
+    let selectedTones = []; // 기본값 없음
+    
+    // 선택형 톤 칩 (최소 0개 가능)
+    function toggleOptionalToneChip(btn) {
       const value = btn.dataset.value;
       
       if (btn.classList.contains('active')) {
-        // 이미 선택된 경우 해제 (최소 1개는 유지)
-        if (selectedTones.length > 1) {
-          btn.classList.remove('active');
-          selectedTones = selectedTones.filter(t => t !== value);
-        } else {
-          showToast('최소 1개의 문체 톤을 선택해야 합니다');
-        }
+        // 이미 선택된 경우 해제 (0개도 가능)
+        btn.classList.remove('active');
+        selectedTones = selectedTones.filter(t => t !== value);
       } else {
         // 새로 선택
         btn.classList.add('active');
@@ -2060,8 +2080,13 @@ const mainPageHtml = `
         }
       }
       
-      // 선택된 톤 업데이트
+      // 선택된 톤 업데이트 (빈 배열이면 빈 문자열)
       selections['qna-tone'] = selectedTones.join(',');
+    }
+    
+    // 기존 toggleToneChip도 유지 (호환성)
+    function toggleToneChip(btn) {
+      toggleOptionalToneChip(btn);
     }
     
     // 핵심고민에 '종신' 입력 시 보험종류에서 '운전자' 클릭하면 알람 표시
@@ -2978,9 +3003,15 @@ app.get('/api/naver/keywords', async (c) => {
   return c.json({ keywords })
 })
 
-// Q&A 완전 자동화 API (V6.1)
+// Q&A 완전 자동화 API (V11.4 - 선택형 UI 대응)
 app.post('/api/generate/qna-full', async (c) => {
-  const { target, tone, insuranceType, concern, generateDesign } = await c.req.json()
+  const { target: inputTarget, tone: inputTone, insuranceType: inputInsuranceType, concern, generateDesign } = await c.req.json()
+  
+  // 선택형 필드 기본값 처리 (우선순위: 타겟 → 핵심고민 → 보험종류 → 문제톤)
+  // 빈 값이면 AI가 적절히 추론하도록 기본값 설정
+  const target = inputTarget || '30대 직장인'  // 기본 타겟
+  const insuranceType = inputInsuranceType || '종합보험'  // 기본 보험종류
+  const tone = inputTone || '친근한'  // 기본 톤
   
   // 환경 변수에서 API 키 가져오기 (Cloudflare Secrets) - 4개 키 로테이션
   const geminiKeys = getGeminiKeys(c.env)

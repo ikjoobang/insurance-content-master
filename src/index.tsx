@@ -5294,7 +5294,7 @@ app.post('/api/analyze/photo', async (c) => {
 
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '18.3', 
+  version: '18.4', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
@@ -5611,28 +5611,6 @@ D.I.A.+ 최적화 제목
 app.post('/api/generate/qna-full', async (c) => {
   const { target: inputTarget, tone: inputTone, insuranceType: inputInsuranceType, concern, generateDesign, photoAnalysis, hasPhoto } = await c.req.json()
   
-  // ========== V17.6 타깃별 랜덤 직업 시스템 ==========
-  const targetOccupations: Record<string, string[]> = {
-    '20대': ['사회초년생', '대학생', '취준생', '프리랜서', '스타트업 직원', '공무원 준비생'],
-    '30대': ['직장인', '프리랜서', '신혼부부', '자영업자', '육아맘', 'IT 개발자', '공무원', '영업직'],
-    '40대': ['가장', '직장인', '자영업자', '프리랜서', '맞벌이 부부', '중간관리자', '사업가'],
-    '50대': ['은퇴준비', '자영업자', '직장인', '1인 사업자', '프리랜서', '경력단절 복귀', '조기퇴직자']
-  }
-  
-  function getRandomOccupation(ageGroup: string): string {
-    const occupations = targetOccupations[ageGroup]
-    if (!occupations) return ageGroup
-    const randomOccupation = occupations[Math.floor(Math.random() * occupations.length)]
-    return `${ageGroup} ${randomOccupation}`
-  }
-  
-  // 입력된 타깃에서 연령대 추출하고 랜덤 직업 적용
-  let target = inputTarget || '30대 직장인'
-  const ageMatch = target.match(/(20대|30대|40대|50대)/)
-  if (ageMatch) {
-    target = getRandomOccupation(ageMatch[1])
-  }
-  
   const insuranceType = inputInsuranceType || '종합보험'  // 기본 보험종류
   const tone = inputTone || '친근한'  // 기본 톤
   
@@ -5645,8 +5623,51 @@ app.post('/api/generate/qna-full', async (c) => {
     return c.json({ error: 'API key not configured' }, 500)
   }
   
+  // ========== V18.4: Gemini API로 랜덤 직업 생성 ==========
+  let target = inputTarget || '30대'
+  const inputAgeMatch = target.match(/(20대|30대|40대|50대|60대)/)
+  const ageGroup = inputAgeMatch ? inputAgeMatch[1] : '30대'
+  
+  // 연령대별 직업 풀 (Gemini가 이 중에서 랜덤 선택하도록 유도)
+  const occupationPools: Record<string, string> = {
+    '20대': '사회초년생, 대학생, 취준생, 프리랜서, 스타트업직원, 공무원준비생, 대학원생, 인턴, 계약직, 알바생',
+    '30대': '직장인, 프리랜서, 신혼부부, 자영업자, 육아맘, IT개발자, 공무원, 영업직, 맞벌이, 워킹맘, 1인가구',
+    '40대': '가장, 직장인, 자영업자, 프리랜서, 맞벌이부부, 중간관리자, 사업가, 학부모, 외벌이, 투잡러',
+    '50대': '은퇴준비, 자영업자, 직장인, 1인사업자, 프리랜서, 경력단절, 조기퇴직, 귀농준비, 재취업, 빈둥지',
+    '60대': '은퇴자, 연금생활자, 자영업자, 재취업, 귀농귀촌, 손주돌봄, 시니어창업, 건강관리'
+  }
+  
+  const poolForAge = occupationPools[ageGroup] || occupationPools['30대']
+  const randomSeed = Date.now() % 1000  // 랜덤 시드
+  
+  try {
+    const occupationPrompt = `${ageGroup}가 ${insuranceType}에 대해 네이버 카페에 질문합니다.
+아래 직업 목록에서 무작위로 하나만 선택해서 출력하세요.
+
+직업 목록: ${poolForAge}
+
+규칙:
+- 위 목록에서 반드시 하나만 선택
+- 랜덤 시드: ${randomSeed} (이 숫자를 참고해서 다른 결과 출력)
+- 직업만 출력, 다른 설명 없이
+- 2-5글자
+
+출력:`
+
+    const generatedOccupation = await callGeminiAPI(occupationPrompt, geminiKeys)
+    const cleanOccupation = generatedOccupation.replace(/["\n\r:]/g, '').trim().slice(0, 10)
+    target = `${ageGroup} ${cleanOccupation}`
+    console.log(`[V18.4] Gemini 생성 직업: ${target}`)
+  } catch (e) {
+    // API 실패 시 목록에서 랜덤 선택
+    const fallbackList = poolForAge.split(', ')
+    const randomOccupation = fallbackList[Math.floor(Math.random() * fallbackList.length)]
+    target = `${ageGroup} ${randomOccupation}`
+    console.log(`[V18.4] 직업 생성 실패, 랜덤 선택: ${target}`)
+  }
+  
   // 1. 네이버 키워드 분석
-  const searchQuery = `${target} ${insuranceType} 추천`
+  const searchQuery = `${ageGroup} ${insuranceType} 추천`
   const naverKeywords = await searchNaverKeywords(searchQuery, naverClientId, naverClientSecret)
   const relatedKeywords = await getRelatedKeywords(insuranceType, naverClientId, naverClientSecret)
   
@@ -5722,12 +5743,23 @@ app.post('/api/generate/qna-full', async (c) => {
       
       // 사진의 나이가 입력된 나이보다 10살 이상 많으면 사진 기준으로 조정
       if (extractedAge >= inputAge + 10) {
-        // 새로운 연령대에 맞는 랜덤 직업 적용
         const newAgeGroup = `${extractedAge}대`
-        const newOccupations = targetOccupations[newAgeGroup] || ['직장인']
-        const newOccupation = newOccupations[Math.floor(Math.random() * newOccupations.length)]
-        adjustedTarget = `${newAgeGroup} ${newOccupation}`
-        console.log(`[V18.1] 사진 기준 타깃 조정: ${target} → ${adjustedTarget}`)
+        
+        // V18.4: 새로운 연령대에 맞는 직업도 Gemini API로 생성
+        try {
+          const newOccupationPrompt = `${newAgeGroup}가 ${insuranceType}에 대해 질문하려고 합니다.
+이 사람의 직업/상황을 하나만 생성해주세요.
+${newAgeGroup}에 어울리는 현실적인 직업, 2-4글자로만, 설명없이.
+출력 예시: 자영업자`
+
+          const newOccupation = await callGeminiAPI(newOccupationPrompt, geminiKeys)
+          const cleanNewOccupation = newOccupation.replace(/["\n\r]/g, '').trim().slice(0, 10)
+          adjustedTarget = `${newAgeGroup} ${cleanNewOccupation}`
+          console.log(`[V18.4] 사진 기준 타깃 + Gemini 직업: ${target} → ${adjustedTarget}`)
+        } catch (e) {
+          adjustedTarget = `${newAgeGroup} 직장인`
+          console.log(`[V18.4] 직업 생성 실패, 기본값: ${adjustedTarget}`)
+        }
       }
     }
   }
@@ -7022,7 +7054,7 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
       }
     },
     // 버전 정보
-    version: 'V18.3-FixedTargetNickname'
+    version: 'V18.4-GeminiRandomOccupation'
   })
 })
 

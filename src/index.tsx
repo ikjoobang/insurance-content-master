@@ -3423,6 +3423,125 @@ app.post('/api/generate/qna-full', async (c) => {
   const clickBaitKeywords = ['호구', '손해', '해지', '충격', '거절', '폭탄', '함정', '후회', '속은', '실수']
   const selectedClickBait = clickBaitKeywords[Math.floor(Math.random() * clickBaitKeywords.length)]
   
+  // ============================================================
+  // 타깃 페르소나 상세 분석 (성별/연령/직업/가족상황)
+  // ============================================================
+  const parseTargetPersona = (targetStr: string) => {
+    // 성별 추출
+    let gender = ''
+    if (/여성|여자|엄마|주부|아내|며느리|딸/.test(targetStr)) gender = '여성'
+    else if (/남성|남자|아빠|남편|아들|가장/.test(targetStr)) gender = '남성'
+    else gender = Math.random() > 0.5 ? '남성' : '여성'
+    
+    // 연령대 추출
+    let ageGroup = ''
+    let ageNum = 35
+    const ageMatch = targetStr.match(/(\d+)대/)
+    if (ageMatch) {
+      ageGroup = ageMatch[0]
+      ageNum = parseInt(ageMatch[1]) + Math.floor(Math.random() * 9)
+    } else if (/20대|사회초년생|대학|취준/.test(targetStr)) { ageGroup = '20대'; ageNum = 25 + Math.floor(Math.random() * 5) }
+    else if (/30대/.test(targetStr)) { ageGroup = '30대'; ageNum = 32 + Math.floor(Math.random() * 7) }
+    else if (/40대/.test(targetStr)) { ageGroup = '40대'; ageNum = 42 + Math.floor(Math.random() * 7) }
+    else if (/50대/.test(targetStr)) { ageGroup = '50대'; ageNum = 52 + Math.floor(Math.random() * 7) }
+    else if (/60대|은퇴|노후/.test(targetStr)) { ageGroup = '60대'; ageNum = 62 + Math.floor(Math.random() * 7) }
+    else { ageGroup = '30대'; ageNum = 35 }
+    
+    // 직업/상황 추출
+    let occupation = ''
+    if (/직장인|회사원|샐러리맨/.test(targetStr)) occupation = '직장인'
+    else if (/자영업|사장|CEO|대표/.test(targetStr)) occupation = '자영업자'
+    else if (/프리랜서|1인/.test(targetStr)) occupation = '프리랜서'
+    else if (/공무원/.test(targetStr)) occupation = '공무원'
+    else if (/주부|전업/.test(targetStr)) occupation = '전업주부'
+    else if (/사회초년생|신입/.test(targetStr)) occupation = '사회초년생'
+    else occupation = '직장인'
+    
+    // 가족상황 추출
+    let familyStatus = ''
+    if (/신혼|결혼|예비/.test(targetStr)) familyStatus = '신혼'
+    else if (/가장|가정|아이|자녀|육아/.test(targetStr)) familyStatus = '가장(자녀있음)'
+    else if (/싱글|미혼|독신/.test(targetStr)) familyStatus = '미혼'
+    else if (/은퇴|노후/.test(targetStr)) familyStatus = '은퇴준비'
+    else familyStatus = Math.random() > 0.5 ? '기혼' : '미혼'
+    
+    return { gender, ageGroup, ageNum, occupation, familyStatus }
+  }
+  
+  const persona = parseTargetPersona(target)
+  
+  // 페르소나별 구체적 상황 생성
+  const getPersonaContext = () => {
+    const contexts: string[] = []
+    
+    // 성별별 특성
+    if (persona.gender === '여성') {
+      contexts.push('여성 특유의 세심한 관찰력과 가족 건강에 대한 관심이 높음')
+      if (persona.familyStatus === '가장(자녀있음)') {
+        contexts.push('아이들 미래와 교육비 걱정이 큼, "내가 아프면 아이들은..." 언급')
+      }
+      if (persona.occupation === '전업주부') {
+        contexts.push('남편 수입에 의존, 본인 보장에 소홀했던 것에 불안')
+      }
+    } else {
+      contexts.push('남성 특유의 책임감, 가장으로서의 부담감 표현')
+      if (persona.familyStatus === '가장(자녀있음)') {
+        contexts.push('가족 생계 책임, "내가 쓰러지면..." 언급, 사망/후유장해 보장 관심')
+      }
+    }
+    
+    // 연령별 특성
+    if (persona.ageGroup === '20대') {
+      contexts.push('보험 처음, 뭐가 뭔지 모름, 부모님이 가입해준 보험만 있음')
+      contexts.push('적은 예산(월 3-5만원), 실비 위주 고민')
+    } else if (persona.ageGroup === '30대') {
+      contexts.push('결혼/출산 전후 보험 재정비 시기, 실용적 판단')
+      contexts.push('보험료 부담 vs 보장 범위 고민, 월 10-20만원대')
+    } else if (persona.ageGroup === '40대') {
+      contexts.push('건강검진에서 뭔가 나오기 시작, 갱신 폭탄 시작되는 시기')
+      contexts.push('기존 보험 리모델링 제안 많이 받음, 해지 손실 고민')
+    } else if (persona.ageGroup === '50대') {
+      contexts.push('가입 거절/조건부 경험, 보험료 부담 최고조')
+      contexts.push('자녀 독립 후 본인 노후 대비, 간병/치매 관심 증가')
+    } else if (persona.ageGroup === '60대') {
+      contexts.push('신규 가입 어려움, 기존 보험 유지 vs 해지 고민')
+      contexts.push('실손 보험료 폭등, 간병/요양 현실적 고민')
+    }
+    
+    // 직업별 특성
+    if (persona.occupation === '자영업자') {
+      contexts.push('소득 불안정, 4대보험 미가입, 본인이 아프면 가게 문 닫아야')
+    } else if (persona.occupation === '프리랜서') {
+      contexts.push('고용보험/산재 없음, 아프면 수입 0원, 실비+상해 중요')
+    } else if (persona.occupation === '공무원') {
+      contexts.push('연금 있지만 실비/암보험 별도 필요, 안정적이라 장기 보험 선호')
+    }
+    
+    return contexts
+  }
+  
+  const personaContexts = getPersonaContext()
+  
+  // 질문 상황 다양화 (10가지)
+  const questionScenarios = [
+    { situation: '설계사 리모델링 제안', trigger: '설계사가 찾아와서', ending: '이게 맞는 건지 모르겠어요' },
+    { situation: '유튜브/블로그 정보', trigger: '유튜브에서 보험 영상 보다가', ending: '제 보험이 걱정되기 시작했어요' },
+    { situation: '지인 권유', trigger: '친구가 보험 들라고 자꾸 그러는데', ending: '정말 필요한 건지 모르겠어요' },
+    { situation: '보험료 인상 통보', trigger: '갑자기 보험료가 올랐다고 연락와서', ending: '이거 어떻게 해야 하나요' },
+    { situation: '건강검진 후 불안', trigger: '건강검진 받고 나니까', ending: '갑자기 보험이 걱정돼요' },
+    { situation: '주변 사고/질병 소식', trigger: '지인이 갑자기 아프다는 소식 듣고', ending: '제 보험 다시 보게 됐어요' },
+    { situation: '결혼/출산 계기', trigger: '결혼(출산) 앞두고', ending: '보험 정리 좀 해야 할 것 같아서요' },
+    { situation: '부모님 보험 정리', trigger: '부모님 보험 정리하다 보니', ending: '제 것도 봐야 할 것 같아요' },
+    { situation: '만기/갱신 안내', trigger: '보험 만기 안내가 와서', ending: '연장해야 하는지 고민이에요' },
+    { situation: '해지 고민', trigger: '보험료가 너무 부담돼서', ending: '해지하면 손해인지 궁금해요' }
+  ]
+  
+  const scenario1 = questionScenarios[Math.floor(Math.random() * questionScenarios.length)]
+  let scenario2 = questionScenarios[Math.floor(Math.random() * questionScenarios.length)]
+  while (scenario2.situation === scenario1.situation) {
+    scenario2 = questionScenarios[Math.floor(Math.random() * questionScenarios.length)]
+  }
+  
   // 2026년형 도메인별 전문 지식 생성
   const get2026DomainKnowledge = (type: string): string => {
     if (type.includes('암')) {
@@ -3504,54 +3623,64 @@ C-RANK(콘텐츠 신뢰도)와 DIA(문서의 경험적 가치) 알고리즘을 �
 - 시점: **2026년 현재** (2025년 통계 + 2026년 개정 약관 기준)
 
 ==========================================================
+【 ★★★ 질문자 페르소나 상세 정보 (필수 반영!) ★★★ 】
+==========================================================
+■ 성별: ${persona.gender}
+■ 나이: ${persona.ageNum}세 (${persona.ageGroup})
+■ 직업: ${persona.occupation}
+■ 가족상황: ${persona.familyStatus}
+
+【 이 페르소나의 특성 - 질문에 반드시 반영! 】
+${personaContexts.map((ctx, i) => `${i + 1}. ${ctx}`).join('\n')}
+
+==========================================================
 【 PART 1: 제목 생성 규칙 】
 ==========================================================
 
 ### 필수 규칙:
-1. 타깃(${target}) 시점에서 작성
+1. 페르소나(${persona.ageNum}세 ${persona.gender} ${persona.occupation}) 시점에서 작성
 2. 반드시 의문문으로 끝나야 함 (?)
 3. ${hasKeyword ? `"${customerConcern}" 핵심 고민 반영` : `${insuranceType} 관련 일반적 고민 생성`}
 4. 클릭 유도 키워드 1개 이상 포함 (호구/손해/해지/충격/거절/폭탄/함정/후회)
 5. 15-30자
 
-### 제목 예시:
-- "${insuranceType} ${selectedClickBait} 당한 거 아닌가요?"
-- "설계사가 해지하라는데 ${selectedClickBait}인 거 맞죠?"
-- "${target}인데 ${insuranceType} 가입했는데 이거 ${selectedClickBait}?"
+### 제목 예시 (페르소나 반영):
+- "${persona.ageNum}세 ${persona.gender} ${persona.occupation}인데 ${insuranceType} ${selectedClickBait} 당한 건가요?"
+- "${persona.ageGroup} ${persona.gender}인데 설계사가 해지하라는데 ${selectedClickBait}?"
+- "${persona.familyStatus === '가장(자녀있음)' ? '애 둘 아빠' : persona.ageGroup + ' ' + persona.gender}인데 ${insuranceType} 이거 맞나요?"
 
 ==========================================================
 【 PART 2: 질문 본문 생성 규칙 】
 ==========================================================
 
-### 페르소나: ${target}의 말투로 작성
-- ${target.includes('30대') ? '30대 특유의 실용적이고 직접적인 말투' : ''}
-- ${target.includes('신혼') ? '신혼부부 특유의 미래 걱정, 아이 계획 언급' : ''}
-- ${target.includes('50대') ? '50대 특유의 노후 걱정, 자녀 독립 후 상황' : ''}
-- 보험 초보의 불안하고 답답한 심정 표현
+### ★★★ 질문자 페르소나 (반드시 이 사람처럼 작성!) ★★★
+- 나는 ${persona.ageNum}세 ${persona.gender} ${persona.occupation}입니다
+- 가족상황: ${persona.familyStatus}
+${persona.gender === '여성' ? `- 여성 특유의 말투: "~거든요", "~잖아요", "진짜 걱정돼서요", "혹시 아시는 분?"` : `- 남성 특유의 말투: "~입니다", "~한데요", "솔직히", "객관적으로"`}
+${persona.ageGroup === '20대' ? `- 20대 말투: 약간 캐주얼, "ㅠㅠ", "진짜", "대체 뭐가 뭔지"` : ''}
+${persona.ageGroup === '30대' ? `- 30대 말투: 실용적, 직접적, "결론이 뭔가요", "딱 정리해주세요"` : ''}
+${persona.ageGroup === '40대' ? `- 40대 말투: 약간 격식, "여쭤봅니다", "조언 부탁드립니다"` : ''}
+${persona.ageGroup === '50대' || persona.ageGroup === '60대' ? `- 50-60대 말투: 정중, "문의드립니다", "답변 부탁드립니다"` : ''}
 
-### 상황 생성:
-${hasKeyword ? `
-【 상황 A: 핵심 고민 입력됨 】
-- "${customerConcern}" 이 내용을 질문의 핵심으로 작성
-- 구체적인 사연으로 풀어서 작성 (설계사 미팅, 유튜브에서 본 내용, 지인 조언 등)
-- 숫자 인용 가능 (월 보험료 XX만원, 납입기간 X년 등)
-` : `
-【 상황 B: 핵심 고민 없음 - 자동 생성 】
-- ${insuranceType} 관련 일반적인 문제 상황 생성
-- ${target}이 흔히 겪는 고민거리 자동 생성
-- 예: 보험료 부담, 갱신형 폭탄, 해지 손해, 리모델링 제안 등
-`}
+### 질문1 상황: "${scenario1.situation}"
+- 시작: "${scenario1.trigger}"
+- 끝: "${scenario1.ending}"
+
+### 질문2 상황: "${scenario2.situation}" (질문1과 완전히 다른 상황!)
+- 시작: "${scenario2.trigger}"
+- 끝: "${scenario2.ending}"
 
 ### 질문 본문 필수 요소:
-1. 인사 + 자기소개 (나이, 상황)
-2. 최근 겪은 일 (설계사 만남, 정보 습득 경로)
-3. 핵심 고민 (${hasKeyword ? customerConcern : '자동 생성된 고민'})
-4. 마지막: "쪽지 사절이요, 댓글로 조언 부탁드립니다" 또는 "고수님들 도와주세요!"
-5. 전화번호 절대 금지!
-6. 200-350자
+1. 인사 + 자기소개: "${persona.ageNum}세 ${persona.gender} ${persona.occupation}${persona.familyStatus === '가장(자녀있음)' ? ', 아이 둘 있어요' : ''}입니다"
+2. 최근 겪은 일: 위 상황에 맞게 작성
+3. 핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '상황에 맞는 고민 자동 생성'}
+4. 구체적 숫자: 월 보험료 X만원, 가입한 지 X년, 해지환급금 X만원 등
+5. 마지막: "쪽지 사절이요, 댓글로 조언 부탁드립니다" 또는 "고수님들 도와주세요!"
+6. 전화번호 절대 금지!
+7. 200-350자
 
 【 질문자 톤앤매너 】
-- 말투: 예의 바르지만 다급하고 답답한 심경 (~요 체 사용)
+- ${persona.gender === '여성' ? '여성스러운 말투로' : '남성스러운 말투로'}, 예의 바르지만 다급하고 답답한 심경
 - 전화번호: 절대 포함 금지!
 - 마무리: "쪽지 사절이요, 댓글로 공개 답변 부탁드립니다" 또는 "조언 부탁드려요"
 
@@ -3648,12 +3777,18 @@ ${isProposalMode ? '- 제안서요청형: 구체적인 설계 대안 제시 포�
 - "저 ${insuranceType} 가입했는데 후회될까요?"
 
 [질문1]
-(상황 A: 설계사에게 리모델링/신규 가입 제안 받은 상황)
-(${target}의 말투, ${hasKeyword ? `핵심 고민: "${customerConcern}"` : `${insuranceType} 관련 제안`}, 숫자 인용, 마지막: "쪽지 사절이요, 댓글로 조언 부탁드립니다", 전화번호 금지, 200-350자)
+★★★ 페르소나: ${persona.ageNum}세 ${persona.gender} ${persona.occupation} (${persona.familyStatus}) ★★★
+상황: "${scenario1.situation}" - "${scenario1.trigger}..."
+(${persona.gender === '여성' ? '여성스러운 말투' : '남성스러운 말투'}, ${hasKeyword ? `핵심 고민: "${customerConcern}"` : `${insuranceType} 관련 상황`}, 구체적 숫자 포함)
+(첫 문장: "${persona.ageNum}세 ${persona.gender} ${persona.occupation}이에요/입니다")
+(마지막: "쪽지 사절이요, 댓글로 조언 부탁드립니다", 전화번호 금지, 200-350자)
 
 [질문2]
-(상황 B: 완전히 다른 상황 - 유튜브 정보/지인 권유/본인이 직접 알아보는 중)
-(${hasKeyword ? `같은 핵심 고민 "${customerConcern}"이지만 다른 각도` : `${insuranceType} 다른 문제 상황`}, 마지막: "고수님들 도와주세요!", 전화번호 금지, 200-350자)
+★★★ 같은 페르소나지만 완전히 다른 상황! ★★★
+상황: "${scenario2.situation}" - "${scenario2.trigger}..."
+(${hasKeyword ? `같은 핵심 고민 "${customerConcern}"이지만 다른 각도` : `${insuranceType} 다른 문제 상황`})
+(첫 문장: 나이/성별/직업 다르게 표현 - "저 ${persona.ageGroup} ${persona.occupation}인데요")
+(마지막: "고수님들 도와주세요!", 전화번호 금지, 200-350자)
 
 [답변1]
 (공감형 전문가 - [질문1]에 대한 답변)

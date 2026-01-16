@@ -833,6 +833,12 @@ ${insuranceType} 관련해서 질문 드립니다.
 [댓글3]
 (비슷한 상황의 추가 질문, 40-100자)
 
+[댓글4]
+(자신의 보험 경험담/후기 공유, 40-100자)
+
+[댓글5]
+(질문자 응원 또는 도움 제안, 40-100자)
+
 [검색키워드]
 ${strategy.seoKeywords.join(', ')}
 
@@ -909,6 +915,12 @@ ${insuranceType} 정보 감사합니다. 바로 확인해봐야겠네요
 
 [댓글3]
 저도 증권 분석 부탁드려도 될까요?
+
+[댓글4]
+저도 최근에 ${insuranceType} 리모델링했는데 만족해요
+
+[댓글5]
+화이팅! 좋은 결과 있으시길 바랍니다
 
 [검색키워드]
 ${strategy.seoKeywords.join(', ')}
@@ -3718,13 +3730,13 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '16.0', 
+  version: '16.1', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
   ragPipeline: 'naver-search → strategy-json → content-gen → self-diagnosis',
   year: 2026,
-  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style', 'rag-4step-pipeline', 'hallucination-zero'],
+  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style', 'rag-4step-pipeline', 'hallucination-zero', 'comments-5'],
   timestamp: new Date().toISOString() 
 }))
 
@@ -3995,6 +4007,12 @@ ${insuranceType} 관련해서 질문 드립니다.
 
 [댓글3]
 (비슷한 상황의 추가 질문, 40-100자)
+
+[댓글4]
+(자신의 보험 경험담/후기 공유, 40-100자)
+
+[댓글5]
+(질문자 응원 또는 도움 제안, 40-100자)
 
 [검색키워드]
 ${insuranceType} 관련 SEO 키워드 5개
@@ -4688,7 +4706,9 @@ ${scenario1.trigger}
     
     const comment1Match = result.match(/\[댓글1\]([\s\S]*?)(?=\[댓글2\])/i)
     const comment2Match = result.match(/\[댓글2\]([\s\S]*?)(?=\[댓글3\])/i)
-    const comment3Match = result.match(/\[댓글3\]([\s\S]*?)(?=\[검색키워드\]|\[강조포인트\])/i)
+    const comment3Match = result.match(/\[댓글3\]([\s\S]*?)(?=\[댓글4\]|\[검색키워드\]|\[강조포인트\])/i)
+    const comment4Match = result.match(/\[댓글4\]([\s\S]*?)(?=\[댓글5\]|\[검색키워드\]|\[강조포인트\])/i)
+    const comment5Match = result.match(/\[댓글5\]([\s\S]*?)(?=\[검색키워드\]|\[강조포인트\])/i)
     
     const seoKeywordsMatch = result.match(/\[검색키워드\]([\s\S]*?)(?=\[최적화제목1\])/i)
     
@@ -4714,11 +4734,13 @@ ${scenario1.trigger}
       answer3Match ? cleanText(answer3Match[1].trim()) : ''
     ].filter(a => a.length > 50)
     
-    // 댓글 3개 추출
+    // 댓글 5개 추출
     const parsedComments = [
       comment1Match ? cleanText(comment1Match[1].trim()) : '',
       comment2Match ? cleanText(comment2Match[1].trim()) : '',
-      comment3Match ? cleanText(comment3Match[1].trim()) : ''
+      comment3Match ? cleanText(comment3Match[1].trim()) : '',
+      comment4Match ? cleanText(comment4Match[1].trim()) : '',
+      comment5Match ? cleanText(comment5Match[1].trim()) : ''
     ].filter(c => c.length > 10)
     
     // SEO 키워드 추출
@@ -4924,7 +4946,9 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
   const highlightsMatch = qnaResult.match(/\[강조포인트\]([\s\S]*?)(?=\[해시태그\])/i)
   const comment1Match = qnaResult.match(/\[댓글1\]([\s\S]*?)(?=\[댓글2\])/i)
   const comment2Match = qnaResult.match(/\[댓글2\]([\s\S]*?)(?=\[댓글3\])/i)
-  const comment3Match = qnaResult.match(/\[댓글3\]([\s\S]*?)(?=\[검색키워드\]|\[강조포인트\])/i)
+  const comment3Match = qnaResult.match(/\[댓글3\]([\s\S]*?)(?=\[댓글4\]|\[검색키워드\]|\[강조포인트\])/i)
+  const comment4Match = qnaResult.match(/\[댓글4\]([\s\S]*?)(?=\[댓글5\]|\[검색키워드\]|\[강조포인트\])/i)
+  const comment5Match = qnaResult.match(/\[댓글5\]([\s\S]*?)(?=\[검색키워드\]|\[강조포인트\])/i)
   const hashtagMatch = qnaResult.match(/\[해시태그\]([\s\S]*?)(?=\[자가진단결과\]|$)/i)
   
   // V12.2: 자가진단 워크플로우 - 검색키워드, 최적화제목, 자가진단결과 파싱
@@ -4972,11 +4996,13 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
       .slice(0, 3)
   }
   
-  // 댓글 3개 수집 (공감형 + 사이다형 + 질문형)
+  // 댓글 5개 수집 (공감형 + 사이다형 + 질문형 + 경험담 + 응원)
   const comments = [
     comment1Match ? cleanText(comment1Match[1].trim()) : '아 저도 똑같은 고민이었는데... 이 글 보고 속 시원해졌어요',
     comment2Match ? cleanText(comment2Match[1].trim()) : '와 이건 진짜 찐 정보네요. 바로 증권 확인해봐야겠어요',
-    comment3Match ? cleanText(comment3Match[1].trim()) : '저도 증권 분석 부탁드려도 될까요? 비슷한 상황인 것 같아서요'
+    comment3Match ? cleanText(comment3Match[1].trim()) : '저도 증권 분석 부탁드려도 될까요? 비슷한 상황인 것 같아서요',
+    comment4Match ? cleanText(comment4Match[1].trim()) : `저도 작년에 ${insuranceType} 리모델링했는데 만족해요`,
+    comment5Match ? cleanText(comment5Match[1].trim()) : '화이팅하세요! 좋은 결과 있으시길 바랍니다'
   ].filter(c => c.length > 10)
   
   // V12.2: 자가진단 워크플로우 데이터 처리
@@ -5300,7 +5326,7 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
       }
     },
     // 버전 정보
-    version: 'V16.0-RAG-HallucinationZero'
+    version: 'V16.1-RAG-HallucinationZero'
   })
 })
 

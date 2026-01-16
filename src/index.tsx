@@ -1117,7 +1117,7 @@ ${selectedScenario.commentExamples.map((c, i) => `${i + 1}. "${c}"`).join('\n')}
 
     questionStyle = `【 질문 작성 스타일 (리얼 토크) 】
 - 말투: 맞춤법 완벽하게 지키지 마세요. 다급함, 억울함, 의심을 담으세요.
-- "안녕하세요." (X) → "형님들 급질문요 ㅠㅠ" (O)
+- "안녕하세요." (X) → "급질문 올립니다 ㅠㅠ" (O) (연령에 맞는 자연스러운 표현 사용)
 - "고민이 있습니다." (X) → "이거 눈탱이 맞은 거 맞죠? 아 진짜 잠이 안 오네요." (O)
 - "설계사가 추천했습니다." (X) → "엄마 친구 설계사 이모가 무조건 좋다고 해서 들었는데..." (O)
 - 반드시 300자 이상의 리얼한 상황 묘사
@@ -1372,7 +1372,7 @@ ${target}인데 ${insuranceType} 이거 어떻게 해야 하나요?
 ${target}인데 ${insuranceType} 가입했는데 저 호구 잡힌 건가요?
 
 [질문1]
-형님들 급질문요 ㅠㅠ 저 ${target}인데요.
+안녕하세요 ㅠㅠ 급질문 올립니다. 저 ${target}인데요.
 지난달에 지인이 ${insuranceType} 좋다고 해서 월 30만원짜리 사인했어요.
 ${customerConcern}
 아 진짜 이거 눈탱이 맞은 거 맞죠? 밤에 잠이 안 와요 ㅠㅠ
@@ -4500,7 +4500,7 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '17.4', 
+  version: '17.4.1', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
@@ -6112,7 +6112,7 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
       }
     },
     // 버전 정보
-    version: 'V17.4-TargetCentric-EmpathyFirst'
+    version: 'V17.4.1-AgeAppropriate'
   })
 })
 

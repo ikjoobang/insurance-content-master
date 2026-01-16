@@ -3316,7 +3316,167 @@ app.get('/api/naver/keywords', async (c) => {
   return c.json({ keywords })
 })
 
-// Q&A 완전 자동화 API (V11.4 - 선택형 UI 대응)
+// ============================================================
+// V13.0 - Agentic Workflow: 검수(Self-Correction) 시스템
+// 생성 → 검수 → 재생성 Loop 구조
+// ============================================================
+
+// 검수(Audit) 함수 - 4가지 기준으로 콘텐츠 품질 검증
+interface AuditResult {
+  passed: boolean
+  scores: {
+    seoOptimization: number      // SEO 최적화 (키워드 밀도)
+    contextConsistency: number   // 문맥 일치성 (핵심고민 관통)
+    expertDiversity: number      // 전문가 답변 다각화
+    commentRealism: number       // 댓글 현실성
+  }
+  totalScore: number
+  failReasons: string[]
+  suggestions: string[]
+}
+
+function auditQnAContent(params: {
+  customerConcern: string
+  insuranceType: string
+  target: string
+  titles: string[]
+  questions: string[]
+  answers: string[]
+  comments: string[]
+  seoKeywords: string[]
+}): AuditResult {
+  const { customerConcern, insuranceType, target, titles, questions, answers, comments, seoKeywords } = params
+  const failReasons: string[] = []
+  const suggestions: string[] = []
+  
+  // ① SEO 최적화 검증 (C-Rank / D.I.A.+ / Agent N)
+  let seoScore = 100
+  const allContent = [...titles, ...questions, ...answers].join(' ').toLowerCase()
+  const concernLower = customerConcern.toLowerCase()
+  const insuranceLower = insuranceType.toLowerCase()
+  
+  // 핵심 키워드 포함 여부 확인
+  if (!allContent.includes(insuranceLower)) {
+    seoScore -= 30
+    failReasons.push('SEO: 보험종류가 콘텐츠에 충분히 포함되지 않음')
+    suggestions.push(`"${insuranceType}"를 제목/질문/답변에 더 자주 언급하세요`)
+  }
+  
+  // SEO 키워드 밀도 확인 (최소 3개 이상 포함)
+  const keywordHits = seoKeywords.filter(kw => allContent.includes(kw.toLowerCase())).length
+  if (keywordHits < 3) {
+    seoScore -= 20
+    suggestions.push('SEO 키워드를 콘텐츠 전반에 더 배치하세요')
+  }
+  
+  // ② 문맥 일치성 검증 (핵심고민이 답변/댓글까지 관통하는지)
+  let contextScore = 100
+  const concernKeywords = concernLower.split(/[\s,]+/).filter(w => w.length > 1)
+  
+  // 질문에 핵심고민 반영 확인
+  const questionHasConcern = questions.some(q => 
+    concernKeywords.some(kw => q.toLowerCase().includes(kw)) || 
+    q.toLowerCase().includes(concernLower.substring(0, 15))
+  )
+  if (!questionHasConcern && customerConcern.length > 3) {
+    contextScore -= 25
+    failReasons.push('문맥: 질문에 핵심고민이 충분히 반영되지 않음')
+    suggestions.push(`질문에 "${customerConcern.substring(0, 20)}..."를 직접적으로 언급하세요`)
+  }
+  
+  // 답변에 핵심고민 반영 확인
+  const answerHasConcern = answers.some(a => 
+    concernKeywords.some(kw => a.toLowerCase().includes(kw)) ||
+    a.toLowerCase().includes(concernLower.substring(0, 15))
+  )
+  if (!answerHasConcern && customerConcern.length > 3) {
+    contextScore -= 30
+    failReasons.push('문맥: 전문가 답변에 핵심고민이 반영되지 않음')
+    suggestions.push('전문가 답변이 질문의 핵심고민에 직접적으로 답해야 합니다')
+  }
+  
+  // 댓글에 상황 공감 확인
+  const commentHasConcern = comments.some(c => 
+    concernKeywords.some(kw => c.toLowerCase().includes(kw)) ||
+    c.includes('저도') || c.includes('비슷한') || c.includes('공감')
+  )
+  if (!commentHasConcern && customerConcern.length > 3) {
+    contextScore -= 15
+    suggestions.push('댓글이 질문자의 구체적 상황에 공감해야 합니다')
+  }
+  
+  // ③ 전문가 답변 다각화 검증 (3명의 서로 다른 관점)
+  let expertScore = 100
+  
+  // 답변 개수 확인
+  if (answers.length < 3) {
+    expertScore -= 40
+    failReasons.push('전문가: 3개의 서로 다른 전문가 답변이 필요합니다')
+  }
+  
+  // 답변 길이 확인 (최소 300자)
+  const shortAnswers = answers.filter(a => a.length < 300)
+  if (shortAnswers.length > 0) {
+    expertScore -= 15 * shortAnswers.length
+    suggestions.push('전문가 답변은 최소 300자 이상의 상세한 내용이어야 합니다')
+  }
+  
+  // 답변 다양성 확인 (시작 문구가 달라야 함)
+  if (answers.length >= 3) {
+    const firstWords = answers.map(a => a.substring(0, 30))
+    const uniqueStarts = new Set(firstWords).size
+    if (uniqueStarts < 3) {
+      expertScore -= 20
+      suggestions.push('각 전문가 답변의 시작 문구와 관점이 달라야 합니다')
+    }
+  }
+  
+  // CTA(Call to Action) 포함 확인
+  const ctaKeywords = ['댓글', '문의', '연락', '상담', '확인해', '보세요', '주세요', '드릴게요']
+  const answersWithCTA = answers.filter(a => ctaKeywords.some(cta => a.includes(cta)))
+  if (answersWithCTA.length < 2) {
+    expertScore -= 15
+    suggestions.push('전문가 답변에 구체적인 행동 유도(CTA)를 포함하세요')
+  }
+  
+  // ④ 댓글 현실성 검증 (단순 칭찬 금지, 경험담 위주)
+  let commentScore = 100
+  
+  // 댓글 개수 확인
+  if (comments.length < 3) {
+    commentScore -= 30
+    failReasons.push('댓글: 최소 3개의 댓글이 필요합니다')
+  }
+  
+  // 단순 칭찬 댓글 감지
+  const simplePraise = ['좋은 정보', '감사합니다', '좋은 글', '잘 읽었', '유익한']
+  const praiseOnlyComments = comments.filter(c => 
+    simplePraise.some(p => c.includes(p)) && c.length < 50
+  )
+  if (praiseOnlyComments.length > 1) {
+    commentScore -= 20
+    suggestions.push('단순 칭찬 댓글 대신 경험담이나 구체적 공감 댓글로 작성하세요')
+  }
+  
+  // 총점 계산
+  const totalScore = Math.round((seoScore + contextScore + expertScore + commentScore) / 4)
+  const passed = totalScore >= 70 && failReasons.length === 0
+  
+  return {
+    passed,
+    scores: {
+      seoOptimization: seoScore,
+      contextConsistency: contextScore,
+      expertDiversity: expertScore,
+      commentRealism: commentScore
+    },
+    totalScore,
+    failReasons,
+    suggestions
+  }
+}
+
+// Q&A 완전 자동화 API (V13.0 - Agentic Workflow)
 app.post('/api/generate/qna-full', async (c) => {
   const { target: inputTarget, tone: inputTone, insuranceType: inputInsuranceType, concern, generateDesign } = await c.req.json()
   
@@ -3679,56 +3839,62 @@ ${insuranceType && insuranceType !== '종합보험' ? `
 [핵심] ${hasKeyword ? `"${customerConcern}"` : '고민'}에 대한 명확한 해결책 제시
 
 ==========================================================
-【 PART 1: 제목 생성 규칙 】
+【 PART 1: 제목 생성 규칙 - 2개 생성! 】
 ==========================================================
 
-📌 제목 키워드 랜덤 선택 (매번 다르게!):
-- 이번 제목용 클릭 키워드: "${clickBait1}" 또는 "${clickBait2}" 또는 "${clickBait3}" 중 하나 사용
+📌 서로 다른 스타일의 어그로성 제목 2개 생성!
+- 제목1 클릭 키워드: "${clickBait1}"
+- 제목2 클릭 키워드: "${clickBait2}" (제목1과 다른 키워드!)
 
-제목 예시 (핵심고민 + 클릭키워드):
-- "${hasKeyword ? customerConcern.slice(0, 15) : insuranceType} ${clickBait1} 당한 건가요?"
-- "${questioner1.age} ${questioner1.job}인데 ${clickBait2} 아닌지 봐주세요"
-- "${insuranceType} 이거 ${clickBait3}인 거 맞나요?"
+★★★ [제목1] 직접적 호소형 ★★★
+- 스타일: 질문자가 급박하게 호소하는 느낌
+- 예시: "${hasKeyword ? customerConcern.slice(0, 15) : insuranceType} ${clickBait1} 당한 건가요?"
+- 반드시 핵심고민("${customerConcern.substring(0, 20)}") 또는 "${insuranceType}" 포함!
 
-※ 의문문(?)으로 끝, 15-35자
+★★★ [제목2] 충격/걱정형 ★★★
+- 스타일: 뉴스나 경험에서 본 충격적인 사실로 시작
+- 예시: "${insuranceType} 이거 ${clickBait2}인 거 맞나요? ${target}인데 걱정되서요"
+- 제목1과 완전히 다른 톤!
+
+※ 의문문(?)으로 끝, 15-35자, 핵심고민 반영 필수!
 
 ==========================================================
-【 PART 2: 질문 생성 - 같은 타깃, 다른 상황! 】
+【 PART 2: 질문 생성 - 3개 생성! (각기 다른 화자) 】
 ==========================================================
 
-🚨 중요: 질문1, 질문2 모두 "${target}" 타깃 고객 기준!
-- 타깃: ${persona.ageNum}세 ${persona.gender} ${persona.occupation}
-- 핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'}
+🚨 중요: 3명의 서로 다른 화자가 같은 핵심고민으로 질문!
+- 공통 핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'} ← 반드시 3개 모두 이 고민 포함!
+- 공통 보험종류: "${insuranceType}" ← 반드시 3개 모두 언급!
 
-★★★ [질문1] ★★★
-■ 질문자: ${persona.ageNum}세 ${persona.gender} ${persona.occupation}
+★★★ [질문1] 화자A: ${questioner1.age} ${questioner1.gender} ${questioner1.job} ★★★
 ■ 상황: "${scenario1.situation}" - "${scenario1.trigger}"
+■ 말투: ${questioner1.style}
 ■ 핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'}
+■ 구체적 사연: 설계사 제안을 받은 상황, 월 보험료 X만원, 가입 Y년차
 
-★★★ [질문2] (같은 사람, 다른 계기로 질문!) ★★★
-■ 질문자: ${persona.ageNum}세 ${persona.gender} ${persona.occupation} ← 같은 타깃!
-■ 상황: "${scenario2.situation}" - "${scenario2.trigger}" ← 다른 계기!
-■ 핵심 고민: ${hasKeyword ? `"${customerConcern}" (같은 고민)` : '자동 생성'}
+★★★ [질문2] 화자B: ${questioner2.age} ${questioner2.gender} ${questioner2.job} ★★★
+■ 상황: "${scenario2.situation}" - "${scenario2.trigger}"
+■ 말투: ${questioner2.style}
+■ 핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'} (같은 고민!)
+■ 구체적 사연: 유튜브/블로그에서 정보를 보고 혼란스러운 상황
 
-### 질문1 상황: "${scenario1.situation}"
-- 시작: "${scenario1.trigger}"
-- 끝: "${scenario1.ending}"
-
-### 질문2 상황: "${scenario2.situation}" (질문1과 완전히 다른 상황!)
-- 시작: "${scenario2.trigger}"
-- 끝: "${scenario2.ending}"
+★★★ [질문3] 화자C: ${persona.ageNum}세 ${persona.gender} ${persona.occupation} ★★★
+■ 상황: 건강검진 결과나 주변 사고 소식을 듣고 걱정
+■ 말투: 걱정 많음, 상세 질문
+■ 핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'} (같은 고민!)
+■ 구체적 사연: 가족/지인의 경험담을 듣고 불안해진 상황
 
 ### 질문 본문 필수 요소 (우선순위대로!):
-1순위: ${hasKeyword ? `핵심 고민 "${customerConcern}" ← 질문의 중심 주제!` : '타깃에 맞는 현실적 고민'}
-2순위: 자기소개 - "${persona.ageNum}세 ${persona.gender} ${persona.occupation}"
-3순위: ${insuranceType !== '종합보험' ? `보험 종류 "${insuranceType}" 언급` : '고민에 맞는 보험 자연스럽게'}
-4순위: 구체적 상황 (월 보험료, 가입 기간, 설계사 말 등)
+1순위: 핵심 고민 "${customerConcern}" ← 질문의 중심 주제! 반드시 문장에 포함!
+2순위: 보험 종류 "${insuranceType}" ← 반드시 언급!
+3순위: 자기소개 (나이/직업/상황)
+4순위: 구체적 숫자 (월 보험료, 가입 기간, 해지환급금 등)
 5순위: 마무리 - "쪽지 사절이요, 댓글로 조언 부탁드립니다"
 
 ※ 전화번호 절대 금지! / 200-350자
 
 【 질문자 톤앤매너 】
-- ${persona.gender === '여성' ? '여성스러운 말투로' : '남성스러운 말투로'}, 예의 바르지만 다급하고 답답한 심경
+- 각 화자마다 다른 말투 (캐주얼/현실적/걱정많음 등)
 - 전화번호: 절대 포함 금지!
 - 마무리: "쪽지 사절이요, 댓글로 공개 답변 부탁드립니다" 또는 "조언 부탁드려요"
 
@@ -3736,37 +3902,50 @@ ${insuranceType && insuranceType !== '종합보험' ? `
 【 PART 3: 전문가 답변 생성 규칙 】
 ==========================================================
 
-### 전문가 역할
-20년 경력 보험 전문가. 어려운 내용도 초보자가 이해할 수 있게 쉽게 설명.
+### 전문가 역할 - 3-Way Expert View (영업 상담 관점!)
+🚨 핵심: 모든 전문가는 "${customerConcern}"에 대해 답해야 함!
+🚨 핵심: 모든 답변에 "${insuranceType}" 언급 필수!
 
-### ⭐ 답변의 핵심 (우선순위!) ⭐
 ############################################################
-#     ⭐ 3명의 전문가가 각각 다른 관점으로 답변! ⭐          #
+#  ⭐ 3명의 전문가 = 3가지 영업 관점 (디테일한 상담!) ⭐     #
 ############################################################
 
-★★★ [답변1] 전문가 A: ${expert1.type} ★★★
-■ 스타일: ${expert1.style}
-■ 초점: ${expert1.focus}
-■ 시작 멘트 예시: "${expert1.opening}"
-■ 핵심: ${hasKeyword ? `"${customerConcern}"` : '질문'}에 대해 ${expert1.focus} 관점으로 답변
+★★★ [답변1] 전문가 A: 팩트형 (약관/수치 분석가) ★★★
+■ 역할: 약관과 수치 중심의 냉철한 분석
+■ 핵심 고민: "${customerConcern}"에 대한 팩트 기반 답변
+■ 필수 포함: 
+  - "${insuranceType}"의 구체적 약관 내용
+  - 숫자/통계 (보험료, 환급금, 보장금액 등)
+  - 2026년 기준 최신 정보
+■ 시작 멘트: "객관적으로 말씀드리면..." 또는 "약관 기준으로 보면..."
+■ CTA: "증권 사진 올려주시면 정확히 분석해드릴게요"
 
-★★★ [답변2] 전문가 B: ${expert2.type} ★★★
-■ 스타일: ${expert2.style}
-■ 초점: ${expert2.focus}
-■ 시작 멘트 예시: "${expert2.opening}"
-■ 핵심: 같은 고민, 완전히 다른 관점 (${expert2.focus})으로 답변
+★★★ [답변2] 전문가 B: 공감/영업형 (심리적 위로 + 대안 제시) ★★★
+■ 역할: 심리적 위로와 현실적 대안 제시 (가입 유도!)
+■ 핵심 고민: "${customerConcern}"에 공감하며 해결책 제시
+■ 필수 포함:
+  - 질문자 상황에 대한 깊은 공감
+  - "${insuranceType}" 관련 현실적 대안 2-3가지
+  - 가입/유지/변경 중 적합한 선택지 제안
+■ 시작 멘트: "많이 걱정되셨죠? 충분히 이해해요..." 또는 "제가 딱 그 상황 봐왔는데요..."
+■ CTA: "댓글로 상황 더 알려주시면 맞춤 설계 도와드릴게요"
 
-★★★ [답변3] 전문가 C: ${expert3.type} ★★★
-■ 스타일: ${expert3.style}
-■ 초점: ${expert3.focus}
-■ 시작 멘트 예시: "${expert3.opening}"
-■ 핵심: 또 다른 관점 (${expert3.focus})으로 실용적 조언
+★★★ [답변3] 전문가 C: 비교/분석형 (타사/과거 상품 비교) ★★★
+■ 역할: 타사 상품 또는 과거 상품과의 비교 우위 설명
+■ 핵심 고민: "${customerConcern}"을 다른 상품들과 비교하며 설명
+■ 필수 포함:
+  - "${insuranceType}" vs 다른 선택지 비교
+  - 2020년형 vs 2026년형 차이점
+  - 보험사별 장단점 (구체적 언급)
+■ 시작 멘트: "비교해서 말씀드리면..." 또는 "다른 분들 케이스를 보면..."
+■ CTA: "현재 보험과 신규 상품 비교표 만들어드릴까요?"
 
-### 답변 공통 구조:
-1. 공감 한 문장
-2. ${hasKeyword ? `"${customerConcern}"` : '질문'}에 대한 답 (각 전문가 관점으로!)
-3. 실용적 조언 2-3개 (✅⚠️💡)
-4. 행동 유도 ("댓글로 ~~ 주시면 분석해드릴게요")
+### 답변 공통 필수 사항 (검수 기준!):
+1. ✅ 핵심 고민 "${customerConcern}" 직접 언급 (필수!)
+2. ✅ 보험 종류 "${insuranceType}" 최소 2회 언급 (필수!)
+3. ✅ 각 전문가별 다른 시작 문구 (필수!)
+4. ✅ 구체적 CTA - 행동 유도 (필수!)
+5. ✅ 500-700자 분량 (필수!)
 
 ### 가독성: 4줄 이상 뭉침 금지, **볼드** 활용, 이모지 적당히
 
@@ -3792,62 +3971,75 @@ ${insuranceType && insuranceType !== '종합보험' ? `
 - "이렇게 명쾌하게 설명해주시는 분 처음 봤어요"
 
 ==========================================================
-【 출력 형식 - [태그]와 내용만 출력! 구분선/설명문 출력 금지! 】
+【 V13.0 출력 형식 - 제목 2개, 질문 3개! 】
+==========================================================
 
-[제목]
-★★★ 질문자가 직접 쓴 제목처럼! 정보글 제목 금지! ★★★
-- 반드시 "~인데", "~거든요", "~건가요?", "~일까요?", "~맞나요?" 같은 질문자 말투 사용
-- 클릭유도 키워드(호구/손해/해지/충격/거절/폭탄/함정/후회) 1개 포함
-- 15-30자, 의문문(?)으로 끝남
+※ 중요: [태그]와 내용만 출력! 구분선/설명문 출력 금지!
+※ 핵심: "${customerConcern}"과 "${insuranceType}"이 모든 콘텐츠에 관통해야 함!
 
-❌ 나쁜 예 (정보글 스타일 - 금지!):
-- "${insuranceType}, 갱신 폭탄 피하는 법?" 
-- "${insuranceType} 가입 전 필수 체크리스트"
+[제목1]
+직접적 호소형 제목 (클릭 키워드: ${clickBait1})
+- 반드시 "${insuranceType}" 또는 "${customerConcern.substring(0, 15)}" 포함!
+- 예: "${target}인데 ${insuranceType} 이거 ${clickBait1} 당한 건가요?"
 
-✅ 좋은 예 (질문자 스타일 - 이렇게!):
-- "${target}인데 ${insuranceType} 이거 호구 잡힌 건가요?"
-- "설계사가 해지하라는데 손해 보는 거 아닐까요?"
-- "${insuranceType} 갱신 폭탄 맞은 건가요? 도와주세요"
-- "저 ${insuranceType} 가입했는데 후회될까요?"
+[제목2]
+충격/걱정형 제목 (클릭 키워드: ${clickBait2})
+- 제목1과 다른 톤!
+- 예: "${insuranceType} ${clickBait2} 맞나요? 걱정되서 글 올립니다"
 
 [질문1]
-질문자: ${persona.ageNum}세 ${persona.gender} ${persona.occupation} ← 타깃 고객!
-상황: "${scenario1.trigger}..."
-핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'}
-(200-350자, 전화번호 금지, 마지막: "쪽지 사절이요, 댓글로 조언 부탁드립니다")
+화자A: ${questioner1.age} ${questioner1.gender} ${questioner1.job}
+상황: "${scenario1.trigger}"
+핵심 고민: "${customerConcern}" ← 반드시 문장에 포함!
+보험종류: "${insuranceType}" ← 반드시 언급!
+(200-350자, 전화번호 금지, 구체적 숫자 포함)
 
 [질문2]
-질문자: ${persona.ageNum}세 ${persona.gender} ${persona.occupation} ← 같은 타깃!
-상황: "${scenario2.trigger}..." ← 다른 계기!
-핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'}
-(200-350자, 전화번호 금지, 마지막: "고수님들 도와주세요!")
+화자B: ${questioner2.age} ${questioner2.gender} ${questioner2.job}
+상황: "${scenario2.trigger}"
+핵심 고민: "${customerConcern}" ← 같은 고민!
+보험종류: "${insuranceType}" ← 반드시 언급!
+(200-350자, 완전히 다른 사연)
+
+[질문3]
+화자C: ${persona.ageNum}세 ${persona.gender} ${persona.occupation}
+상황: 건강검진/주변 사고 소식 후 걱정
+핵심 고민: "${customerConcern}" ← 같은 고민!
+보험종류: "${insuranceType}" ← 반드시 언급!
+(200-350자, 또 다른 구체적 사연)
 
 [답변1]
-전문가A: ${expert1.type}
-관점: ${expert1.focus}
-시작: "${expert1.opening}"
-(같은 고민에 대해 ${expert1.style}로 답변, 500-700자)
+전문가A: 팩트형 (약관/수치 분석가)
+핵심 고민: "${customerConcern}"에 대한 팩트 기반 답변
+보험종류: "${insuranceType}" 최소 2회 언급!
+시작: "객관적으로 말씀드리면..."
+(500-700자, 숫자/통계 포함, CTA 필수)
 
 [답변2]
-전문가B: ${expert2.type} ← 완전히 다른 관점!
-관점: ${expert2.focus}
-시작: "${expert2.opening}"
-(같은 고민에 대해 ${expert2.style}로 답변, 500-700자)
+전문가B: 공감/영업형 (심리적 위로 + 대안)
+핵심 고민: "${customerConcern}"에 공감하며 답변
+보험종류: "${insuranceType}" 최소 2회 언급!
+시작: "많이 걱정되셨죠?..."
+(500-700자, 대안 제시, 가입 유도 CTA)
 
 [답변3]
-전문가C: ${expert3.type} ← 또 다른 관점!
-관점: ${expert3.focus}
-시작: "${expert3.opening}"
-(같은 고민에 대해 ${expert3.style}로 답변, 500-700자)
+전문가C: 비교/분석형 (타사/과거 상품 비교)
+핵심 고민: "${customerConcern}"을 비교 관점에서 답변
+보험종류: "${insuranceType}" 최소 2회 언급!
+시작: "비교해서 말씀드리면..."
+(500-700자, 타사/과거 상품 비교, 비교표 제안 CTA)
 
 [댓글1]
-(공감형 40-80자)
+공감형 - 질문자의 "${customerConcern}" 상황에 공감하는 경험담
+(40-100자, 단순 칭찬 금지! 구체적 경험 공유)
 
 [댓글2]
-(사이다형 40-80자)
+사이다형 - 전문가 답변을 뒷받침하는 정보 제공
+(40-100자, "${insuranceType}" 관련 실제 경험)
 
 [댓글3]
-(질문형 40-80자)
+질문형 - 비슷한 상황의 추가 질문
+(40-100자, "${customerConcern}"과 연관된 파생 질문)
 
 ==========================================================
 【 PART 5: 자가진단 (SEO 최적화 검수) 】
@@ -3897,9 +4089,16 @@ ${insuranceType && insuranceType !== '종합보험' ? `
       .trim()
   }
   
+  // V13.0: 제목 2개, 질문 3개 파싱
+  const title1Match = qnaResult.match(/\[제목1\]([\s\S]*?)(?=\[제목2\])/i)
+  const title2Match = qnaResult.match(/\[제목2\]([\s\S]*?)(?=\[질문1\])/i)
+  // 기존 [제목] 태그 호환성 유지
   const titleMatch = qnaResult.match(/\[제목\]([\s\S]*?)(?=\[질문1\])/i)
+  
   const question1Match = qnaResult.match(/\[질문1\]([\s\S]*?)(?=\[질문2\])/i)
-  const question2Match = qnaResult.match(/\[질문2\]([\s\S]*?)(?=\[답변1\])/i)
+  const question2Match = qnaResult.match(/\[질문2\]([\s\S]*?)(?=\[질문3\]|\[답변1\])/i)
+  const question3Match = qnaResult.match(/\[질문3\]([\s\S]*?)(?=\[답변1\])/i)
+  
   const answer1Match = qnaResult.match(/\[답변1\]([\s\S]*?)(?=\[답변2\])/i)
   const answer2Match = qnaResult.match(/\[답변2\]([\s\S]*?)(?=\[답변3\])/i)
   const answer3Match = qnaResult.match(/\[답변3\]([\s\S]*?)(?=\[댓글1\])/i)
@@ -3915,19 +4114,26 @@ ${insuranceType && insuranceType !== '종합보험' ? `
   const optimizedTitle2Match = qnaResult.match(/\[최적화제목2\]([\s\S]*?)(?=\[강조포인트\])/i)
   const selfDiagnosisMatch = qnaResult.match(/\[자가진단결과\]([\s\S]*?)$/i)
   
-  // 제목 추출 (의문문 확인) - 구분선 제거
-  let generatedTitle = titleMatch 
-    ? removeSeparators(cleanText(titleMatch[1].trim()))
-    : `${target} ${insuranceType} 이거 호구 잡힌 건가요?`
-  // 의문문이 아니면 ? 추가
-  if (!generatedTitle.endsWith('?')) {
-    generatedTitle = generatedTitle.replace(/[.!]?$/, '?')
-  }
+  // V13.0: 제목 2개 추출
+  let generatedTitle1 = title1Match 
+    ? removeSeparators(cleanText(title1Match[1].trim()))
+    : (titleMatch ? removeSeparators(cleanText(titleMatch[1].trim())) : `${target}인데 ${insuranceType} 이거 ${clickBait1} 당한 건가요?`)
+  let generatedTitle2 = title2Match 
+    ? removeSeparators(cleanText(title2Match[1].trim()))
+    : `${insuranceType} ${clickBait2} 맞나요? 걱정돼서 글 올립니다`
   
-  // 질문 2개 추출 (전화번호 제외)
+  // 의문문이 아니면 ? 추가
+  if (!generatedTitle1.endsWith('?')) generatedTitle1 = generatedTitle1.replace(/[.!]?$/, '?')
+  if (!generatedTitle2.endsWith('?')) generatedTitle2 = generatedTitle2.replace(/[.!]?$/, '?')
+  
+  // 기존 호환성 유지
+  const generatedTitle = generatedTitle1
+  
+  // V13.0: 질문 3개 추출 (전화번호 제외)
   const questions = [
-    question1Match ? cleanText(question1Match[1].trim()) : `안녕하세요. ${target}인데 ${insuranceType} 관련해서 질문이 있어요. ${customerConcern} 설계사분이 리모델링 제안하셨는데 이게 맞는 건지 모르겠어요. 쪽지 사절이요, 댓글로 조언 부탁드립니다.`,
-    question2Match ? cleanText(question2Match[1].trim()) : `${target}인데요. 유튜브에서 ${insuranceType} 관련 영상 보고 혼란스러워서 글 올립니다. ${customerConcern} 기존 보험 해지하고 새로 가입하라는데 손해 보는 거 아닌가요? 고수님들 도와주세요!`
+    question1Match ? cleanText(question1Match[1].trim()) : `안녕하세요. ${questioner1.age} ${questioner1.gender} ${questioner1.job}입니다. ${insuranceType} 관련해서 질문이 있어요. ${customerConcern} 설계사분이 리모델링 제안하셨는데 이게 맞는 건지 모르겠어요. 월 보험료가 8만원인데 적당한 건지... 쪽지 사절이요, 댓글로 조언 부탁드립니다.`,
+    question2Match ? cleanText(question2Match[1].trim()) : `${questioner2.age} ${questioner2.gender} ${questioner2.job}입니다. 유튜브에서 ${insuranceType} 관련 영상 보고 혼란스러워서 글 올립니다. ${customerConcern} 기존 보험 해지하고 새로 가입하라는데 손해 보는 거 아닌가요? 고수님들 도와주세요!`,
+    question3Match ? cleanText(question3Match[1].trim()) : `${persona.ageNum}세 ${persona.gender} ${persona.occupation}입니다. 최근에 건강검진 받고 좀 걱정이 생겼어요. ${customerConcern} ${insuranceType}이 지금 상태로 충분한지 모르겠네요. 조언 부탁드립니다.`
   ].filter(q => q.length > 30)
   
   // 답변 3개 추출
@@ -4168,21 +4374,35 @@ ${insuranceType && insuranceType !== '종합보험' ? `
     ? cleanText(hashtagMatch[1].trim()) 
     : `#${insuranceType.replace(/\s/g, '')} #${target}보험 #보험추천 #${coreKeywords[0].replace(/\s/g, '')} #보험상담`
 
-  // V9.5: 질문 2개, 답변 3개, 댓글 5개, 해시태그 반환
+  // V13.0: 검수 시스템 실행
+  const auditResult = auditQnAContent({
+    customerConcern,
+    insuranceType,
+    target,
+    titles: [generatedTitle1, generatedTitle2],
+    questions,
+    answers,
+    comments,
+    seoKeywords
+  })
+  
+  // V13.0: 제목 2개, 질문 3개, 답변 3개, 댓글 3개, 해시태그 반환
   return c.json({
     keywords: coreKeywords,
-    title: generatedTitle,
+    // V13.0: 제목 2개
+    title: generatedTitle1,  // 메인 제목 (호환성)
+    titles: [generatedTitle1, generatedTitle2],  // 제목 2개 배열
     // 해시태그 (핵심 고민 반영)
     hashtags: generatedHashtags,
-    // 질문 2개 (각각 복사 가능)
+    // V13.0: 질문 3개 (각각 복사 가능)
     questions: questions,
-    question: questions[0] || `안녕하세요. ${target}인데 ${insuranceType} 관련 질문이 있어요. 좋은 설계사분 추천 부탁드려요.`,
-    // 답변 3개 (각각 복사 가능) 
+    question: questions[0] || `안녕하세요. ${target}인데 ${insuranceType} 관련 질문이 있어요. ${customerConcern} 좋은 설계사분 추천 부탁드려요.`,
+    // 답변 3개 (각각 복사 가능) - 3-Way Expert View
     answers: answers,
     answer: answers[0] || `${insuranceType}에 대해 답변드립니다.`,
     // 강조 포인트
     highlights: highlights,
-    // 댓글 5개 (각각 복사 가능)
+    // 댓글 3개 (각각 복사 가능) - 경험담 위주
     comments: comments,
     // 설계서 데이터
     designHtml: designHtml,
@@ -4231,7 +4451,17 @@ ${insuranceType && insuranceType !== '종합보험' ? `
       finalReason: autoNeedRegenerate 
         ? '자동검증: 핵심고민 또는 보험종류가 콘텐츠에 충분히 반영되지 않았습니다.'
         : (selfDiagnosis.needRegenerate ? selfDiagnosis.reason : '')
-    }
+    },
+    // V13.0: 검수(Audit) 시스템 결과
+    audit: {
+      passed: auditResult.passed,
+      totalScore: auditResult.totalScore,
+      scores: auditResult.scores,
+      failReasons: auditResult.failReasons,
+      suggestions: auditResult.suggestions
+    },
+    // 버전 정보
+    version: 'V13.0-Agentic'
   })
 })
 

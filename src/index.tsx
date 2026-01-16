@@ -5234,25 +5234,35 @@ app.post('/api/generate/qna-full', async (c) => {
     return c.json({ error: 'API key not configured' }, 500)
   }
   
-  // ========== V18.4: Gemini API로 랜덤 직업 생성 ==========
+  // ========== V23.1: 사용자 입력 TARGET 우선 사용 ==========
+  // 핵심 수정: 사용자가 구체적인 target을 입력하면 그대로 사용
+  // 연령대만 입력한 경우(예: "30대", "40대")에만 직업 추가
   let target = inputTarget || '30대'
   const inputAgeMatch = target.match(/(20대|30대|40대|50대|60대)/)
   const ageGroup = inputAgeMatch ? inputAgeMatch[1] : '30대'
   
-  // 연령대별 직업 풀 (Gemini가 이 중에서 랜덤 선택하도록 유도)
-  const occupationPools: Record<string, string> = {
-    '20대': '사회초년생, 대학생, 취준생, 프리랜서, 스타트업직원, 공무원준비생, 대학원생, 인턴, 계약직, 알바생',
-    '30대': '직장인, 프리랜서, 신혼부부, 자영업자, 육아맘, IT개발자, 공무원, 영업직, 맞벌이, 워킹맘, 1인가구',
-    '40대': '가장, 직장인, 자영업자, 프리랜서, 맞벌이부부, 중간관리자, 사업가, 학부모, 외벌이, 투잡러',
-    '50대': '은퇴준비, 자영업자, 직장인, 1인사업자, 프리랜서, 경력단절, 조기퇴직, 귀농준비, 재취업, 빈둥지',
-    '60대': '은퇴자, 연금생활자, 자영업자, 재취업, 귀농귀촌, 손주돌봄, 시니어창업, 건강관리'
-  }
+  // V23.1: 구체적인 타겟 키워드가 있는지 확인
+  const specificTargetKeywords = ['직장인', '자영업자', '공무원', '프리랜서', '워킹맘', '육아맘', '1인가구', '취준생', '맞벌이', '신혼부부', '은퇴자', '연금생활자', '대학생', '사회초년생', '주부', '가장', '학부모', '외벌이']
+  const hasSpecificTarget = specificTargetKeywords.some(keyword => target.includes(keyword))
   
-  const poolForAge = occupationPools[ageGroup] || occupationPools['30대']
-  const randomSeed = Date.now() % 1000  // 랜덤 시드
-  
-  try {
-    const occupationPrompt = `${ageGroup}가 ${insuranceType}에 대해 네이버 카페에 질문합니다.
+  // 사용자가 구체적인 타겟을 입력하지 않은 경우에만 직업 생성
+  if (!hasSpecificTarget) {
+    console.log(`[V23.1] 타겟에 구체적 키워드 없음(${target}), 직업 생성 시작...`)
+    
+    // 연령대별 직업 풀
+    const occupationPools: Record<string, string> = {
+      '20대': '사회초년생, 대학생, 취준생, 프리랜서, 스타트업직원, 공무원준비생, 대학원생, 인턴, 계약직, 알바생',
+      '30대': '직장인, 프리랜서, 신혼부부, 자영업자, 육아맘, IT개발자, 공무원, 영업직, 맞벌이, 워킹맘, 1인가구',
+      '40대': '가장, 직장인, 자영업자, 프리랜서, 맞벌이부부, 중간관리자, 사업가, 학부모, 외벌이, 투잡러',
+      '50대': '은퇴준비, 자영업자, 직장인, 1인사업자, 프리랜서, 경력단절, 조기퇴직, 귀농준비, 재취업, 빈둥지',
+      '60대': '은퇴자, 연금생활자, 자영업자, 재취업, 귀농귀촌, 손주돌봄, 시니어창업, 건강관리'
+    }
+    
+    const poolForAge = occupationPools[ageGroup] || occupationPools['30대']
+    const randomSeed = Date.now() % 1000
+    
+    try {
+      const occupationPrompt = `${ageGroup}가 ${insuranceType}에 대해 네이버 카페에 질문합니다.
 아래 직업 목록에서 무작위로 하나만 선택해서 출력하세요.
 
 직업 목록: ${poolForAge}
@@ -5265,16 +5275,19 @@ app.post('/api/generate/qna-full', async (c) => {
 
 출력:`
 
-    const generatedOccupation = await callGeminiAPI(occupationPrompt, geminiKeys)
-    const cleanOccupation = generatedOccupation.replace(/["\n\r:]/g, '').trim().slice(0, 10)
-    target = `${ageGroup} ${cleanOccupation}`
-    console.log(`[V18.4] Gemini 생성 직업: ${target}`)
-  } catch (e) {
-    // API 실패 시 목록에서 랜덤 선택
-    const fallbackList = poolForAge.split(', ')
-    const randomOccupation = fallbackList[Math.floor(Math.random() * fallbackList.length)]
-    target = `${ageGroup} ${randomOccupation}`
-    console.log(`[V18.4] 직업 생성 실패, 랜덤 선택: ${target}`)
+      const generatedOccupation = await callGeminiAPI(occupationPrompt, geminiKeys)
+      const cleanOccupation = generatedOccupation.replace(/["\n\r:]/g, '').trim().slice(0, 10)
+      target = `${ageGroup} ${cleanOccupation}`
+      console.log(`[V23.1] Gemini 생성 직업: ${target}`)
+    } catch (e) {
+      // API 실패 시 목록에서 랜덤 선택
+      const fallbackList = poolForAge.split(', ')
+      const randomOccupation = fallbackList[Math.floor(Math.random() * fallbackList.length)]
+      target = `${ageGroup} ${randomOccupation}`
+      console.log(`[V23.1] 직업 생성 실패, 랜덤 선택: ${target}`)
+    }
+  } else {
+    console.log(`[V23.1] 사용자 입력 타겟 그대로 사용: ${target}`)
   }
   
   // 1. 네이버 키워드 분석
@@ -6187,34 +6200,134 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
     
     // V23.0: TARGET 즉시 검증 - API 응답에서 잘못된 타겟이 나오면 강제로 폴백 재생성
     const titleCheck = qnaResult.match(/\[제목1\][\s\S]*?(?=\[제목2\])/i)?.[0] || ''
-    const wrongTargetPatterns = ['30대', '40대', '50대', '60대', '직장인', '자영업자', '공무원', '프리랜서', '워킹맘', '육아맘', '1인가구']
+    const questionCheck = qnaResult.match(/\[질문1\][\s\S]*?(?=\[질문2\])/i)?.[0] || ''
+    const wrongTargetPatterns = ['30대', '40대', '50대', '60대', '직장인', '자영업자', '공무원', '프리랜서', '워킹맘', '육아맘', '1인가구', '취준생', '맞벌이']
     const inputTargetLower = effectiveTarget.toLowerCase()
     
     let targetMismatch = false
+    let detectedWrongTarget = ''
     for (const wrongPattern of wrongTargetPatterns) {
       // 사용자가 입력한 target에 없는 패턴이 출력에 있으면 불일치
       if (!inputTargetLower.includes(wrongPattern.toLowerCase()) && 
-          titleCheck.toLowerCase().includes(wrongPattern.toLowerCase())) {
+          (titleCheck.toLowerCase().includes(wrongPattern.toLowerCase()) ||
+           questionCheck.toLowerCase().includes(wrongPattern.toLowerCase()))) {
         console.log(`[V23.0 TARGET 불일치!] 입력: "${effectiveTarget}", 출력에 "${wrongPattern}" 발견 - 폴백 강제 사용`)
         targetMismatch = true
+        detectedWrongTarget = wrongPattern
         break
       }
     }
     
-    // TARGET 불일치 시 폴백 템플릿으로 강제 교체
+    // TARGET 불일치 시 폴백 템플릿으로 직접 교체 (V23.0 핵심!)
     if (targetMismatch) {
-      console.log(`[V23.0] 폴백 템플릿 강제 사용 - TARGET: ${effectiveTarget}`)
-      // 폴백 호출 시 target을 명시적으로 전달하여 올바른 출력 보장
-      qnaResult = await generateContentWithStrategy(
-        insuranceType,
-        customerConcern,
-        effectiveTarget,
-        strategy,
-        '[FORCE_FALLBACK] TARGET 불일치로 폴백 강제 사용',
-        [], // 빈 API 키로 폴백 강제
-        tone,
-        photoContext
-      )
+      console.log(`[V23.0] 폴백 템플릿 직접 생성 - TARGET: ${effectiveTarget}, 잘못된 타겟: ${detectedWrongTarget}`)
+      
+      // 폴백 템플릿 직접 생성 (API 호출 없이)
+      const targetNickname = effectiveTarget.match(/(\d+)대/) ? `${effectiveTarget.match(/(\d+)대/)?.[0]}님` : `${effectiveTarget}님`
+      const friendlyTitleTemplates = [
+        `${effectiveTarget}인데 ${customerConcern.substring(0, 20)}... 어떻게 해야 하나요?`,
+        `${insuranceType} 때문에 고민이에요 ㅠㅠ ${effectiveTarget}입니다?`,
+        `${effectiveTarget} ${insuranceType} 질문이요! ${customerConcern.substring(0, 15)}...?`,
+        `혹시 ${insuranceType} 아시는 분? ${effectiveTarget}인데 ${customerConcern.substring(0, 12)} 고민중이에요?`,
+        `${effectiveTarget}인데 ${insuranceType} 이거 맞나요? 조언 부탁드려요?`,
+        `${insuranceType} 고민 글이에요... ${effectiveTarget}입니다 ㅠㅠ?`,
+        `${effectiveTarget} ${insuranceType} 도움 요청합니다! ${customerConcern.substring(0, 12)}?`
+      ]
+      const friendlyTitle1 = friendlyTitleTemplates[Math.floor(Math.random() * friendlyTitleTemplates.length)]
+      const friendlyTitle2 = friendlyTitleTemplates[Math.floor(Math.random() * friendlyTitleTemplates.length)]
+      
+      qnaResult = `[제목1]
+${friendlyTitle1}
+
+[제목2]
+${friendlyTitle2}
+
+[질문1]
+안녕하세요~ ${effectiveTarget}이에요 :)
+${customerConcern}
+요즘 ${insuranceType} 때문에 고민이 많아요 ㅠㅠ
+유튜브도 보고 블로그도 찾아봤는데 너무 어렵더라구요.
+비슷한 경험 있으신 분들 조언 좀 부탁드려요~
+쪽지 사절이에요, 댓글로 편하게 답변 주시면 감사하겠습니다!
+
+[질문2]
+안녕하세요~ 저도 ${effectiveTarget}이에요!
+${insuranceType} 가입 전에 이것저것 알아보고 있는데요.
+${customerConcern}
+설계사한테 들은 건 있는데 진짜인지 모르겠어서요...
+경험자분들 이야기 좀 들려주세요~ 어떤 거 보고 결정하셨어요?
+
+[질문3]
+${effectiveTarget}인데 예전에 가입한 ${insuranceType}이 있어요.
+${customerConcern}
+갱신 때마다 보험료가 오르니까 이거 유지해야 하나 고민이에요.
+해지하고 새로 드는 게 나을까요? 비슷한 경험 있으신 분 계신가요?
+
+[답변1]
+아이고~ ${targetNickname} 밤잠 설치셨구나 ㅠㅠ
+저도 그 마음 너무 잘 알아요. ${insuranceType} 진짜 어렵죠?
+${customerConcern} 상황이시라면 먼저 마음 편히 가지세요 :)
+${insuranceType}은 복잡해 보이지만 핵심만 알면 쉬워요.
+일단 지금 가장 중요한 건 '비갱신형' 특약이 있는지 확인하는 거예요.
+2026년 기준으로 이게 있으면 나중에 보험료 폭등 걱정이 없어요.
+증권 사진 올려주시면 같이 확인해볼게요!
+
+[답변2]
+${targetNickname}, ${customerConcern} 상황이시군요.
+비슷한 고민으로 상담 오시는 분들 정말 많아요. 혼자가 아니세요!
+${insuranceType}은 사업비가 25~35% 빠지는 구조예요.
+그래서 초기 몇 년은 해지환급금이 납입액보다 적을 수 있어요.
+하지만 7~10년 유지하면 원금 회복이 가능해요.
+감액완납이라는 옵션도 있으니 해지 전에 꼭 확인해보세요!
+
+[답변3]
+${targetNickname}, 꼼꼼하게 비교하시는 모습이 정말 좋습니다.
+${insuranceType} 선택지를 정리해드릴게요:
+- A안: 해지하고 비갱신형으로 갈아타기
+- B안: 감액완납으로 납입 중단하고 보장 일부 유지
+- C안: 현재 상품 끝까지 유지
+${customerConcern} 상황이시라면 A안이나 B안을 추천드려요.
+구체적인 시뮬레이션이 필요하시면 댓글로 요청해주세요!
+
+[댓글1]
+저도 ${effectiveTarget}인데 똑같은 고민이에요 ㅠㅠ 여기 댓글 보고 용기 얻고 갑니다
+
+[댓글2]
+${insuranceType} 정보 감사합니다. 저도 증권 확인해봐야겠네요
+
+[댓글3]
+저도 ${effectiveTarget}인데요, 감액완납 되는지 문의해볼게요!
+
+[댓글4]
+저 작년에 리모델링하고 월 6만원 아꼈어요. 비갱신형으로 바꾸길 잘했습니다!
+
+[댓글5]
+화이팅! 전문가 분석 받으면 해결돼요. 저도 증권 올리고 3일 만에 정리했어요 :)
+
+[검색키워드]
+${insuranceType} 추천 2026, ${insuranceType} 비교, ${insuranceType} 해지 손해, ${insuranceType} 필수 특약, ${effectiveTarget} ${insuranceType}
+
+[최적화제목1]
+${effectiveTarget} ${insuranceType} 고민 해결법, 쉽게 알려드려요
+
+[최적화제목2]
+${insuranceType} 초보자 가이드, 이것만 알면 끝!
+
+[강조포인트]
+- ${insuranceType} 사업비 25-35% 함정 주의
+- 2026년 기준 비갱신형 특약 확인 필수
+- 감액완납 옵션 활용법
+
+[해시태그]
+#${insuranceType.replace(/\s/g, '')} #보험호구탈출 #보험해지 #보험리모델링 #${effectiveTarget.replace(/\s/g, '')}보험
+
+[자가진단결과]
+- 핵심고민 반영도: 상
+- 타깃 적합도: 상
+- 보험종류 일치도: 상
+- 2026년 팩트 반영: 상
+- 재생성 필요: 아니오
+- 재생성 사유: V23.0 Fallback Direct 템플릿 적용`
     }
     
     ragPipelineLog.step3_contentGeneration = {

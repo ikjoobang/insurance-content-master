@@ -2098,7 +2098,7 @@ const mainPageHtml = `
         '의도한 선택이 맞는지 확인해 주세요.' +
         '</p>' +
         '<div class="flex gap-3">' +
-        '<button onclick="document.getElementById(\'conflict-alert\').remove()" class="flex-1 px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">' +
+        '<button onclick="closeConflictAlert()" class="flex-1 px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">' +
         '그대로 진행' +
         '</button>' +
         '<button onclick="changeToJongshin()" class="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">' +
@@ -2109,15 +2109,20 @@ const mainPageHtml = `
       document.body.appendChild(alertDiv);
     }
     
+    function closeConflictAlert() {
+      var el = document.getElementById('conflict-alert');
+      if (el) el.remove();
+    }
+    
     function changeToJongshin() {
       // 종신보험으로 변경
       document.querySelectorAll('#qna-insurance-chips .chip').forEach(c => c.classList.remove('active'));
-      const jongshinBtn = document.querySelector('#qna-insurance-chips .chip[data-value="종신보험"]');
+      var jongshinBtn = document.querySelector('#qna-insurance-chips .chip[data-value="종신보험"]');
       if (jongshinBtn) {
         jongshinBtn.classList.add('active');
         selections['qna-insurance'] = '종신보험';
       }
-      document.getElementById('conflict-alert').remove();
+      closeConflictAlert();
       showToast('종신보험으로 변경되었습니다');
     }
     

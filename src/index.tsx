@@ -1130,13 +1130,13 @@ async function generateContentWithStrategy(
 
     questionStyle = `【 질문 작성 스타일 (전문적) 】
 - 말투: 정중하지만 구체적인 상황 설명
-- 예시: "안녕하십니까. ${target}입니다. 현재 ${insuranceType} 관련하여 전문가분들의 객관적인 조언을 구하고자 글을 올립니다. ${customerConcern} 관련하여 정확한 정보를 알고 싶습니다."
+- ${target}의 언어와 상황으로 작성
 - 반드시 300자 이상의 구체적인 상황 묘사 필수
 - 약관이나 숫자에 대한 질문 포함`
 
     answerStyle = `【 답변 작성 스타일 (전문적) 】
 - 말투: "~입니다/합니다" 격식체
-- 시작 예시: "안녕하십니까. 종합자산관리 전문가입니다. 문의하신 ${insuranceType} 상품에 대해 객관적으로 분석해 드리겠습니다."
+- ${insuranceType} 전문가로서 객관적 분석
 - 구조: [결론 먼저] → [근거 제시] → [구체적 조언]
 - 반드시 400자 이상, 약관 조항/수치 인용 필수
 - 감정적 표현 최소화, 데이터 기반 설명`
@@ -1163,19 +1163,18 @@ async function generateContentWithStrategy(
 - "참고하시기 바랍니다." 같은 공무원 말투 절대 금지`
 
     questionStyle = `【 질문 작성 스타일 (리얼 토크) 】
-- 말투: 맞춤법 완벽하게 지키지 마세요. 다급함, 억울함, 의심을 담으세요.
-- "안녕하세요." (X) → "급질문 올립니다 ㅠㅠ" (O) (연령에 맞는 자연스러운 표현 사용)
-- "고민이 있습니다." (X) → "이거 눈탱이 맞은 거 맞죠? 아 진짜 잠이 안 오네요." (O)
-- "설계사가 추천했습니다." (X) → "엄마 친구 설계사 이모가 무조건 좋다고 해서 들었는데..." (O)
+- 말투: 다급함, 억울함, 의심을 담은 ${target}의 언어
+- ${target}이 실제로 쓰는 표현과 말투 사용
 - 반드시 300자 이상의 리얼한 상황 묘사
-- 감정(분노, 억울함, 불안)을 솔직하게 표현`
+- 감정(분노, 억울함, 불안)을 솔직하게 표현
+- ${insuranceType}에 대한 구체적 고민 포함`
 
     answerStyle = `【 답변 작성 스타일 (리얼 토크) 】
 - 말투: 단호하고 확신에 찬 어조 (커뮤니티 고수 느낌)
-- 시작 예시: "잠깐만요! 지금 사인하기 직전이시죠? 그 펜 내려놓으세요." 또는 "결론만 말합니다. 당장 손절하세요."
+- ${insuranceType} 전문가로서 현실적 조언
 - 구조: [충격적 훅] → [현실 직시] → [즉각 행동 지시]
 - 반드시 400자 이상
-- 마무리(CTA): "긴말 안 합니다. 지금 증권 3페이지만 찍어서 댓글 다세요. 3초 만에 팩트 체크 해드립니다."`
+- ${target}에게 맞춤화된 조언 필수`
 
     commentStyle = `【 댓글 스타일 (리얼 토크) 】
 - "와... 저도 저 설계사한테 당했는데 ㅠㅠ 동지시네요."
@@ -1196,13 +1195,14 @@ async function generateContentWithStrategy(
 
     questionStyle = `【 질문 작성 스타일 (친근) 】
 - 말투: 부드럽고 자연스러운 구어체
-- 예시: "안녕하세요~ ${target}이에요. 요즘 ${insuranceType} 때문에 밤잠을 설치고 있어요 ㅠㅠ ${customerConcern} 너무 걱정돼서 글 올립니다. 비슷한 경험 있으신 분들 조언 부탁드려요~"
+- ${target}의 일상적인 언어와 표현 사용
 - 반드시 300자 이상의 자연스러운 스토리텔링
-- 감정 표현과 이모티콘 적절히 사용`
+- 감정 표현과 이모티콘 적절히 사용
+- ${insuranceType}에 대한 ${target}의 실제 고민 반영`
 
     answerStyle = `【 답변 작성 스타일 (친근) 】
 - 말투: "~해요/~죠?" 부드러운 구어체
-- 시작 예시: "아이고, 우리 회원님... ${insuranceType} 때문에 밤잠 설치셨구나 ㅠㅠ 저도 그 맘 너무 잘 알죠."
+- ${target}에게 공감하며 ${insuranceType} 조언
 - 구조: [공감 먼저] → [쉬운 비유] → [따뜻한 조언]
 - 반드시 400자 이상
 - 마무리: 안심시키는 멘트 + 도움 제안`
@@ -1230,7 +1230,11 @@ async function generateContentWithStrategy(
       '심장': '급성심근경색은 범위 좁음, 허혈성심장질환(I20-I25)으로 협심증/부정맥 보장',
       '실손': '4세대 자기부담금 30%, 비급여 많으면 기존 유지, 급여 위주면 4세대 전환',
       '간병': '치매 경도인지장애부터 보장, 간병인 월 300만원, ADL 6개 항목 기준',
-      '어린이': '태아 때 가입 유리, 100세 만기 추천, 선천이상 특약 필수'
+      '어린이': '태아 때 가입 유리, 100세 만기 추천, 선천이상 특약 필수',
+      '저축보험': '사업비 25-35% 차감, 예정이율 2.25-2.5%, 원금 회복 7-10년, 감액완납/청약철회 옵션',
+      '저축': '사업비 25-35% 차감, 예정이율 2.25-2.5%, 원금 회복 7-10년, 감액완납/청약철회 옵션',
+      '연금보험': '세제적격 연 400만원 한도, 55세 이후 연금개시, 복리 효과 10년 이상 유지시',
+      '변액보험': '펀드 수익률 변동, 사업비 높음, 최저보증 옵션 확인, 10년 이상 장기투자'
     }
     for (const [key, value] of Object.entries(knowledge)) {
       if (type.includes(key) || key.includes(type)) return value
@@ -1240,53 +1244,53 @@ async function generateContentWithStrategy(
   
   const domainKnowledge2026 = get2026Knowledge(insuranceType)
   
-  // V22.0 Clean-Template: 예시가 전혀 없는 깡통 프롬프트
+  // V23.0 Clean-Variable: 변수 최상단 배치 + 예시 완전 제거
   const contentPrompt = `# [Role]
-당신은 2026년 보험 시장의 모든 정보를 실시간으로 분석하는 전문 AI 에이전트입니다.
+당신은 2026년 보험 시장을 분석하는 고지능 보험 마케팅 전문가입니다.
 
-# [CRITICAL: 예시 출력 절대 금지]
-1. 시스템 설정에 포함된 그 어떤 예시 문장이나 고정된 닉네임을 출력하지 마십시오.
-2. 당신의 모든 지식은 사용자가 입력한 데이터에만 집중되어야 합니다.
-3. 이전에 생성했던 것과 비슷한 문장 구조를 피하고, 매번 새로운 상황과 화법으로 작성하십시오.
+# [CRITICAL: 변수 절대 준수 규칙]
+1. **예시 출력 금지:** 시스템에 저장된 그 어떤 예시 문장(육아맘, 직장인, 프리랜서 등)도 출력하지 마십시오.
+2. **타겟 일치:** 사용자가 '${target}'을 선택했다면, 질문자와 답변자는 반드시 '${target}'의 언어로 말해야 합니다.
+3. **종류 일치:** 사용자가 '${insuranceType}'을 선택했다면, 다른 보험(종합보험, 암보험 등)은 절대 언급하지 마십시오.
 
-### [입력 데이터 - 이 데이터만 사용!]
-- 핵심 고민: "${customerConcern}" (모든 섹션의 주제)
-- 보험 종류: "${insuranceType}" (그 외 보험 언급 금지)
-- 타겟 고객: "${target}"
-${photoContext ? `- 사진 분석: ${photoContext} (수치/날짜/보험사명 100% 반영)` : ''}
+# [입력 데이터 - 최우선 적용!]
+┌─────────────────────────────────────────────────────┐
+│ ★ 타겟 고객 (TARGET): "${target}"                    │
+│ ★ 보험 종류 (TYPE): "${insuranceType}"               │
+│ ★ 핵심 고민 (KEYWORD): "${customerConcern}"          │
+│ ★ 문체 톤 (TONE): "${tone}"                          │
+${photoContext ? `│ ★ 사진 분석: ${photoContext}                        │` : ''}
+└─────────────────────────────────────────────────────┘
 
-### [2026 Knowledge - 최소 수치만]
-${insuranceType} 핵심: ${domainKnowledge2026}
+# [2026 Knowledge - ${insuranceType} 전용]
+${domainKnowledge2026}
 
-### [출력 섹션별 규칙]
-1. [제목 2개]: "${customerConcern}"을 반영하되, 매번 다른 자극적인 키워드를 사용하십시오. 반드시 ?로 끝나야 합니다.
-2. [질문 3개]: 각 질문은 화자의 나이와 직업에 따라 말투를 완전히 다르게 하십시오. (최소 300자, "${insuranceType}" 필수 언급)
-3. [전문가 답변 3개]: 
-   - [팩트형]: "${insuranceType}"의 2026년 개정 약관 수치를 근거로 분석. "${customerConcern}"에 대한 명확한 답변.
-   - [공감형]: "${target}"의 심리를 자극하며 현실적 해결책 2-3가지 제시.
-   - [비교형]: ${photoContext ? '사진 데이터' : '갱신형vs비갱신형'}와 현재 시장 상황을 대조.
-   - (분량: 각 500자 이상 / 특정 인명 사용 금지 / "${insuranceType}" 2회 이상 언급)
-4. [댓글 5개]: 단순 감사 인사가 아닌, 실제 카페 회원들 간의 '티키타카' 반응으로 작성. "${customerConcern}" 주제 반영.
+# [출력 가이드]
+1. **제목 (2개):** ${target}의 입장에서 "${customerConcern}"을 포함한 자극적 질문. 반드시 ?로 끝나야 합니다.
+2. **질문 (3개):** ${target}이 처한 현실적 상황을 담은 리얼한 사연. (각 300자 이상, "${insuranceType}" 필수 언급)
+3. **전문가 답변 (3개):** ${insuranceType}의 2026년 개정 약관(사업비, 예정이율 등)을 근거로 ${tone}에 맞춰 상세 분석. (각 500자 이상)
+4. **댓글 (5개):** ${target} 커뮤니티에서 달릴 법한 실제 반응들. "${customerConcern}" 주제 반영.
 
-### [출력 형식 - 이 태그만 사용!]
+# [Output Format - JSON]
+반드시 아래 태그만 출력하십시오. 설명/구분선/마크다운 금지!
 
 [제목1]
-(${target} 시점, "${customerConcern}" 반영, 자극적 질문)
+(${target} 시점, "${customerConcern}" 반영)
 
 [제목2]
-(${insuranceType} 포함, 팩트형 질문)
+(${insuranceType} 포함)
 
 [질문1]
-(다급한 질문자, 300자 이상)
+(${target}의 다급한 상황, 300자 이상)
 
 [질문2]
-(의심하는 질문자, 300자 이상)
+(${target}의 의심하는 상황, 300자 이상)
 
 [질문3]
-(비용 고민 질문자, 300자 이상)
+(${target}의 비용 고민 상황, 300자 이상)
 
 [답변1]
-(팩트형, 500자 이상, 2026년 수치 인용)
+(팩트형, 500자 이상, ${insuranceType} 2026년 수치 인용)
 
 [답변2]
 (공감형, 500자 이상, 대안 2-3가지)
@@ -1295,44 +1299,42 @@ ${insuranceType} 핵심: ${domainKnowledge2026}
 (비교형, 500자 이상)
 
 [댓글1]
-(공감형, 40-100자)
+(${target} 공감형 댓글)
 
 [댓글2]
-"이건 찐 정보다" 사이다형 댓글 (40-100자)
+(사이다형 댓글)
 
 [댓글3]
-"${customerConcern}" 관련 파생 질문 댓글 (40-100자)
+("${customerConcern}" 파생 질문)
 
 [댓글4]
-본인 경험담 공유 댓글 (40-100자)
+(경험담 공유)
 
 [댓글5]
-응원/격려 댓글 (40-100자)
+(응원형)
 
 [검색키워드]
 ${strategy.seoKeywords.slice(0, 5).join(', ')}
 
 [최적화제목1]
-D.I.A.+ 최적화: ${insuranceType} + "${customerConcern}" 포함
+${target} ${insuranceType} "${customerConcern}" 포함
 
 [최적화제목2]
-에이전트 N 최적화: 클릭 유도형
+2026년 ${insuranceType} 완벽 가이드
 
 [강조포인트]
 - ${insuranceType} 2026년 핵심 변경사항
-- "${customerConcern}" 해결을 위한 체크포인트 3가지
-- 전문가 무료 상담 활용법
+- "${customerConcern}" 해결 체크포인트 3가지
+- ${target} 맞춤 전문가 조언
 
 [해시태그]
-#${insuranceType.replace(/\s/g, '')} #${target.replace(/\s/g, '')}보험 #${customerConcern.replace(/\s/g, '').substring(0, 10)} 포함 10개
+#${insuranceType.replace(/\s/g, '')} #${target.replace(/\s/g, '')}보험 #2026보험
 
 [자가진단결과]
 - 핵심고민 반영도: 상
 - 타깃 적합도: 상
 - 보험종류 일치도: 상
-- 재생성 필요: 아니오
-
-⚠️ 위 형식만 출력! 설명/구분선/마크다운 금지!`
+- 재생성 필요: 아니오`
 
   console.log('[V22.0 Clean-Template] 콘텐츠 생성 시작 - 핵심고민:', customerConcern)
   try {
@@ -1817,7 +1819,8 @@ async function selfDiagnoseContent(
   customerConcern: string,
   insuranceType: string,
   strategy: StrategyJSON,
-  geminiKeys: string[]
+  geminiKeys: string[],
+  target: string = ''  // V23.0: target 검증 추가
 ): Promise<SelfDiagnosisResult> {
   // 먼저 로컬 검증 (빠른 체크)
   const concernKeywords = customerConcern.split(/[\s,]+/).filter(w => w.length > 1)
@@ -1827,6 +1830,7 @@ async function selfDiagnoseContent(
   // 질문 섹션 추출
   const questionsSection = generatedContent.match(/\[질문1\][\s\S]*?(?=\[답변1\])/i)?.[0] || ''
   const answersSection = generatedContent.match(/\[답변1\][\s\S]*?(?=\[댓글1\])/i)?.[0] || ''
+  const titleSection = generatedContent.match(/\[제목1\][\s\S]*?(?=\[제목2\])/i)?.[0] || ''
   
   const hasConcernInQuestions = concernKeywords.some(kw => questionsSection.toLowerCase().includes(kw)) ||
     questionsSection.toLowerCase().includes(concernSubstring)
@@ -1836,6 +1840,30 @@ async function selfDiagnoseContent(
   
   const insuranceCount = (answersSection.match(new RegExp(insuranceType, 'gi')) || []).length
   const hasInsuranceTypeInAnswers = insuranceCount >= 2
+  
+  // V23.0: TARGET 검증 (핵심!)
+  // 사용자가 입력한 target이 제목/질문에 포함되어야 함
+  let hasTargetMatch = true
+  if (target) {
+    const targetKeywords = target.split(/[\s,]+/).filter(w => w.length > 1)
+    const titleAndQuestion = (titleSection + questionsSection).toLowerCase()
+    
+    // target 키워드가 하나라도 포함되어야 함
+    hasTargetMatch = targetKeywords.some(kw => titleAndQuestion.includes(kw.toLowerCase()))
+    
+    // 잘못된 타겟 감지 (예: '신혼부부'를 입력했는데 '30대 직장인'이 나온 경우)
+    const wrongTargets = ['30대', '40대', '50대', '60대', '직장인', '자영업자', '공무원', '프리랜서', '육아맘']
+    const inputTargetNormalized = target.toLowerCase()
+    
+    for (const wrongTarget of wrongTargets) {
+      if (!inputTargetNormalized.includes(wrongTarget.toLowerCase()) && 
+          titleAndQuestion.includes(wrongTarget.toLowerCase())) {
+        console.log(`[V23.0 TARGET 검증] 불일치 감지: 입력="${target}", 출력에 "${wrongTarget}" 포함`)
+        hasTargetMatch = false
+        break
+      }
+    }
+  }
   
   // 2026년 팩트 체크 (전략에서 가져온 factChecks 기반)
   const has2026Facts = strategy.factChecks.some(fact => {
@@ -1848,10 +1876,13 @@ async function selfDiagnoseContent(
   if (!hasConcernInAnswers) failReasons.push('답변에 핵심고민이 반영되지 않음')
   if (!hasInsuranceTypeInAnswers) failReasons.push(`답변에 "${insuranceType}"가 2회 이상 언급되지 않음`)
   if (!has2026Facts) failReasons.push('2026년 최신 트렌드가 답변에 반영되지 않음')
+  if (!hasTargetMatch) failReasons.push(`TARGET 불일치: "${target}"가 출력에 반영되지 않음`)
   
-  const overallPass = hasConcernInQuestions && hasConcernInAnswers && hasInsuranceTypeInAnswers
+  // V23.0: target 일치 여부도 필수 조건에 추가
+  const overallPass = hasConcernInQuestions && hasConcernInAnswers && hasInsuranceTypeInAnswers && hasTargetMatch
   
   console.log(`[RAG Step 4] 자가 진단 - 통과: ${overallPass}, 실패 사유: ${failReasons.length}개`)
+  if (!hasTargetMatch) console.log(`[V23.0 TARGET 실패] 입력: "${target}"`)
   
   return {
     hasConcernInQuestions,
@@ -6153,20 +6184,54 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
       tone,  // 멀티 페르소나를 위한 톤 파라미터 전달
       photoContext  // V17.9: 사진 분석 결과 전달
     )
+    
+    // V23.0: TARGET 즉시 검증 - API 응답에서 잘못된 타겟이 나오면 강제로 폴백 재생성
+    const titleCheck = qnaResult.match(/\[제목1\][\s\S]*?(?=\[제목2\])/i)?.[0] || ''
+    const wrongTargetPatterns = ['30대', '40대', '50대', '60대', '직장인', '자영업자', '공무원', '프리랜서', '워킹맘', '육아맘', '1인가구']
+    const inputTargetLower = effectiveTarget.toLowerCase()
+    
+    let targetMismatch = false
+    for (const wrongPattern of wrongTargetPatterns) {
+      // 사용자가 입력한 target에 없는 패턴이 출력에 있으면 불일치
+      if (!inputTargetLower.includes(wrongPattern.toLowerCase()) && 
+          titleCheck.toLowerCase().includes(wrongPattern.toLowerCase())) {
+        console.log(`[V23.0 TARGET 불일치!] 입력: "${effectiveTarget}", 출력에 "${wrongPattern}" 발견 - 폴백 강제 사용`)
+        targetMismatch = true
+        break
+      }
+    }
+    
+    // TARGET 불일치 시 폴백 템플릿으로 강제 교체
+    if (targetMismatch) {
+      console.log(`[V23.0] 폴백 템플릿 강제 사용 - TARGET: ${effectiveTarget}`)
+      // 폴백 호출 시 target을 명시적으로 전달하여 올바른 출력 보장
+      qnaResult = await generateContentWithStrategy(
+        insuranceType,
+        customerConcern,
+        effectiveTarget,
+        strategy,
+        '[FORCE_FALLBACK] TARGET 불일치로 폴백 강제 사용',
+        [], // 빈 API 키로 폴백 강제
+        tone,
+        photoContext
+      )
+    }
+    
     ragPipelineLog.step3_contentGeneration = {
       success: qnaResult.length > 500,
       generatedLength: qnaResult.length
     }
     console.log(`[V16.0 RAG Step 3] 콘텐츠 생성 완료 - 길이: ${qnaResult.length}자`)
     
-    // Step 4: 자가 진단
+    // Step 4: 자가 진단 (V23.0: target 검증 추가)
     console.log(`[V16.0 RAG Step 4] ${currentAttempt}차 자가진단 시작...`)
     const diagnosisResult = await selfDiagnoseContent(
       qnaResult,
       customerConcern,
       insuranceType,
       strategy,
-      geminiKeys
+      geminiKeys,
+      target  // V23.0: target 전달
     )
     
     // 파싱 및 auditQnAContent 검수도 병행

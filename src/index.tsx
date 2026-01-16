@@ -3693,22 +3693,22 @@ ${insuranceType && insuranceType !== '종합보험' ? `
 ※ 의문문(?)으로 끝, 15-35자
 
 ==========================================================
-【 PART 2: 질문 생성 - 두 명의 완전히 다른 질문자! 】
+【 PART 2: 질문 생성 - 같은 타깃, 다른 상황! 】
 ==========================================================
 
-★★★ [질문1] 질문자 A ★★★
-■ 프로필: ${questioner1.age} ${questioner1.gender} ${questioner1.job}
-■ 상황: ${questioner1.situation}
-■ 말투: ${questioner1.style}
-■ 트리거: "${scenario1.trigger}"
+🚨 중요: 질문1, 질문2 모두 "${target}" 타깃 고객 기준!
+- 타깃: ${persona.ageNum}세 ${persona.gender} ${persona.occupation}
+- 핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'}
+
+★★★ [질문1] ★★★
+■ 질문자: ${persona.ageNum}세 ${persona.gender} ${persona.occupation}
+■ 상황: "${scenario1.situation}" - "${scenario1.trigger}"
 ■ 핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'}
 
-★★★ [질문2] 질문자 B (완전히 다른 사람!) ★★★
-■ 프로필: ${questioner2.age} ${questioner2.gender} ${questioner2.job}
-■ 상황: ${questioner2.situation}
-■ 말투: ${questioner2.style}
-■ 트리거: "${scenario2.trigger}"
-■ 핵심 고민: ${hasKeyword ? `"${customerConcern}" (같은 고민, 다른 관점)` : '자동 생성'}
+★★★ [질문2] (같은 사람, 다른 계기로 질문!) ★★★
+■ 질문자: ${persona.ageNum}세 ${persona.gender} ${persona.occupation} ← 같은 타깃!
+■ 상황: "${scenario2.situation}" - "${scenario2.trigger}" ← 다른 계기!
+■ 핵심 고민: ${hasKeyword ? `"${customerConcern}" (같은 고민)` : '자동 생성'}
 
 ### 질문1 상황: "${scenario1.situation}"
 - 시작: "${scenario1.trigger}"
@@ -3811,17 +3811,15 @@ ${insuranceType && insuranceType !== '종합보험' ? `
 - "저 ${insuranceType} 가입했는데 후회될까요?"
 
 [질문1]
-질문자A: ${questioner1.age} ${questioner1.gender} ${questioner1.job} (${questioner1.situation})
-말투: ${questioner1.style}
+질문자: ${persona.ageNum}세 ${persona.gender} ${persona.occupation} ← 타깃 고객!
 상황: "${scenario1.trigger}..."
 핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'}
 (200-350자, 전화번호 금지, 마지막: "쪽지 사절이요, 댓글로 조언 부탁드립니다")
 
 [질문2]
-질문자B: ${questioner2.age} ${questioner2.gender} ${questioner2.job} (${questioner2.situation}) ← 완전히 다른 사람!
-말투: ${questioner2.style}
-상황: "${scenario2.trigger}..."
-핵심 고민: ${hasKeyword ? `"${customerConcern}" (같은 고민, 다른 상황)` : '자동 생성'}
+질문자: ${persona.ageNum}세 ${persona.gender} ${persona.occupation} ← 같은 타깃!
+상황: "${scenario2.trigger}..." ← 다른 계기!
+핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'}
 (200-350자, 전화번호 금지, 마지막: "고수님들 도와주세요!")
 
 [답변1]

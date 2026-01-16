@@ -246,6 +246,215 @@ async function generateInsuranceImage(data: ImageGenerationData, apiKey: string,
   return { success: false, error: 'All image generation models and keys failed' }
 }
 
+// ========== SEO 점수 계산 함수 (C-Rank/D.I.A./Agent N) ==========
+interface SEOScoreInput {
+  title: string
+  question: string
+  answer: string
+  keywords: string[]
+  highlights: string[]
+  commentsCount: number
+  target: string
+  insuranceType: string
+}
+
+interface SEOScoreResult {
+  totalScore: number
+  grade: string
+  titleScore: number
+  keywordScore: number
+  contentScore: number
+  engageScore: number
+  predictedRank: string
+  exposureRate: number
+  recommend: string
+  strengths: string[]
+  improvements: string[]
+  tips: string[]
+}
+
+function calculateSEOScore(input: SEOScoreInput): SEOScoreResult {
+  const { title, question, answer, keywords, highlights, commentsCount, target, insuranceType } = input
+  
+  let titleScore = 0
+  let keywordScore = 0
+  let contentScore = 0
+  let engageScore = 0
+  
+  const strengths: string[] = []
+  const improvements: string[] = []
+  const tips: string[] = []
+  
+  // 1. 제목 점수 (25점 만점)
+  if (title.length >= 15 && title.length <= 30) {
+    titleScore += 8
+    strengths.push('제목 길이 최적 (15-30자)')
+  } else if (title.length >= 10 && title.length <= 35) {
+    titleScore += 5
+    improvements.push('제목 15-25자 권장')
+  } else {
+    titleScore += 2
+    improvements.push('제목 길이 조정 필요')
+  }
+  
+  // 제목에 핵심 키워드 포함
+  const primaryKeyword = keywords[0] || insuranceType
+  if (title.includes(primaryKeyword)) {
+    titleScore += 8
+    strengths.push('제목에 핵심 키워드 포함')
+  } else {
+    titleScore += 3
+    improvements.push('제목에 핵심 키워드 추가 권장')
+  }
+  
+  // 제목에 타겟 포함
+  if (title.includes(target.replace(/[0-9대]/g, '').trim().substring(0, 4))) {
+    titleScore += 5
+  } else {
+    titleScore += 2
+  }
+  
+  // 클릭 유도 (물음표, 느낌표)
+  if (title.includes('?') || title.includes('!')) {
+    titleScore += 4
+  } else {
+    titleScore += 1
+    tips.push('제목 끝에 ? 또는 ! 추가하면 클릭률 상승')
+  }
+  
+  // 2. 키워드 점수 (25점 만점)
+  const fullText = title + ' ' + question + ' ' + answer
+  let keywordCount = 0
+  keywords.slice(0, 3).forEach(kw => {
+    const regex = new RegExp(kw, 'gi')
+    const matches = fullText.match(regex)
+    if (matches) keywordCount += matches.length
+  })
+  
+  if (keywordCount >= 6) {
+    keywordScore = 25
+    strengths.push('키워드 밀도 우수 (6회 이상)')
+  } else if (keywordCount >= 4) {
+    keywordScore = 20
+    strengths.push('키워드 적절히 배치됨')
+  } else if (keywordCount >= 2) {
+    keywordScore = 12
+    improvements.push('핵심 키워드 2-3회 더 추가 권장')
+  } else {
+    keywordScore = 5
+    improvements.push('핵심 키워드 반복 필요')
+  }
+  
+  // 3. 콘텐츠 품질 점수 (25점 만점)
+  // 답변 길이
+  if (answer.length >= 500) {
+    contentScore += 10
+    strengths.push('답변 분량 충분')
+  } else if (answer.length >= 300) {
+    contentScore += 7
+  } else {
+    contentScore += 3
+    improvements.push('답변 400자 이상 권장')
+  }
+  
+  // 질문 길이
+  if (question.length >= 150 && question.length <= 300) {
+    contentScore += 5
+  } else if (question.length >= 100) {
+    contentScore += 3
+  } else {
+    contentScore += 1
+    improvements.push('질문을 좀 더 구체적으로')
+  }
+  
+  // 구조화 (강조포인트 존재)
+  if (highlights.length >= 3) {
+    contentScore += 5
+    strengths.push('핵심 포인트 구조화 완료')
+  } else if (highlights.length >= 1) {
+    contentScore += 3
+  } else {
+    contentScore += 1
+  }
+  
+  // 숫자/통계 포함
+  const hasNumbers = /\d{1,3}(,\d{3})*원|\d+%|\d+세|\d+년/.test(answer)
+  if (hasNumbers) {
+    contentScore += 5
+    strengths.push('구체적 수치/통계 포함')
+  } else {
+    contentScore += 1
+    tips.push('구체적 숫자(보험료, %)를 넣으면 신뢰도 상승')
+  }
+  
+  // 4. 참여도 점수 (25점 만점)
+  if (commentsCount >= 5) {
+    engageScore = 25
+    strengths.push('댓글 5개로 활성화 최적')
+  } else if (commentsCount >= 3) {
+    engageScore = 18
+    strengths.push('댓글로 자연스러운 토론 유도')
+  } else if (commentsCount >= 1) {
+    engageScore = 10
+  } else {
+    engageScore = 5
+    improvements.push('댓글 추가로 참여도 높이기')
+  }
+  
+  // 총점 계산
+  const totalScore = titleScore + keywordScore + contentScore + engageScore
+  
+  // 등급 및 예측
+  let grade = 'D'
+  let predictedRank = '상위 50% 이하'
+  let exposureRate = 20
+  let recommend = '수정 필요'
+  
+  if (totalScore >= 90) {
+    grade = 'S+'
+    predictedRank = '상위 1-3위'
+    exposureRate = 95
+    recommend = '즉시 등록!'
+    tips.push('현재 상태로 게시 시 상위 노출 확률 매우 높음')
+  } else if (totalScore >= 80) {
+    grade = 'S'
+    predictedRank = '상위 1-5위'
+    exposureRate = 85
+    recommend = '등록 권장'
+    tips.push('댓글이 달리면 1위 가능성 더 높아짐')
+  } else if (totalScore >= 70) {
+    grade = 'A'
+    predictedRank = '상위 5-10위'
+    exposureRate = 70
+    recommend = '등록 OK'
+  } else if (totalScore >= 55) {
+    grade = 'B'
+    predictedRank = '상위 10-20위'
+    exposureRate = 50
+    recommend = '개선 후 등록'
+  } else if (totalScore >= 40) {
+    grade = 'C'
+    predictedRank = '상위 20-30위'
+    exposureRate = 30
+    recommend = '수정 권장'
+  }
+  
+  return {
+    totalScore,
+    grade,
+    titleScore,
+    keywordScore,
+    contentScore,
+    engageScore,
+    predictedRank,
+    exposureRate,
+    recommend,
+    strengths: strengths.slice(0, 4),
+    improvements: improvements.slice(0, 3),
+    tips: tips.slice(0, 3)
+  }
+}
+
 // 텍스트 정리 함수 (이모티콘, ##, ** 완전 제거)
 function cleanText(text: string): string {
   return text
@@ -1215,6 +1424,134 @@ const mainPageHtml = `
       
       <!-- Q&A 결과 - PC에서 4열 그리드 -->
       <div id="result-qna" class="hidden">
+        
+        <!-- ========== SEO 검수 패널 ========== -->
+        <div id="seo-review-panel" class="result-card p-4 lg:p-6 mb-4 lg:mb-6 border-2 border-primary/30">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center">
+                <i class="fas fa-chart-line text-white text-lg"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-white text-base lg:text-lg">네이버 노출 확률 검수</h3>
+                <p class="text-gray-400 text-xs">C-Rank · D.I.A. · Agent N 알고리즘 분석</p>
+              </div>
+            </div>
+            <div id="seo-grade-badge" class="px-4 py-2 rounded-lg bg-gray-700 text-gray-400 font-bold text-xl">
+              -
+            </div>
+          </div>
+          
+          <!-- 총점 및 예측 -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <div class="bg-white/5 rounded-lg p-3 text-center">
+              <div class="text-gray-400 text-xs mb-1">총점</div>
+              <div id="seo-total-score" class="text-2xl font-bold text-white">0<span class="text-sm text-gray-400">/100</span></div>
+            </div>
+            <div class="bg-white/5 rounded-lg p-3 text-center">
+              <div class="text-gray-400 text-xs mb-1">예상 순위</div>
+              <div id="seo-predicted-rank" class="text-sm font-semibold text-primary">분석 중...</div>
+            </div>
+            <div class="bg-white/5 rounded-lg p-3 text-center">
+              <div class="text-gray-400 text-xs mb-1">노출 확률</div>
+              <div id="seo-exposure-rate" class="text-lg font-bold text-emerald-400">-%</div>
+            </div>
+            <div class="bg-white/5 rounded-lg p-3 text-center">
+              <div class="text-gray-400 text-xs mb-1">등록 권장</div>
+              <div id="seo-recommend" class="text-sm font-semibold text-yellow-400">-</div>
+            </div>
+          </div>
+          
+          <!-- 세부 점수 -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+            <div class="flex items-center gap-2 bg-white/5 rounded-lg p-2.5">
+              <div class="w-8 h-8 rounded-md bg-blue-500/20 flex items-center justify-center">
+                <i class="fas fa-heading text-blue-400 text-xs"></i>
+              </div>
+              <div>
+                <div class="text-gray-400 text-2xs">제목 최적화</div>
+                <div id="seo-title-score" class="text-white font-semibold text-sm">0<span class="text-gray-500 text-xs">/25</span></div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 bg-white/5 rounded-lg p-2.5">
+              <div class="w-8 h-8 rounded-md bg-emerald-500/20 flex items-center justify-center">
+                <i class="fas fa-key text-emerald-400 text-xs"></i>
+              </div>
+              <div>
+                <div class="text-gray-400 text-2xs">키워드 밀도</div>
+                <div id="seo-keyword-score" class="text-white font-semibold text-sm">0<span class="text-gray-500 text-xs">/25</span></div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 bg-white/5 rounded-lg p-2.5">
+              <div class="w-8 h-8 rounded-md bg-purple-500/20 flex items-center justify-center">
+                <i class="fas fa-align-left text-purple-400 text-xs"></i>
+              </div>
+              <div>
+                <div class="text-gray-400 text-2xs">답변 품질</div>
+                <div id="seo-content-score" class="text-white font-semibold text-sm">0<span class="text-gray-500 text-xs">/25</span></div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 bg-white/5 rounded-lg p-2.5">
+              <div class="w-8 h-8 rounded-md bg-orange-500/20 flex items-center justify-center">
+                <i class="fas fa-users text-orange-400 text-xs"></i>
+              </div>
+              <div>
+                <div class="text-gray-400 text-2xs">공감/댓글</div>
+                <div id="seo-engage-score" class="text-white font-semibold text-sm">0<span class="text-gray-500 text-xs">/25</span></div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 강점/개선점/팁 -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+              <div class="flex items-center gap-2 mb-2">
+                <i class="fas fa-check-circle text-emerald-400 text-sm"></i>
+                <span class="text-emerald-400 font-semibold text-xs">강점</span>
+              </div>
+              <ul id="seo-strengths" class="text-gray-300 text-xs space-y-1">
+                <li>• 분석 중...</li>
+              </ul>
+            </div>
+            <div class="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
+              <div class="flex items-center gap-2 mb-2">
+                <i class="fas fa-exclamation-triangle text-orange-400 text-sm"></i>
+                <span class="text-orange-400 font-semibold text-xs">개선 제안</span>
+              </div>
+              <ul id="seo-improvements" class="text-gray-300 text-xs space-y-1">
+                <li>• 분석 중...</li>
+              </ul>
+            </div>
+            <div class="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+              <div class="flex items-center gap-2 mb-2">
+                <i class="fas fa-lightbulb text-blue-400 text-sm"></i>
+                <span class="text-blue-400 font-semibold text-xs">네이버 Tips</span>
+              </div>
+              <ul id="seo-tips" class="text-gray-300 text-xs space-y-1">
+                <li>• 분석 중...</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Q&A 제목 섹션 -->
+        <div id="qna-title-section" class="result-card p-4 lg:p-5 mb-4 lg:mb-6 hidden border-l-4 border-primary">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center">
+                <i class="fas fa-heading text-white text-lg"></i>
+              </div>
+              <div>
+                <div class="text-gray-400 text-xs mb-1">생성된 제목 (클릭 유도형)</div>
+                <h3 id="qna-title" class="text-white text-lg lg:text-xl font-bold"></h3>
+              </div>
+            </div>
+            <button onclick="copyText('qna-title')" class="px-4 py-2 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 text-sm font-medium">
+              <i class="fas fa-copy mr-1.5"></i>복사
+            </button>
+          </div>
+        </div>
+        
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5 xl:gap-6 mb-4 lg:mb-6">
           <!-- 키워드 -->
           <div class="result-card p-4 lg:p-5">
@@ -1794,6 +2131,89 @@ const mainPageHtml = `
       document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
     }
 
+    // ========== SEO 점수 패널 업데이트 함수 ==========
+    function updateSEOPanel(seoData) {
+      if (!seoData) return;
+      
+      // 총점 및 등급
+      document.getElementById('seo-total-score').innerHTML = seoData.totalScore + '<span class="text-sm text-gray-400">/100</span>';
+      
+      // 등급 배지 색상
+      const gradeBadge = document.getElementById('seo-grade-badge');
+      gradeBadge.textContent = seoData.grade;
+      gradeBadge.className = 'px-4 py-2 rounded-lg font-bold text-xl ';
+      if (seoData.grade === 'S+') {
+        gradeBadge.className += 'bg-gradient-to-r from-yellow-500 to-amber-500 text-black';
+      } else if (seoData.grade === 'S') {
+        gradeBadge.className += 'bg-primary text-white';
+      } else if (seoData.grade === 'A') {
+        gradeBadge.className += 'bg-emerald-500 text-white';
+      } else if (seoData.grade === 'B') {
+        gradeBadge.className += 'bg-blue-500 text-white';
+      } else if (seoData.grade === 'C') {
+        gradeBadge.className += 'bg-orange-500 text-white';
+      } else {
+        gradeBadge.className += 'bg-gray-600 text-white';
+      }
+      
+      // 예상 순위, 노출 확률, 등록 권장
+      document.getElementById('seo-predicted-rank').textContent = seoData.predictedRank;
+      document.getElementById('seo-exposure-rate').textContent = seoData.exposureRate + '%';
+      document.getElementById('seo-recommend').textContent = seoData.recommend;
+      
+      // 노출 확률 색상
+      const expRate = document.getElementById('seo-exposure-rate');
+      if (seoData.exposureRate >= 85) {
+        expRate.className = 'text-lg font-bold text-emerald-400';
+      } else if (seoData.exposureRate >= 70) {
+        expRate.className = 'text-lg font-bold text-blue-400';
+      } else if (seoData.exposureRate >= 50) {
+        expRate.className = 'text-lg font-bold text-yellow-400';
+      } else {
+        expRate.className = 'text-lg font-bold text-orange-400';
+      }
+      
+      // 등록 권장 색상
+      const recEl = document.getElementById('seo-recommend');
+      if (seoData.recommend.includes('즉시') || seoData.recommend.includes('권장')) {
+        recEl.className = 'text-sm font-semibold text-emerald-400';
+      } else if (seoData.recommend.includes('OK')) {
+        recEl.className = 'text-sm font-semibold text-blue-400';
+      } else {
+        recEl.className = 'text-sm font-semibold text-yellow-400';
+      }
+      
+      // 세부 점수
+      document.getElementById('seo-title-score').innerHTML = seoData.titleScore + '<span class="text-gray-500 text-xs">/25</span>';
+      document.getElementById('seo-keyword-score').innerHTML = seoData.keywordScore + '<span class="text-gray-500 text-xs">/25</span>';
+      document.getElementById('seo-content-score').innerHTML = seoData.contentScore + '<span class="text-gray-500 text-xs">/25</span>';
+      document.getElementById('seo-engage-score').innerHTML = seoData.engageScore + '<span class="text-gray-500 text-xs">/25</span>';
+      
+      // 강점 리스트
+      const strengthsEl = document.getElementById('seo-strengths');
+      if (seoData.strengths && seoData.strengths.length > 0) {
+        strengthsEl.innerHTML = seoData.strengths.map(s => '<li>• ' + s + '</li>').join('');
+      } else {
+        strengthsEl.innerHTML = '<li>• 분석 완료</li>';
+      }
+      
+      // 개선 제안 리스트
+      const improvementsEl = document.getElementById('seo-improvements');
+      if (seoData.improvements && seoData.improvements.length > 0) {
+        improvementsEl.innerHTML = seoData.improvements.map(s => '<li>• ' + s + '</li>').join('');
+      } else {
+        improvementsEl.innerHTML = '<li>• 현재 상태 우수</li>';
+      }
+      
+      // 네이버 Tips 리스트
+      const tipsEl = document.getElementById('seo-tips');
+      if (seoData.tips && seoData.tips.length > 0) {
+        tipsEl.innerHTML = seoData.tips.map(s => '<li>• ' + s + '</li>').join('');
+      } else {
+        tipsEl.innerHTML = '<li>• 게시 후 댓글 유도하면 순위 상승</li>';
+      }
+    }
+
     async function generateQnAFull() {
       const concern = document.getElementById('qna-concern').value.trim();
       const generateDesign = document.getElementById('generate-design').checked;
@@ -1822,6 +2242,14 @@ const mainPageHtml = `
         keywordsDiv.innerHTML = generatedKeywords.map(kw => 
           '<span class="keyword-tag" onclick="copyKeyword(\\'' + kw + '\\')">#' + kw + '</span>'
         ).join('');
+        
+        // 제목 업데이트
+        if (data.title) {
+          document.getElementById('qna-title').textContent = data.title;
+          document.getElementById('qna-title-section').classList.remove('hidden');
+        } else {
+          document.getElementById('qna-title-section').classList.add('hidden');
+        }
         
         document.getElementById('qna-q').textContent = data.question;
         document.getElementById('qna-a').textContent = data.answer;
@@ -1858,10 +2286,15 @@ const mainPageHtml = `
           currentDesignData = null;
         }
         
+        // SEO 점수 패널 업데이트
+        if (data.seo) {
+          updateSEOPanel(data.seo);
+        }
+        
         document.getElementById('qna-progress').classList.add('hidden');
-        document.getElementById('resultsInfo').textContent = 'Q&A 생성 완료 - ' + selections['qna-target'] + ' - ' + generatedKeywords.length + '개 키워드';
+        document.getElementById('resultsInfo').textContent = 'Q&A 생성 완료 - ' + selections['qna-target'] + ' - SEO ' + (data.seo ? data.seo.grade : '-') + '등급';
         showResults('qna');
-        showToast('Q&A 완전 자동화 완료!');
+        showToast('Q&A 완전 자동화 완료! SEO: ' + (data.seo ? data.seo.totalScore + '점' : '-'));
         
       } catch (e) {
         console.error(e);
@@ -2234,7 +2667,7 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '9.2', 
+  version: '9.3', 
   ai: 'gemini + naver + gemini-image', 
   year: 2026,
   features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style'],
@@ -2287,67 +2720,108 @@ app.post('/api/generate/qna-full', async (c) => {
     customerConcern = cleanText(customerConcern.replace(/["\n]/g, '').trim())
   }
   
-  // 4. Q&A 생성 프롬프트 (이모티콘/마크다운 금지, 가상 고객명 삭제)
-  const qnaPrompt = `당신은 보험 전문 콘텐츠 작성 AI입니다. 네이버 카페용 Q&A를 생성해주세요.
+  // 4. Q&A 생성 프롬프트 (C-Rank/D.I.A./Agent N 최적화)
+  // 일반인 관점 질문 유형 12가지 중 랜덤 선택
+  const questionTypes = [
+    '순수하게 궁금해서 질문하는 형태',
+    '비교를 요청하는 형태 (A vs B)',
+    '경험담을 묻는 형태',
+    '추천을 요청하는 형태',
+    '걱정/불안을 토로하는 형태',
+    '초보자 관점에서 기초 질문',
+    '가격/비용 관련 질문',
+    '타이밍 질문 (언제 가입?)',
+    '후기/리뷰 요청 형태',
+    '특정 상황 질문 (나이, 직업 등)',
+    '주변 권유로 인한 질문',
+    '뉴스/정보 확인 질문'
+  ]
+  const selectedQuestionType = questionTypes[Math.floor(Math.random() * questionTypes.length)]
+  
+  const qnaPrompt = `당신은 네이버 C-Rank 1위 달성을 위한 보험 Q&A 전문 작성 AI입니다.
 
-【절대 규칙 - 반드시 지켜야 함】
-- 이모티콘 절대 사용 금지 (모든 종류)
-- ## 또는 ** 마크다운 사용 금지
-- 가상 이름/가명 사용 금지 (예: 홍길동, 김철수 등)
-- 순수 텍스트만 작성
-- 현재 연도는 2026년
+【 네이버 알고리즘 최적화 필수 요소 】
+■ C-Rank: 콘텐츠 신뢰도 점수 - 전문성 있는 정보, 정확한 수치/통계 필수
+■ D.I.A.: 의도 파악 알고리즘 - 검색자의 의도(${target}이 ${insuranceType} 검색)에 정확히 부합
+■ Agent N: 최신 AI 검색 - 구조화된 답변, 핵심 키워드 3회 이상 자연 배치
 
-【조건】
+【 절대 규칙 】
+- 이모티콘 금지 (100% 금지)
+- 마크다운(##, **, 등) 금지
+- 가상 이름 금지
+- 2026년 기준 최신 정보
+
+【 생성 조건 】
 - 타겟: ${target}
-- 보험 종류: ${insuranceType}
-- 문체 톤: ${tone}
+- 보험: ${insuranceType}
+- 문체: ${tone}
 - 고민: ${customerConcern}
 - 핵심 키워드: ${coreKeywords.join(', ')}
-- 연락처: ${contact.phone}
+- 질문 유형: ${selectedQuestionType}
 
-【SEO 최적화 규칙】
-1. 핵심 키워드(${coreKeywords.slice(0, 3).join(', ')}) 최소 3회 자연스럽게 포함
-2. 전문적인 정보 포함 (2026년 기준)
-3. 질문-답변 구조 명확히
+【 출력 형식 】
 
-【출력 형식 - 반드시 이 형식을 따르세요】
+[제목]
+(15-25자, 클릭 유도형, 핵심 키워드 포함, 물음표 또는 느낌표로 종료)
+예시: "${target} ${insuranceType}, 지금 가입해도 될까요?" 또는 "${insuranceType} 추천, ${target} 필수 체크 3가지!"
+
 [질문]
-(${target}이 ${insuranceType}에 대해 궁금해하는 자연스러운 질문. 200-300자. ${tone} 톤)
-- 이름 없이 "안녕하세요" 또는 "제가" 등으로 시작
-- 연락처: ${contact.phone}
-- 고민 상황 구체적으로 설명
+(${selectedQuestionType} 스타일로 작성)
+- 150-250자
+- 이름 없이 시작 ("안녕하세요", "제가", "요즘" 등)
+- ${target}의 실제 고민을 담아 공감 유도
+- 연락처 맨 마지막: ${contact.phone}
+- 핵심 키워드 1-2회 자연 배치
 
 [답변]
-(보험 전문가 답변 800자 이상)
-- 핵심 요약 3줄
-- ${insuranceType}의 장점 3가지 (2026년 기준 구체적 숫자/통계 포함)
-- 가입 전 체크포인트 3가지
-- 추천 이유와 결론
-- ${tone} 톤으로 작성
+(전문가 답변 - C-Rank 최적화)
+구조:
+1. 공감 인사 (1-2문장)
+2. 핵심 결론 먼저 (2-3문장)
+3. 이유/근거 설명 (2026년 기준 구체적 수치/통계 포함)
+4. ${target}에게 맞춤 조언 (3가지 포인트)
+5. 주의사항/체크포인트 (2-3가지)
+6. 마무리 CTA (상담 권유)
+
+- 총 400-600자
+- 핵심 키워드(${coreKeywords[0]}) 3회 이상 자연 배치
+- ${tone} 톤 유지
 
 [강조포인트]
-- (핵심 장점 1)
-- (핵심 장점 2)
-- (핵심 장점 3)
+- (핵심 장점 1 - 수치 포함)
+- (핵심 장점 2 - 비교 포함)
+- (핵심 장점 3 - 혜택 포함)
 
-[댓글1]
-(공감하는 후기형 댓글 50-80자. 이모티콘 없이)
+[댓글1-몰랐다형]
+(40-60자) "저도 이거 몰랐는데 덕분에 알았네요" 스타일
 
-[댓글2]
-(정보 추가/질문하는 댓글 50-80자. 이모티콘 없이)
+[댓글2-감사형]
+(40-60자) "상세한 답변 감사합니다" 스타일
 
-[댓글3]
-(추천/감사 댓글 50-80자. 이모티콘 없이)`
+[댓글3-비슷형]
+(40-60자) "저도 비슷한 상황인데 참고가 되네요" 스타일
+
+[댓글4-경험형]
+(40-60자) "저는 가입했는데 만족합니다" 스타일의 실제 경험담
+
+[댓글5-추천형]
+(40-60자) "이 글 저장해둡니다" 또는 "주변에 추천해야겠어요" 스타일`
 
   const qnaResult = await callGeminiAPI(qnaPrompt, geminiKeys)
   
   // 파싱
+  const titleMatch = qnaResult.match(/\[제목\]([\s\S]*?)(?=\[질문\])/i)
   const questionMatch = qnaResult.match(/\[질문\]([\s\S]*?)(?=\[답변\])/i)
   const answerMatch = qnaResult.match(/\[답변\]([\s\S]*?)(?=\[강조포인트\])/i)
-  const highlightsMatch = qnaResult.match(/\[강조포인트\]([\s\S]*?)(?=\[댓글1\])/i)
-  const comment1Match = qnaResult.match(/\[댓글1\]([\s\S]*?)(?=\[댓글2\])/i)
-  const comment2Match = qnaResult.match(/\[댓글2\]([\s\S]*?)(?=\[댓글3\])/i)
-  const comment3Match = qnaResult.match(/\[댓글3\]([\s\S]*?)$/i)
+  const highlightsMatch = qnaResult.match(/\[강조포인트\]([\s\S]*?)(?=\[댓글1)/i)
+  const comment1Match = qnaResult.match(/\[댓글1[^\]]*\]([\s\S]*?)(?=\[댓글2)/i)
+  const comment2Match = qnaResult.match(/\[댓글2[^\]]*\]([\s\S]*?)(?=\[댓글3)/i)
+  const comment3Match = qnaResult.match(/\[댓글3[^\]]*\]([\s\S]*?)(?=\[댓글4)/i)
+  const comment4Match = qnaResult.match(/\[댓글4[^\]]*\]([\s\S]*?)(?=\[댓글5)/i)
+  const comment5Match = qnaResult.match(/\[댓글5[^\]]*\]([\s\S]*?)$/i)
+  
+  // 제목 추출
+  const generatedTitle = titleMatch ? cleanText(titleMatch[1].trim()) : `${target} ${insuranceType} 추천`
   
   // 강조 포인트 파싱
   let highlights: string[] = []
@@ -2358,6 +2832,30 @@ app.post('/api/generate/qna-full', async (c) => {
       .filter(line => line.length > 5)
       .slice(0, 3)
   }
+  
+  // 댓글 5개 수집
+  const allComments = [
+    comment1Match ? cleanText(comment1Match[1].trim()) : '저도 이거 몰랐는데 덕분에 알았네요',
+    comment2Match ? cleanText(comment2Match[1].trim()) : '상세한 답변 감사합니다',
+    comment3Match ? cleanText(comment3Match[1].trim()) : '저도 비슷한 상황인데 참고가 되네요',
+    comment4Match ? cleanText(comment4Match[1].trim()) : '저는 가입했는데 만족합니다',
+    comment5Match ? cleanText(comment5Match[1].trim()) : '이 글 저장해둡니다'
+  ].filter(c => c.length > 10)
+  
+  // SEO 점수 계산
+  const question = questionMatch ? cleanText(questionMatch[1].trim()) : ''
+  const answer = answerMatch ? cleanText(answerMatch[1].trim()) : ''
+  
+  const seoScore = calculateSEOScore({
+    title: generatedTitle,
+    question,
+    answer,
+    keywords: coreKeywords,
+    highlights,
+    commentsCount: allComments.length,
+    target,
+    insuranceType
+  })
   
   // 5. 타겟에 따른 성별/나이 자동 추론
   const targetInfo: { age: string, gender: string, ageNum: number } = (() => {
@@ -2479,21 +2977,39 @@ app.post('/api/generate/qna-full', async (c) => {
     }
   }
   
-  // 텍스트 정리 후 반환
+  // 텍스트 정리 후 반환 (SEO 점수 포함!)
   return c.json({
     keywords: coreKeywords,
+    title: generatedTitle,
     question: cleanText(questionMatch ? questionMatch[1].trim() : `[${target}] ${insuranceType} 가입 고민\n\n${customerConcern}\n\n연락처: ${contact.phone}`),
     answer: cleanText(answerMatch ? answerMatch[1].trim() : `${insuranceType}에 대해 답변 드립니다.`),
     highlights: highlights,
     comments: cleanText([
       comment1Match ? comment1Match[1].trim() : '저도 같은 고민이었어요!',
       comment2Match ? comment2Match[1].trim() : '전문가 답변 감사합니다.',
-      comment3Match ? comment3Match[1].trim() : '저도 상담 받아봐야겠네요.'
+      comment3Match ? comment3Match[1].trim() : '저도 상담 받아봐야겠네요.',
+      comment4Match ? comment4Match[1].trim() : '저는 가입했는데 만족합니다.',
+      comment5Match ? comment5Match[1].trim() : '이 글 저장해둡니다.'
     ].join('\n\n')),
     designHtml: designHtml,
     designText: designText,
     monthlyPremium: parsedMonthlyPremium || '89,000원',
-    coverages: parsedCoverages || []
+    coverages: parsedCoverages || [],
+    // SEO 점수 데이터 (프론트엔드에서 네이버 노출 확률 패널 업데이트용)
+    seo: {
+      totalScore: seoScore.totalScore,
+      grade: seoScore.grade,
+      titleScore: seoScore.titleScore,
+      keywordScore: seoScore.keywordScore,
+      contentScore: seoScore.contentScore,
+      engageScore: seoScore.engageScore,
+      predictedRank: seoScore.predictedRank,
+      exposureRate: seoScore.exposureRate,
+      recommend: seoScore.recommend,
+      strengths: seoScore.strengths,
+      improvements: seoScore.improvements,
+      tips: seoScore.tips
+    }
   })
 })
 

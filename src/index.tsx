@@ -994,6 +994,84 @@ const mainPageHtml = `
       font-weight: 600;
     }
     
+    /* 중복 선택 가능한 칩 버튼 - 문체 톤용 */
+    .chip-multi {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.85);
+      transition: all 0.15s ease;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    @media (min-width: 768px) {
+      .chip-multi { padding: 10px 16px; font-size: 0.9rem; border-radius: 8px; }
+    }
+    @media (min-width: 1024px) {
+      .chip-multi { padding: 12px 20px; font-size: 0.95rem; border-radius: 10px; }
+    }
+    @media (min-width: 1440px) {
+      .chip-multi { padding: 14px 24px; font-size: 1rem; }
+    }
+    .chip-multi:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+    .chip-multi.active {
+      background: rgba(3, 199, 90, 0.2);
+      border-color: rgba(3, 199, 90, 0.5);
+      color: #2ECC71;
+      font-weight: 600;
+    }
+    
+    /* 보험초보 특수 스타일 */
+    .chip-beginner {
+      background: linear-gradient(135deg, rgba(147, 112, 219, 0.15) 0%, rgba(138, 43, 226, 0.1) 100%);
+      border-color: rgba(147, 112, 219, 0.4);
+      color: #B48EFF;
+    }
+    .chip-beginner:hover {
+      background: linear-gradient(135deg, rgba(147, 112, 219, 0.25) 0%, rgba(138, 43, 226, 0.2) 100%);
+      border-color: rgba(147, 112, 219, 0.6);
+      color: #C9A0FF;
+    }
+    .chip-beginner.active {
+      background: linear-gradient(135deg, rgba(147, 112, 219, 0.35) 0%, rgba(138, 43, 226, 0.3) 100%);
+      border-color: rgba(147, 112, 219, 0.8);
+      color: #D4B8FF;
+      box-shadow: 0 0 12px rgba(147, 112, 219, 0.4);
+    }
+    
+    /* 제안서 요청형 특수 스타일 */
+    .chip-proposal {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(29, 78, 216, 0.1) 100%);
+      border-color: rgba(59, 130, 246, 0.4);
+      color: #60A5FA;
+    }
+    .chip-proposal:hover {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(29, 78, 216, 0.2) 100%);
+      border-color: rgba(59, 130, 246, 0.6);
+      color: #93C5FD;
+    }
+    .chip-proposal.active {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.35) 0%, rgba(29, 78, 216, 0.3) 100%);
+      border-color: rgba(59, 130, 246, 0.8);
+      color: #BFDBFE;
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+    }
+    
+    /* 페이드인 애니메이션 */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.2s ease-out;
+    }
+    
     /* 버튼 - 컴팩트 */
     .btn-primary {
       background: linear-gradient(135deg, #03C75A 0%, #00A84D 100%);
@@ -1316,16 +1394,22 @@ const mainPageHtml = `
               </div>
             </div>
             
-            <!-- 칼럼 3: 문체 톤 -->
+            <!-- 칼럼 3: 문체 톤 (중복 선택 가능) -->
             <div>
               <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
-                <i class="fas fa-comment-dots text-blue-400 mr-1.5"></i>문체 톤
+                <i class="fas fa-comment-dots text-blue-400 mr-1.5"></i>문체 톤 <span class="text-gray-400 text-xs">(중복 선택 가능)</span>
               </label>
               <div class="flex flex-wrap gap-1.5 sm:gap-2 lg:gap-2.5" id="qna-tone-chips">
-                <button onclick="selectChip(this, 'qna-tone')" data-value="친근한" class="chip active">친근</button>
-                <button onclick="selectChip(this, 'qna-tone')" data-value="전문적인" class="chip">전문</button>
-                <button onclick="selectChip(this, 'qna-tone')" data-value="설득력 있는" class="chip">설득</button>
-                <button onclick="selectChip(this, 'qna-tone')" data-value="공감하는" class="chip">공감</button>
+                <button onclick="toggleToneChip(this)" data-value="친근한" class="chip-multi active">친근</button>
+                <button onclick="toggleToneChip(this)" data-value="전문적인" class="chip-multi">전문</button>
+                <button onclick="toggleToneChip(this)" data-value="설득력 있는" class="chip-multi">설득</button>
+                <button onclick="toggleToneChip(this)" data-value="공감하는" class="chip-multi">공감</button>
+                <button onclick="toggleToneChip(this)" data-value="보험초보" class="chip-multi chip-beginner" title="보험이 처음인 고객을 위한 쉬운 설명">
+                  <i class="fas fa-seedling mr-1"></i>보험초보
+                </button>
+                <button onclick="toggleToneChip(this)" data-value="제안서요청형" class="chip-multi chip-proposal" title="구체적인 설계/제안서를 요청하는 형식">
+                  <i class="fas fa-file-signature mr-1"></i>제안서 요청
+                </button>
               </div>
             </div>
             
@@ -1940,7 +2024,114 @@ const mainPageHtml = `
       btn.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
       btn.classList.add('active');
       selections[group] = btn.dataset.value;
+      
+      // 보험종류 선택 시 종신/운전자 충돌 체크
+      if (group === 'qna-insurance') {
+        checkInsuranceConflict();
+      }
     }
+    
+    // 문체 톤 중복 선택 기능
+    let selectedTones = ['친근한']; // 기본값
+    
+    function toggleToneChip(btn) {
+      const value = btn.dataset.value;
+      
+      if (btn.classList.contains('active')) {
+        // 이미 선택된 경우 해제 (최소 1개는 유지)
+        if (selectedTones.length > 1) {
+          btn.classList.remove('active');
+          selectedTones = selectedTones.filter(t => t !== value);
+        } else {
+          showToast('최소 1개의 문체 톤을 선택해야 합니다');
+        }
+      } else {
+        // 새로 선택
+        btn.classList.add('active');
+        selectedTones.push(value);
+        
+        // 보험초보 선택 시 안내 메시지
+        if (value === '보험초보') {
+          showToast('💡 보험초보: 전문 용어를 쉽게 풀어서 설명합니다');
+        }
+        // 제안서 요청형 선택 시 안내 메시지
+        if (value === '제안서요청형') {
+          showToast('📋 제안서 요청형: 구체적인 설계 제안을 요청하는 형식으로 작성됩니다');
+        }
+      }
+      
+      // 선택된 톤 업데이트
+      selections['qna-tone'] = selectedTones.join(',');
+    }
+    
+    // 핵심고민에 '종신' 입력 시 보험종류에서 '운전자' 클릭하면 알람 표시
+    function checkInsuranceConflict() {
+      const concern = document.getElementById('qna-concern').value || '';
+      const selectedInsurance = selections['qna-insurance'];
+      
+      // 핵심고민에 '종신' 관련 키워드가 있는지 체크
+      const hasJongshin = /종신|whole\s*life|사망보험/i.test(concern);
+      
+      if (hasJongshin && selectedInsurance === '운전자보험') {
+        showConflictAlert();
+      }
+    }
+    
+    function showConflictAlert() {
+      // 커스텀 알림 모달 표시
+      var alertDiv = document.createElement('div');
+      alertDiv.id = 'conflict-alert';
+      alertDiv.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 animate-fadeIn';
+      alertDiv.innerHTML = '<div class="bg-gray-900 border border-yellow-500/50 rounded-2xl p-6 max-w-md mx-4 shadow-2xl">' +
+        '<div class="flex items-center gap-3 mb-4">' +
+        '<div class="w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center">' +
+        '<i class="fas fa-exclamation-triangle text-yellow-400 text-xl"></i>' +
+        '</div>' +
+        '<h3 class="text-lg font-bold text-white">보험 종류 확인</h3>' +
+        '</div>' +
+        '<p class="text-gray-300 mb-4">' +
+        '핵심 고민에 <span class="text-blue-400 font-semibold">종신보험</span> 관련 내용이 있는데,<br>' +
+        '<span class="text-yellow-400 font-semibold">운전자보험</span>을 선택하셨습니다.' +
+        '</p>' +
+        '<p class="text-gray-400 text-sm mb-6">' +
+        '종신보험과 운전자보험은 보장 내용이 다릅니다.<br>' +
+        '의도한 선택이 맞는지 확인해 주세요.' +
+        '</p>' +
+        '<div class="flex gap-3">' +
+        '<button onclick="document.getElementById(\'conflict-alert\').remove()" class="flex-1 px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">' +
+        '그대로 진행' +
+        '</button>' +
+        '<button onclick="changeToJongshin()" class="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">' +
+        '종신보험으로 변경' +
+        '</button>' +
+        '</div>' +
+        '</div>';
+      document.body.appendChild(alertDiv);
+    }
+    
+    function changeToJongshin() {
+      // 종신보험으로 변경
+      document.querySelectorAll('#qna-insurance-chips .chip').forEach(c => c.classList.remove('active'));
+      const jongshinBtn = document.querySelector('#qna-insurance-chips .chip[data-value="종신보험"]');
+      if (jongshinBtn) {
+        jongshinBtn.classList.add('active');
+        selections['qna-insurance'] = '종신보험';
+      }
+      document.getElementById('conflict-alert').remove();
+      showToast('종신보험으로 변경되었습니다');
+    }
+    
+    // 핵심고민 입력 시 실시간 체크
+    document.addEventListener('DOMContentLoaded', function() {
+      const concernInput = document.getElementById('qna-concern');
+      if (concernInput) {
+        concernInput.addEventListener('input', function() {
+          // 입력이 끝나고 1초 후 체크
+          clearTimeout(this.checkTimeout);
+          this.checkTimeout = setTimeout(checkInsuranceConflict, 1000);
+        });
+      }
+    });
 
     function showToast(msg) {
       const toast = document.getElementById('toast');
@@ -2862,6 +3053,55 @@ app.post('/api/generate/qna-full', async (c) => {
   const selectedExpert2 = expertTypes[Math.floor(Math.random() * expertTypes.length)]
   const selectedExpert3 = expertTypes[Math.floor(Math.random() * expertTypes.length)]
   
+  // 톤 분석 - 다중 선택된 톤 처리
+  const tones = tone.split(',').map((t: string) => t.trim())
+  const isBeginnerMode = tones.includes('보험초보')
+  const isProposalMode = tones.includes('제안서요청형')
+  const baseTones = tones.filter((t: string) => !['보험초보', '제안서요청형'].includes(t))
+  
+  // 암환자/사고 상황 감지 - 공감대 형성 우선 적용
+  const isTraumaticSituation = /암|cancer|사고|교통사고|수술|병원|진단|환자|투병|항암|치료중|치료|입원|병|질병|건강악화|중병|병력/.test(customerConcern.toLowerCase())
+  
+  // 특수 톤 가이드 생성
+  let specialToneGuide = ''
+  if (isBeginnerMode) {
+    specialToneGuide += `
+【 보험초보 모드 - 쉬운 설명 필수 】
+■ 전문 용어는 반드시 쉬운 말로 풀어서 설명
+■ 예시: "납입면제" → "보험료를 안 내도 되는 것", "해지환급금" → "중간에 해약하면 돌려받는 돈"
+■ 복잡한 개념은 비유로 설명 (예: "적립금은 저금통에 모으는 것과 같아요")
+■ 단계별로 차근차근, 초보자도 이해하기 쉽게
+■ "쉽게 설명드리면~", "간단히 말씀드리면~" 표현 활용
+`
+  }
+  if (isProposalMode) {
+    specialToneGuide += `
+【 제안서 요청형 모드 - 구체적 설계 제안 필수 】
+■ "제 상황에 맞는 설계서를 보고 싶어요" 느낌으로 질문 작성
+■ 답변에 구체적인 설계 제안 포함 (월 납입료, 보장내용, 기간 등)
+■ "상담 후 맞춤 설계서를 보내드릴게요" 형태의 CTA
+■ 실제 설계서 예시 언급 (예: "30대 남성 기준 월 5만원대 설계")
+■ 구체적인 숫자와 플랜 제시
+`
+  }
+  
+  // 암환자/사고 상황일 때 공감 우선 가이드
+  let empathyFirstGuide = ''
+  if (isTraumaticSituation) {
+    empathyFirstGuide = `
+★★★★★ 최우선 - 공감대 형성 필수 (암/질병/사고 상황 감지됨) ★★★★★
+■ 전문가 답변 시작은 반드시 진심어린 공감으로 시작해야 함
+■ 예시 문구:
+  - "먼저 힘든 상황에서 용기 내어 질문해 주셔서 감사합니다."
+  - "건강 문제로 많이 불안하시죠. 충분히 이해합니다."
+  - "사고를 겪으신 후 걱정이 많으시겠습니다. 진심으로 위로드립니다."
+  - "투병 중에도 가족을 생각하시는 마음이 느껴집니다."
+■ 공감 → 위로 → 희망적 정보 → 실질적 해결책 순서로 답변
+■ 절대 상업적인 느낌 없이, 진정성 있게 작성
+■ 차가운 정보 나열 금지, 따뜻한 어조 유지
+`
+  }
+  
   const qnaPrompt = `당신은 네이버 검색 상위 1위를 무조건 달성하기 위한 보험 Q&A 전문 작성 AI입니다.
 
 【 네이버 상위 1위 필수 알고리즘 】
@@ -2884,18 +3124,29 @@ app.post('/api/generate/qna-full', async (c) => {
 【 생성 조건 】
 - 타겟: ${target}
 - 보험: ${insuranceType}
-- 문체: ${tone}
-- 고민: ${customerConcern}
+- 선택된 문체 톤: ${tones.join(', ')} (복수 선택됨 - 모든 톤을 자연스럽게 조합)
+- 기본 문체: ${baseTones.length > 0 ? baseTones.join(' + ') : '친근한'}
 - 핵심 키워드: ${coreKeywords.join(', ')}
 - 연락처: ${contact.phone}
+${specialToneGuide}
+${empathyFirstGuide}
+
+★★★ 최우선 적용 - 사용자 핵심 고민 ★★★
+"${customerConcern}"
+→ 이 고민 내용을 제목, 질문, 답변, 해시태그에 최우선으로 반영할 것!
+→ 선택된 모든 문체 톤(${tones.join(', ')})을 자연스럽게 융합하여 답변 작성!
 
 ==========================================================
 【 출력 형식 - 반드시 아래 형식 그대로 출력 】
 ==========================================================
 
 [제목]
-15-25자, 클릭 유도형, 핵심 키워드 "${coreKeywords[0]}" 필수 포함
-물음표(?) 또는 느낌표(!)로 종료
+★ 전문가에게 질문/고민하는 형태로 작성 (필수!)
+★ 사용자 핵심 고민 "${customerConcern}" 내용을 반드시 반영
+- "${target}"이 전문가에게 묻는 질문 형태: "~해도 될까요?", "~어떻게 해야 하나요?", "~추천해주세요"
+- 핵심 키워드 "${coreKeywords[0]}" 필수 포함 (C-RANK 최적화)
+- 15-25자, 검색 의도 명확히 반영
+- 예시: "${target} ${insuranceType} 추천해주세요", "${insuranceType} 가입하려는데 어디가 좋을까요?"
 
 [질문1-${selectedType1.style}]
 "${selectedType1.example}" 같은 느낌으로 시작
@@ -2915,21 +3166,27 @@ app.post('/api/generate/qna-full', async (c) => {
 ${selectedExpert1.desc}
 - 400-600자
 - 핵심 키워드 "${coreKeywords[0]}" 3회 이상 자연 배치
-- 구조: 공감 → 핵심결론 → 근거설명(2026년 기준 수치) → 맞춤조언 3가지 → CTA
-- ${tone} 톤 유지
+${isTraumaticSituation ? '- ★★★ 필수: 진심어린 공감과 위로로 시작! (암/질병/사고 상황 감지됨) ★★★' : '- 구조: 공감 → 핵심결론 → 근거설명(2026년 기준 수치) → 맞춤조언 3가지 → CTA'}
+- 선택된 모든 톤(${tones.join(', ')}) 자연스럽게 융합
+${isBeginnerMode ? '- 보험초보 모드: 전문용어는 쉽게 풀어서 설명' : ''}
+${isProposalMode ? '- 제안서요청형: 구체적인 설계안 언급 필수' : ''}
 - 마지막은 자연스러운 상담 유도 CTA로 마무리
+- ★ 사용자 핵심 고민 "${customerConcern}"에 대한 직접적인 해결책 제시 필수!
 
 [답변2-${selectedExpert2.style}]
 ${selectedExpert2.desc}
 - [답변1]과 완전히 다른 스타일로 작성
 - 400-600자
 - 같은 질문에 대한 다른 전문가의 시각
+${isTraumaticSituation ? '- 공감과 위로 기반으로 작성' : ''}
+- 핵심 고민에 대한 또 다른 관점의 해결책
 
 [답변3-${selectedExpert3.style}]
 ${selectedExpert3.desc}
 - [답변1], [답변2]와 다른 새로운 스타일
 - 400-600자
 - 또 다른 관점에서의 전문가 답변
+- 모든 문제(문체톤 + 핵심고민)를 종합하여 포괄적 해결책 제시
 
 [강조포인트]
 - (핵심 장점 1 - 구체적 수치 포함)
@@ -2949,7 +3206,13 @@ ${selectedExpert3.desc}
 40-80자, "그러면 저도 연락드려도 될까요?", "혹시 더 궁금한 거 있으면" 느낌
 
 [댓글5-해결형]
-40-80자, "덕분에 궁금한 거 해결됐어요", "이 글 저장해둘게요" 느낌`
+40-80자, "덕분에 궁금한 거 해결됐어요", "이 글 저장해둘게요" 느낌
+
+[해시태그]
+★ 사용자 핵심 고민 "${customerConcern}" 관련 키워드 우선 포함
+- 10개, #으로 시작, 띄어쓰기로 구분
+- 예시: #${insuranceType} #${target}보험 #보험추천 #${coreKeywords[0]}
+- C-RANK 최적화를 위해 핵심 키워드 필수 포함`
 
   const qnaResult = await callGeminiAPI(qnaPrompt, geminiKeys)
   
@@ -2965,7 +3228,8 @@ ${selectedExpert3.desc}
   const comment2Match = qnaResult.match(/\[댓글2[^\]]*\]([\s\S]*?)(?=\[댓글3)/i)
   const comment3Match = qnaResult.match(/\[댓글3[^\]]*\]([\s\S]*?)(?=\[댓글4)/i)
   const comment4Match = qnaResult.match(/\[댓글4[^\]]*\]([\s\S]*?)(?=\[댓글5)/i)
-  const comment5Match = qnaResult.match(/\[댓글5[^\]]*\]([\s\S]*?)$/i)
+  const comment5Match = qnaResult.match(/\[댓글5[^\]]*\]([\s\S]*?)(?=\[해시태그\])/i)
+  const hashtagMatch = qnaResult.match(/\[해시태그\]([\s\S]*?)$/i)
   
   // 제목 추출
   const generatedTitle = titleMatch ? cleanText(titleMatch[1].trim()) : `${target} ${insuranceType} 추천`
@@ -3134,10 +3398,17 @@ ${selectedExpert3.desc}
     }
   }
   
-  // V9.5: 질문 2개, 답변 3개, 댓글 5개 반환
+  // 해시태그 파싱
+  const generatedHashtags = hashtagMatch 
+    ? cleanText(hashtagMatch[1].trim()) 
+    : `#${insuranceType.replace(/\s/g, '')} #${target}보험 #보험추천 #${coreKeywords[0].replace(/\s/g, '')} #보험상담`
+
+  // V9.5: 질문 2개, 답변 3개, 댓글 5개, 해시태그 반환
   return c.json({
     keywords: coreKeywords,
     title: generatedTitle,
+    // 해시태그 (핵심 고민 반영)
+    hashtags: generatedHashtags,
     // 질문 2개 (각각 복사 가능)
     questions: questions,
     question: questions[0] || `안녕하세요. ${target}인데 ${insuranceType} 관련 질문이 있어요. ${contact.phone}`,

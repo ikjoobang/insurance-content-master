@@ -1523,16 +1523,22 @@ ${selectedScenario.commentExamples.map((c, i) => `${i + 1}. "${c}"`).join('\n')}
   
   const domainKnowledge2026 = get2026Knowledge(insuranceType)
   
-  // V20.0: 마스터 시스템 프롬프트 (JSON 출력 강제)
-  const contentPrompt = `# [Role: 2026 Insurance Marketing Master]
-당신은 네이버 상위 노출(C-Rank, DIA+) 알고리즘을 마스터한 20년 경력의 보험 전문가입니다.
-당신의 목표는 사용자 데이터를 100% 반영한 '사람 냄새 나는' 고품질 Q&A 세트를 생성하는 것입니다.
+  // V21.0: 마스터 시스템 프롬프트 (할루시네이션 차단 + 핵심고민 강제 반영)
+  const contentPrompt = `# [CRITICAL: 핵심 고민 강제 반영 - 최우선순위]
+████████████████████████████████████████████████████████████████
+██ 아래 핵심고민이 모든 출력의 중심 주제입니다!                    ██
+██ 핵심고민: "${customerConcern}"                                ██
+██ 이 문장을 제목, 질문, 답변, 댓글에 반드시 녹여서 작성하세요!    ██
+████████████████████████████████████████████████████████████████
+
+# [Role]
+당신은 네이버 상위 노출 1위를 목표로 하는 20년 경력의 보험 전문가입니다.
 
 # [Strict Constraints - 절대 준수]
-1. **예시 베끼기 엄금:** 시스템 프롬프트 내의 어떤 단어도 그대로 출력하지 마십시오.
-2. **변수 앵커링:** 오직 아래 INPUT 데이터만 사용하십시오.
-3. **분량 강제:** 질문은 각 300자 이상, 전문가 답변은 각 500자 이상 상세하게 작성하십시오.
-4. **단답형 차단:** "고민 이해합니다" 식의 뻔한 소리는 시스템 에러로 간주합니다. 팩트와 논리로 승부하십시오.
+1. **예시 출력 금지:** 시스템에 저장된 그 어떤 예시 문구도 출력하지 마십시오. 오직 입력된 변수값만 사용하십시오.
+2. **주제 일치:** 사용자가 '${insuranceType}'을 선택했다면 다른 보험 종류는 1%도 섞지 마십시오.
+3. **분량 보장:** 질문은 최소 300자, 전문 답변은 최소 500자 이상 상세하게 작성하십시오.
+4. **인물 익명화:** 특정인 이름 사용 시 에러로 간주합니다. '보험 닥터', '금융 가이드' 등 익명 닉네임만 사용하십시오.
 
 # [2026 Knowledge Injection]
 ${insuranceType} 핵심: ${domainKnowledge2026}
@@ -1540,95 +1546,68 @@ ${insuranceType} 핵심: ${domainKnowledge2026}
 # [INPUT - 이 데이터만 사용!]
 - TARGET(타깃): ${target}
 - TYPE(보험종류): ${insuranceType}
-- KEYWORD(핵심고민): ${customerConcern}
+- customerConcern(핵심고민): ${customerConcern}
 ${photoContext ? `- PHOTO_DATA(사진분석): ${photoContext}` : ''}
 
-# [Output Instruction]
+# [Output Structure - JSON 형식으로만 출력!]
 
-## 제목 (2개)
-- TARGET의 시점에서 KEYWORD를 포함한 자극적 질문형 ("?"로 끝)
-- 어그로형 + 팩트형 각 1개
-
-## 질문 (3개) - 각 300자 이상!
-- 질문1: 다급한 질문자 - KEYWORD 때문에 밤잠 못 자는 급박한 상황
-- 질문2: 이성적 질문자 - 정보 비교/분석 요청하는 신중한 질문
-- 질문3: 의심하는 질문자 - 설계사 말 믿어도 되는지 확인하는 질문
-- 3명 모두 TARGET이어야 함, 다른 연령대 금지
-- KEYWORD를 각 질문에 반드시 포함
-- TYPE을 각 질문에 반드시 언급
-
-## 답변 (3개) - 각 500자 이상!
-- 답변1: 팩트분석 전문가 - 수치와 약관 기반 팩트폭격, 2026년 데이터 인용
-- 답변2: 공감멘토 전문가 - 고객을 다독이며 현실적 대안 2-3가지 제시
-- 답변3: 비교분석 전문가 - PHOTO_DATA와 최신 상품 정밀 비교 (없으면 갱신형vs비갱신형 비교)
-- 모든 답변에 TYPE 최소 2회 언급
-- 모든 답변에 KEYWORD 반영
-- CTA(행동유도) 필수: "증권 사진 올려주시면 분석해드릴게요" 등
-
-## 댓글 (5개) - 40-100자
-- 댓글1: 공감형 - "저도 똑같은 고민이었어요"
-- 댓글2: 사이다형 - "이건 진짜 찐 정보네요"
-- 댓글3: 질문형 - 파생 질문
-- 댓글4: 경험담 - 본인 사례 공유
-- 댓글5: 응원형 - 격려
-
-# [Output Format - 이 형식만 사용!]
+아래 형식을 정확히 따르세요. 설명 텍스트 없이 태그와 내용만 출력하세요.
 
 [제목1]
-(TARGET 시점, KEYWORD 포함, 어그로형 질문)
+"${customerConcern}"을 반영한 자극적 질문 (${target} 시점, ?로 끝)
 
 [제목2]
-(TARGET 시점, TYPE 포함, 팩트형 질문)
+"${customerConcern}"을 반영한 팩트형 질문 (${insuranceType} 포함, ?로 끝)
 
 [질문1]
-(다급한 질문자, 300자 이상, KEYWORD+TYPE 필수 포함)
+${target} 입장에서 "${customerConcern}" 때문에 밤잠 못 자는 급박한 사연 (300자 이상, ${insuranceType} 언급 필수)
 
 [질문2]
-(이성적 질문자, 300자 이상, KEYWORD+TYPE 필수 포함)
+${target} 입장에서 "${customerConcern}"의 진실을 묻는 의심형 질문 (300자 이상, ${insuranceType} 언급 필수)
 
 [질문3]
-(의심하는 질문자, 300자 이상, KEYWORD+TYPE 필수 포함)
+${target} 입장에서 "${customerConcern}" 관련 비용 고민을 털어놓는 사연 (300자 이상, ${insuranceType} 언급 필수)
 
 [답변1]
-(팩트분석 전문가, 500자 이상, TYPE 2회 이상, 2026년 수치/약관 인용)
+팩트형 전문가: "${customerConcern}"에 대한 2026년 최신 약관/수치 분석 (500자 이상, ${insuranceType} 2회 이상)
 
 [답변2]
-(공감멘토 전문가, 500자 이상, TYPE 2회 이상, 대안 2-3가지)
+공감형 전문가: "${customerConcern}"에 대한 심리적 위로와 현실적 대안 2-3가지 (500자 이상, ${insuranceType} 2회 이상)
 
 [답변3]
-(비교분석 전문가, 500자 이상, TYPE 2회 이상, 비교표/비교 분석)
+비교형 전문가: ${photoContext ? 'PHOTO_DATA와 최신 상품을' : '갱신형vs비갱신형을'} "${customerConcern}" 관점에서 비교 분석 (500자 이상, ${insuranceType} 2회 이상)
 
 [댓글1]
-(공감형, 40-100자)
+"${customerConcern}" 공감하는 리얼한 댓글 (40-100자)
 
 [댓글2]
-(사이다형, 40-100자)
+"이건 찐 정보다" 사이다형 댓글 (40-100자)
 
 [댓글3]
-(질문형, 40-100자)
+"${customerConcern}" 관련 파생 질문 댓글 (40-100자)
 
 [댓글4]
-(경험담, 40-100자)
+본인 경험담 공유 댓글 (40-100자)
 
 [댓글5]
-(응원형, 40-100자)
+응원/격려 댓글 (40-100자)
 
 [검색키워드]
 ${strategy.seoKeywords.slice(0, 5).join(', ')}
 
 [최적화제목1]
-(D.I.A.+ 최적화: TYPE + KEYWORD 포함)
+D.I.A.+ 최적화: ${insuranceType} + "${customerConcern}" 포함
 
 [최적화제목2]
-(에이전트 N 최적화: 클릭 유도형)
+에이전트 N 최적화: 클릭 유도형
 
 [강조포인트]
-- (TYPE 2026년 핵심 변경사항)
-- (KEYWORD 해결을 위한 체크포인트)
-- (전문가 무료 상담 활용법)
+- ${insuranceType} 2026년 핵심 변경사항
+- "${customerConcern}" 해결을 위한 체크포인트 3가지
+- 전문가 무료 상담 활용법
 
 [해시태그]
-#${insuranceType.replace(/\s/g, '')} #${target.replace(/\s/g, '')}보험 포함 10개
+#${insuranceType.replace(/\s/g, '')} #${target.replace(/\s/g, '')}보험 #${customerConcern.replace(/\s/g, '').substring(0, 10)} 포함 10개
 
 [자가진단결과]
 - 핵심고민 반영도: 상
@@ -1636,9 +1615,9 @@ ${strategy.seoKeywords.slice(0, 5).join(', ')}
 - 보험종류 일치도: 상
 - 재생성 필요: 아니오
 
-⚠️ [태그]와 내용만 출력! 설명/구분선/마크다운 출력 금지!`
+⚠️ 위 형식만 출력! 설명/구분선/마크다운 금지!`
 
-  console.log('[V20.0 RAG Step 3] 콘텐츠 생성 시작...')
+  console.log('[V21.0 RAG Step 3] 콘텐츠 생성 시작 - 핵심고민 강제 반영:', customerConcern)
   try {
     return await callGeminiAPI(contentPrompt, geminiKeys)
   } catch (error) {

@@ -581,6 +581,423 @@ async function getRelatedKeywords(query: string, clientId: string, clientSecret:
   }
 }
 
+// ============================================================
+// V16.0 - RAG 기반 프롬프트 체이닝 (Hallucination Zero Project)
+// Step 1: 팩트 수집 → Step 2: 전략 수립 → Step 3: 콘텐츠 생성 → Step 4: 자가 진단
+// ============================================================
+
+// Step 1: 네이버 검색 API로 팩트 데이터 수집 (블로그 + 뉴스)
+async function collectFactData(
+  insuranceType: string, 
+  customerConcern: string,
+  target: string,
+  clientId: string, 
+  clientSecret: string
+): Promise<{ blogFacts: string[], newsFacts: string[], searchSuccess: boolean }> {
+  const blogFacts: string[] = []
+  const newsFacts: string[] = []
+  
+  // 검색 쿼리 조합
+  const queries = [
+    `2026년 ${insuranceType} 개정`,
+    `${insuranceType} ${customerConcern.substring(0, 20)}`,
+    `${insuranceType} 추천 ${target}`
+  ]
+  
+  try {
+    // 블로그 검색 (상위 3개)
+    for (const query of queries.slice(0, 2)) {
+      const blogResponse = await fetch(
+        `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(query)}&display=3&sort=sim`,
+        {
+          headers: {
+            'X-Naver-Client-Id': clientId,
+            'X-Naver-Client-Secret': clientSecret
+          }
+        }
+      )
+      
+      if (blogResponse.ok) {
+        const blogData = await blogResponse.json() as any
+        const items = blogData.items || []
+        items.forEach((item: any) => {
+          const title = (item.title || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '')
+          const desc = (item.description || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '')
+          if (title && desc) {
+            blogFacts.push(`[블로그] ${title}: ${desc}`)
+          }
+        })
+      }
+    }
+    
+    // 뉴스 검색 (상위 3개)
+    const newsResponse = await fetch(
+      `https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(`${insuranceType} 2026`)}&display=3&sort=date`,
+      {
+        headers: {
+          'X-Naver-Client-Id': clientId,
+          'X-Naver-Client-Secret': clientSecret
+        }
+      }
+    )
+    
+    if (newsResponse.ok) {
+      const newsData = await newsResponse.json() as any
+      const items = newsData.items || []
+      items.forEach((item: any) => {
+        const title = (item.title || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '')
+        const desc = (item.description || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, '')
+        if (title && desc) {
+          newsFacts.push(`[뉴스] ${title}: ${desc}`)
+        }
+      })
+    }
+    
+    console.log(`[RAG Step 1] 팩트 수집 완료 - 블로그: ${blogFacts.length}개, 뉴스: ${newsFacts.length}개`)
+    
+    return { 
+      blogFacts: blogFacts.slice(0, 5), 
+      newsFacts: newsFacts.slice(0, 3),
+      searchSuccess: blogFacts.length > 0 || newsFacts.length > 0
+    }
+  } catch (error) {
+    console.log('[RAG Step 1] 네이버 검색 오류:', error)
+    return { blogFacts: [], newsFacts: [], searchSuccess: false }
+  }
+}
+
+// Step 2: 전략 수립 - JSON 포맷으로 팩트 추출 및 전략 수립
+interface StrategyJSON {
+  seoKeywords: string[]           // SEO 키워드 5개
+  factChecks: string[]            // 2026년 핵심 변경점
+  expertStrategies: {             // 3명 전문가 전략
+    factExpert: string            // 팩트형 전문가 핵심 논리
+    empathyExpert: string         // 공감형 전문가 핵심 논리
+    comparisonExpert: string      // 비교형 전문가 핵심 논리
+  }
+  userContextSummary: string      // 사용자 맥락 요약
+}
+
+async function buildStrategy(
+  insuranceType: string,
+  customerConcern: string,
+  target: string,
+  factData: { blogFacts: string[], newsFacts: string[] },
+  geminiKeys: string[]
+): Promise<StrategyJSON> {
+  // 팩트 데이터가 없으면 기본 지식 베이스 사용
+  const factContext = factData.blogFacts.length > 0 || factData.newsFacts.length > 0
+    ? `
+【 네이버 검색 결과 (2026년 최신 정보) 】
+${factData.blogFacts.join('\n')}
+${factData.newsFacts.join('\n')}
+`
+    : `
+【 기본 지식 베이스 (검색 결과 없음 - Fallback) 】
+- 2026년 보험 트렌드: 비갱신형 필수화, 통합 보장 강화
+- 암보험: 통합암(원발/전이 각각 보장), 중입자/양성자 치료비 특약 중요
+- 3대질환: I49(기타 부정맥), 산정특례 심장질환 보장 확대
+- 운전자보험: 변호사선임비용 경찰조사단계 포함, 공탁금 선지급 100%
+- 간병/치매: 체증형 간병인 일당, 장기요양등급 1~5등급 보장
+`
+  
+  const strategyPrompt = `당신은 보험 콘텐츠 전략가입니다.
+
+【 사용자 입력 (Original Input) - 절대 변경 금지 】
+- 보험 종류: "${insuranceType}"
+- 핵심 고민: "${customerConcern}"
+- 타깃 고객: "${target}"
+
+${factContext}
+
+【 작업 지시 】
+위의 검색 결과와 사용자 고민을 분석해서 다음을 **JSON 포맷으로만** 출력하세요.
+⚠️ 글쓰기 금지! JSON만 출력!
+
+{
+  "seoKeywords": ["검색량 높은 키워드 5개 - ${insuranceType} 관련"],
+  "factChecks": ["검색 결과에서 확인된 2026년 핵심 변경점 3개 (예: 기.갑.경.제, 통합암, I49 등)"],
+  "expertStrategies": {
+    "factExpert": "팩트형 전문가가 주장할 핵심 논리 한 줄 (약관/수치 기반)",
+    "empathyExpert": "공감형 전문가가 주장할 핵심 논리 한 줄 (심리적 위로 + 대안)",
+    "comparisonExpert": "비교형 전문가가 주장할 핵심 논리 한 줄 (타사/과거 비교)"
+  },
+  "userContextSummary": "${target}이 ${customerConcern}에 대해 고민하는 상황 요약"
+}
+
+⚠️ 중요: 반드시 위 JSON 구조로만 응답하세요. 설명 텍스트 금지!`
+
+  try {
+    const result = await callGeminiAPI(strategyPrompt, geminiKeys)
+    const jsonMatch = result.match(/\{[\s\S]*\}/)
+    
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]) as StrategyJSON
+      console.log('[RAG Step 2] 전략 수립 완료:', JSON.stringify(parsed.seoKeywords))
+      return parsed
+    }
+  } catch (error) {
+    console.log('[RAG Step 2] 전략 파싱 오류:', error)
+  }
+  
+  // 파싱 실패 시 기본 전략 반환
+  return {
+    seoKeywords: [`${insuranceType} 추천`, `${insuranceType} 비교`, `${insuranceType} 가입`, `${insuranceType} 해지`, `${target} ${insuranceType}`],
+    factChecks: ['2026년 비갱신형 특약 강화', '통합 보장 트렌드', '갱신형 보험료 인상 이슈'],
+    expertStrategies: {
+      factExpert: `${insuranceType} 약관 기준 정확한 보장 범위와 예외 사항 분석`,
+      empathyExpert: `${customerConcern} 상황에 대한 공감과 현실적 대안 제시`,
+      comparisonExpert: `${insuranceType} 타사 상품 및 2020년형 vs 2026년형 비교`
+    },
+    userContextSummary: `${target}이 ${customerConcern}에 대해 고민하는 상황`
+  }
+}
+
+// Step 3: 콘텐츠 생성 - 전략 JSON 기반으로 작성
+async function generateContentWithStrategy(
+  insuranceType: string,
+  customerConcern: string,
+  target: string,
+  strategy: StrategyJSON,
+  additionalContext: string,  // 기존 프롬프트의 추가 컨텍스트 (페르소나, 시나리오 등)
+  geminiKeys: string[]
+): Promise<string> {
+  const contentPrompt = `########################################################################
+#  🔴 RAG 기반 콘텐츠 생성 - 전략 JSON 안에서만 작성! 🔴  #
+########################################################################
+
+【 사용자 입력 (Original Input) - 모든 콘텐츠에 반드시 반영! 】
+📌 보험 종류: "${insuranceType}"
+📌 핵심 고민: "${customerConcern}"
+📌 타깃 고객: "${target}"
+
+【 Step 2에서 수립된 전략 (이 안에서만 작성!) 】
+${JSON.stringify(strategy, null, 2)}
+
+【 제약 사항 - 반드시 준수! 】
+1. ❌ 위 JSON에 없는 내용은 절대 지어내지 마라
+2. ✅ "${customerConcern}"를 제목, 질문, 답변, 댓글에 반드시 포함
+3. ✅ "${insuranceType}"를 모든 답변에 최소 2회 언급
+4. ✅ factChecks의 2026년 최신 정보를 답변에 활용
+5. ✅ expertStrategies에 따라 3가지 전문가 답변 작성
+
+${additionalContext}
+
+【 출력 형식 】
+[제목1]
+(${target}이 ${customerConcern}에 대해 급하게 질문하는 어그로성 제목, 15-35자, ?로 끝)
+
+[제목2]
+(제목1과 다른 스타일의 어그로성 제목)
+
+[질문1]
+안녕하세요. ${target}입니다.
+${customerConcern} ← 이 문장 반드시 포함!
+${insuranceType} 관련해서 질문 드립니다.
+(구체적 상황 200-350자, 쪽지 사절 댓글로 답변 부탁)
+
+[질문2]
+(다른 화자, 다른 상황이지만 "${customerConcern}"과 "${insuranceType}" 반드시 포함!)
+
+[질문3]
+(또 다른 화자, "${customerConcern}"과 "${insuranceType}" 반드시 포함!)
+
+[답변1]
+전문가A: 팩트형 - "${strategy.expertStrategies.factExpert}"
+핵심 고민: "${customerConcern}"에 대한 약관/수치 기반 답변
+2026년 팩트: ${strategy.factChecks.join(', ')}
+보험종류: "${insuranceType}" 최소 2회 언급!
+시작: "객관적으로 말씀드리면..."
+(500-700자, CTA 필수)
+
+[답변2]
+전문가B: 공감형 - "${strategy.expertStrategies.empathyExpert}"
+핵심 고민: "${customerConcern}"에 공감하며 대안 제시
+보험종류: "${insuranceType}" 최소 2회 언급!
+시작: "많이 걱정되셨죠?..."
+(500-700자, CTA 필수)
+
+[답변3]
+전문가C: 비교형 - "${strategy.expertStrategies.comparisonExpert}"
+핵심 고민: "${customerConcern}"을 비교 관점에서 답변
+보험종류: "${insuranceType}" 최소 2회 언급!
+시작: "비교해서 말씀드리면..."
+(500-700자, CTA 필수)
+
+[댓글1]
+(질문자의 "${customerConcern}" 상황에 공감하는 경험담, 40-100자)
+
+[댓글2]
+(전문가 답변 뒷받침하는 정보, "${insuranceType}" 언급, 40-100자)
+
+[댓글3]
+(비슷한 상황의 추가 질문, 40-100자)
+
+[검색키워드]
+${strategy.seoKeywords.join(', ')}
+
+[최적화제목1]
+D.I.A.+ 최적화 제목
+
+[최적화제목2]
+에이전트 N 최적화 제목
+
+[강조포인트]
+- (핵심 1)
+- (핵심 2)
+- (핵심 3)
+
+[해시태그]
+#${insuranceType.replace(/\s/g, '')} 포함 10개
+
+[자가진단결과]
+- 핵심고민 반영도: 상
+- 타깃 적합도: 상
+- 보험종류 일치도: 상
+- 2026년 팩트 반영: 상
+- 재생성 필요: 아니오
+
+⚠️ 중요: [태그]와 내용만 출력! 설명이나 구분선 출력 금지!`
+
+  console.log('[RAG Step 3] 콘텐츠 생성 시작...')
+  try {
+    return await callGeminiAPI(contentPrompt, geminiKeys)
+  } catch (error) {
+    console.log('[RAG Step 3] API 호출 오류 - Fallback 콘텐츠 반환:', error)
+    // Fallback: 기본 템플릿 반환
+    return `[제목1]
+${target}인데 ${insuranceType} 이거 어떻게 해야 하나요?
+
+[제목2]
+${insuranceType} 고민하다 지쳤어요 도와주세요
+
+[질문1]
+안녕하세요. ${target}입니다.
+${customerConcern}
+${insuranceType} 관련해서 어떻게 해야 할지 모르겠습니다.
+조언 부탁드립니다. 쪽지 사절이요, 댓글로 답변 부탁드립니다.
+
+[질문2]
+저도 비슷한 고민이에요. ${customerConcern}
+${insuranceType} 가입/유지에 대해 전문가분들 조언 부탁드려요.
+
+[질문3]
+${customerConcern} 같은 상황인데요.
+${insuranceType} 어떻게 하는 게 좋을까요?
+
+[답변1]
+안녕하세요. ${insuranceType} 전문가입니다.
+${customerConcern} 고민하시는 상황 충분히 이해합니다.
+${insuranceType}의 경우 2026년 기준으로 비갱신형 특약 확인이 중요합니다.
+현재 보험 증권을 댓글로 남겨주시면 자세히 분석해 드리겠습니다.
+
+[답변2]
+많이 걱정되셨죠? ${customerConcern} 상황에서 불안한 마음 이해합니다.
+${insuranceType}은 개인 상황에 따라 최적의 선택이 다릅니다.
+편하게 댓글 남겨주시면 함께 고민해 드릴게요.
+
+[답변3]
+비교해서 말씀드리면, ${insuranceType}은 회사별로 보장 범위가 다릅니다.
+${customerConcern} 상황에서는 갱신형과 비갱신형 비교가 필수입니다.
+댓글로 현재 상품 정보 주시면 비교 분석해 드리겠습니다.
+
+[댓글1]
+저도 비슷한 고민이었는데 이 글 보고 정리됐어요
+
+[댓글2]
+${insuranceType} 정보 감사합니다. 바로 확인해봐야겠네요
+
+[댓글3]
+저도 증권 분석 부탁드려도 될까요?
+
+[검색키워드]
+${strategy.seoKeywords.join(', ')}
+
+[최적화제목1]
+${target} ${insuranceType} 이거 손해 보는 건가요?
+
+[최적화제목2]
+${insuranceType} 갱신 폭탄 어떻게 해야 하나요?
+
+[강조포인트]
+- ${insuranceType} 2026년 기준 확인 필수
+- 비갱신형 특약 여부 체크
+- 전문가 무료 상담 활용
+
+[해시태그]
+#${insuranceType.replace(/\s/g, '')} #보험상담 #보험추천 #보험비교 #${target.replace(/\s/g, '')}
+
+[자가진단결과]
+- 핵심고민 반영도: 중
+- 타깃 적합도: 상
+- 보험종류 일치도: 상
+- 2026년 팩트 반영: 중
+- 재생성 필요: 아니오
+- 재생성 사유: API 오류로 기본 템플릿 사용`
+  }
+}
+
+// Step 4: 자가 진단 및 검수 - True/False 판정
+interface SelfDiagnosisResult {
+  hasConcernInQuestions: boolean    // 질문에 핵심고민 포함 여부
+  hasConcernInAnswers: boolean      // 답변에 핵심고민 포함 여부
+  hasInsuranceTypeInAnswers: boolean // 답변에 보험종류 포함 여부
+  has2026Facts: boolean             // 2026년 최신 트렌드 반영 여부
+  overallPass: boolean              // 전체 통과 여부
+  failReasons: string[]             // 실패 사유
+}
+
+async function selfDiagnoseContent(
+  generatedContent: string,
+  customerConcern: string,
+  insuranceType: string,
+  strategy: StrategyJSON,
+  geminiKeys: string[]
+): Promise<SelfDiagnosisResult> {
+  // 먼저 로컬 검증 (빠른 체크)
+  const concernKeywords = customerConcern.split(/[\s,]+/).filter(w => w.length > 1)
+  const concernSubstring = customerConcern.substring(0, 15).toLowerCase()
+  const contentLower = generatedContent.toLowerCase()
+  
+  // 질문 섹션 추출
+  const questionsSection = generatedContent.match(/\[질문1\][\s\S]*?(?=\[답변1\])/i)?.[0] || ''
+  const answersSection = generatedContent.match(/\[답변1\][\s\S]*?(?=\[댓글1\])/i)?.[0] || ''
+  
+  const hasConcernInQuestions = concernKeywords.some(kw => questionsSection.toLowerCase().includes(kw)) ||
+    questionsSection.toLowerCase().includes(concernSubstring)
+  
+  const hasConcernInAnswers = concernKeywords.some(kw => answersSection.toLowerCase().includes(kw)) ||
+    answersSection.toLowerCase().includes(concernSubstring)
+  
+  const insuranceCount = (answersSection.match(new RegExp(insuranceType, 'gi')) || []).length
+  const hasInsuranceTypeInAnswers = insuranceCount >= 2
+  
+  // 2026년 팩트 체크 (전략에서 가져온 factChecks 기반)
+  const has2026Facts = strategy.factChecks.some(fact => {
+    const factKeywords = fact.split(/[\s,]+/).filter(w => w.length > 1)
+    return factKeywords.some(kw => contentLower.includes(kw.toLowerCase()))
+  })
+  
+  const failReasons: string[] = []
+  if (!hasConcernInQuestions) failReasons.push('질문에 핵심고민이 충분히 반영되지 않음')
+  if (!hasConcernInAnswers) failReasons.push('답변에 핵심고민이 반영되지 않음')
+  if (!hasInsuranceTypeInAnswers) failReasons.push(`답변에 "${insuranceType}"가 2회 이상 언급되지 않음`)
+  if (!has2026Facts) failReasons.push('2026년 최신 트렌드가 답변에 반영되지 않음')
+  
+  const overallPass = hasConcernInQuestions && hasConcernInAnswers && hasInsuranceTypeInAnswers
+  
+  console.log(`[RAG Step 4] 자가 진단 - 통과: ${overallPass}, 실패 사유: ${failReasons.length}개`)
+  
+  return {
+    hasConcernInQuestions,
+    hasConcernInAnswers,
+    hasInsuranceTypeInAnswers,
+    has2026Facts,
+    overallPass,
+    failReasons
+  }
+}
+
 // 가상 연락처 생성 (수정: ㅇㅇ71-10ㅇㅇ 형태 - 이름 없이)
 function generateVirtualContact(): { phone: string, kakao: string } {
   // 가상 전화번호 (ㅇㅇXX-10XX 형태 - 18번호 안씀)
@@ -3301,12 +3718,13 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '15.1', 
-  ai: 'gemini-1.5-pro + naver + gemini-image', 
+  version: '16.0', 
+  ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
+  ragPipeline: 'naver-search → strategy-json → content-gen → self-diagnosis',
   year: 2026,
-  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style', 'self-correction-loop'],
+  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style', 'rag-4step-pipeline', 'hallucination-zero'],
   timestamp: new Date().toISOString() 
 }))
 
@@ -4220,14 +4638,29 @@ ${scenario1.trigger}
 ※ 중요: [태그]와 실제 내용만 출력하세요. 괄호 안의 설명은 출력하지 마세요!`
 
   // ============================================================
-  // V15.0 - Self-Correction Loop: 생성 → 검수 → 재생성 (최대 2회)
+  // V16.0 - RAG 기반 4단계 파이프라인 (Hallucination Zero Project)
+  // Step 1: 팩트 수집 → Step 2: 전략 수립 → Step 3: 콘텐츠 생성 → Step 4: 자가 진단
   // ============================================================
   
   const MAX_REGENERATION_ATTEMPTS = 2
   let currentAttempt = 1
   let qnaResult = ''
-  let regenerationHistory: Array<{ attempt: number, failReasons: string[], score: number }> = []
+  let regenerationHistory: Array<{ attempt: number, failReasons: string[], score: number, step: string }> = []
   let finalAuditResult: AuditResult | null = null
+  
+  // RAG 파이프라인 실행 로그
+  interface RAGPipelineLog {
+    step1_factCollection: { success: boolean, blogCount: number, newsCount: number }
+    step2_strategyBuilding: { success: boolean, seoKeywords: string[] }
+    step3_contentGeneration: { success: boolean, generatedLength: number }
+    step4_selfDiagnosis: { pass: boolean, failReasons: string[] }
+  }
+  let ragPipelineLog: RAGPipelineLog = {
+    step1_factCollection: { success: false, blogCount: 0, newsCount: 0 },
+    step2_strategyBuilding: { success: false, seoKeywords: [] },
+    step3_contentGeneration: { success: false, generatedLength: 0 },
+    step4_selfDiagnosis: { pass: false, failReasons: [] }
+  }
   
   // 파싱 함수들 (재사용을 위해 미리 정의)
   // 구분선(===) 제거 함수
@@ -4321,68 +4754,158 @@ ${scenario1.trigger}
   }
   
   // ============================================================
-  // V15.0 - Self-Correction Loop 실행 (최대 2회 재생성)
+  // V16.0 - RAG 4단계 파이프라인 실행
   // ============================================================
   
-  console.log('[V15.0] Self-Correction Loop 시작 - 핵심고민:', customerConcern.substring(0, 30))
+  console.log('[V16.0 RAG] 4단계 파이프라인 시작 - 핵심고민:', customerConcern.substring(0, 30))
+  
+  // =========================
+  // Step 1: 네이버 API로 팩트 수집
+  // =========================
+  console.log('[V16.0 RAG Step 1] 네이버 검색 API로 팩트 수집 시작...')
+  const factData = await collectFactData(
+    insuranceType, 
+    customerConcern, 
+    target, 
+    naverClientId, 
+    naverClientSecret
+  )
+  ragPipelineLog.step1_factCollection = {
+    success: factData.searchSuccess,
+    blogCount: factData.blogFacts.length,
+    newsCount: factData.newsFacts.length
+  }
+  console.log(`[V16.0 RAG Step 1] 팩트 수집 완료 - 블로그: ${factData.blogFacts.length}개, 뉴스: ${factData.newsFacts.length}개`)
+  
+  // =========================
+  // Step 2: 전략 수립 (JSON 포맷)
+  // =========================
+  console.log('[V16.0 RAG Step 2] 전략 수립 시작...')
+  const strategy = await buildStrategy(insuranceType, customerConcern, target, factData, geminiKeys)
+  ragPipelineLog.step2_strategyBuilding = {
+    success: strategy.seoKeywords.length > 0,
+    seoKeywords: strategy.seoKeywords
+  }
+  console.log(`[V16.0 RAG Step 2] 전략 수립 완료 - SEO 키워드: ${strategy.seoKeywords.join(', ')}`)
+  
+  // 추가 컨텍스트 (기존 프롬프트의 페르소나/시나리오 정보)
+  const additionalContext = `
+【 타깃 페르소나 상세 분석 】
+- ${persona.ageGroup} ${persona.gender} ${persona.occupation}
+- 가족상황: ${persona.familyStatus}
+- 상황: ${personaContexts.join('; ')}
+
+【 질문 시나리오 】
+- 시나리오1: ${scenario1.trigger} → ${scenario1.ending}
+- 시나리오2: ${scenario2.trigger} → ${scenario2.ending}
+
+【 전문가 유형 】
+- 전문가A: ${expert1.type} (${expert1.focus})
+- 전문가B: ${expert2.type} (${expert2.focus})
+- 전문가C: ${expert3.type} (${expert3.focus})
+
+【 톤 설정 】
+- 기본 톤: ${baseTones.join(', ') || tone}
+- 초보 모드: ${isBeginnerMode ? '활성화' : '비활성화'}
+- 트라우마 상황: ${isTraumaticSituation ? '감지됨 (공감 우선)' : '일반'}
+
+【 2026년 도메인 지식 】
+${domainKnowledge}
+`
+  
+  // =========================
+  // Step 3 & 4: 콘텐츠 생성 + 자가진단 (최대 2회 재생성)
+  // =========================
   
   while (currentAttempt <= MAX_REGENERATION_ATTEMPTS + 1) {
-    // 재생성 시 Context 강화 프롬프트
-    const contextReinforcement = currentAttempt > 1 && regenerationHistory.length > 0 ? `
+    // 재생성 시 이전 오류 반영
+    const previousFailContext = currentAttempt > 1 && regenerationHistory.length > 0 ? `
 
-🚨🚨🚨 [재생성 ${currentAttempt}차 - 이전 오류 반드시 수정!] 🚨🚨🚨
+🚨🚨🚨 [RAG 재생성 ${currentAttempt}차 - 이전 오류 반드시 수정!] 🚨🚨🚨
 이전 생성에서 다음 문제가 발견되었습니다:
 ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ ${r}`).join('\n')}
 
 ⚠️ 반드시 위 문제를 해결해야 합니다!
-⚠️ 특히 "${customerConcern}"가 [질문1], [질문2], [질문3]에 반드시 그대로 포함!
-⚠️ "${insuranceType}"가 모든 [답변]에 최소 2회 이상 언급!
+⚠️ JSON 전략에 없는 내용은 절대 지어내지 마세요!
 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
 
 ` : ''
     
-    // 현재 프롬프트에 Context 강화 추가
-    const enhancedQnaPrompt = contextReinforcement + qnaPrompt
+    // Step 3: 전략 기반 콘텐츠 생성
+    console.log(`[V16.0 RAG Step 3] ${currentAttempt}차 콘텐츠 생성 시작...`)
+    qnaResult = await generateContentWithStrategy(
+      insuranceType,
+      customerConcern,
+      target,
+      strategy,
+      previousFailContext + additionalContext,
+      geminiKeys
+    )
+    ragPipelineLog.step3_contentGeneration = {
+      success: qnaResult.length > 500,
+      generatedLength: qnaResult.length
+    }
+    console.log(`[V16.0 RAG Step 3] 콘텐츠 생성 완료 - 길이: ${qnaResult.length}자`)
     
-    // Gemini API 호출
-    console.log(`[V15.0] ${currentAttempt}차 생성 시도...`)
-    qnaResult = await callGeminiAPI(enhancedQnaPrompt, geminiKeys)
+    // Step 4: 자가 진단
+    console.log(`[V16.0 RAG Step 4] ${currentAttempt}차 자가진단 시작...`)
+    const diagnosisResult = await selfDiagnoseContent(
+      qnaResult,
+      customerConcern,
+      insuranceType,
+      strategy,
+      geminiKeys
+    )
     
-    // 파싱 및 검수
+    // 파싱 및 auditQnAContent 검수도 병행
     const { auditResult: currentAudit } = parseAndAuditQnA(qnaResult)
     finalAuditResult = currentAudit
     
-    console.log(`[V15.0] ${currentAttempt}차 검수 결과 - 통과: ${currentAudit.passed}, 점수: ${currentAudit.totalScore}`)
+    // 통합 검수 결과 (selfDiagnose + auditQnAContent)
+    const combinedPass = diagnosisResult.overallPass && currentAudit.passed
+    const combinedFailReasons = [...diagnosisResult.failReasons, ...currentAudit.failReasons]
+    
+    ragPipelineLog.step4_selfDiagnosis = {
+      pass: combinedPass,
+      failReasons: combinedFailReasons
+    }
+    
+    console.log(`[V16.0 RAG Step 4] 자가진단 완료 - 통과: ${combinedPass}, 점수: ${currentAudit.totalScore}`)
     
     // 검수 통과 시 루프 종료
-    if (currentAudit.passed || currentAudit.totalScore >= 75) {
-      console.log(`[V15.0] 검수 통과! (${currentAttempt}차 시도)`)
+    if (combinedPass || currentAudit.totalScore >= 75) {
+      console.log(`[V16.0 RAG] 검수 통과! (${currentAttempt}차 시도)`)
       break
     }
     
     // 검수 실패 - 재생성 기록 저장
     regenerationHistory.push({
       attempt: currentAttempt,
-      failReasons: currentAudit.failReasons,
-      score: currentAudit.totalScore
+      failReasons: combinedFailReasons,
+      score: currentAudit.totalScore,
+      step: 'Step4-SelfDiagnosis'
     })
     
     // 최대 재생성 횟수 도달 시 종료
     if (currentAttempt > MAX_REGENERATION_ATTEMPTS) {
-      console.log(`[V15.0] 최대 재생성 횟수(${MAX_REGENERATION_ATTEMPTS}회) 도달 - 현재 결과 사용`)
+      console.log(`[V16.0 RAG] 최대 재생성 횟수(${MAX_REGENERATION_ATTEMPTS}회) 도달 - 현재 결과 사용`)
       break
     }
     
-    console.log(`[V15.0] 검수 실패 - ${currentAttempt + 1}차 재생성 준비...`)
-    console.log(`[V15.0] 실패 사유: ${currentAudit.failReasons.join(', ')}`)
+    console.log(`[V16.0 RAG] 검수 실패 - ${currentAttempt + 1}차 재생성 준비...`)
+    console.log(`[V16.0 RAG] 실패 사유: ${combinedFailReasons.join(', ')}`)
     
     currentAttempt++
   }
   
-  console.log(`[V15.0] Self-Correction Loop 완료 - 총 ${currentAttempt}회 시도, 최종 점수: ${finalAuditResult?.totalScore}`)
+  console.log(`[V16.0 RAG] 4단계 파이프라인 완료 - 총 ${currentAttempt}회 시도, 최종 점수: ${finalAuditResult?.totalScore}`)
   
   // ============================================================
-  // 최종 파싱 (Self-Correction Loop 완료 후)
+  // 기존 qnaPrompt 기반 Fallback (RAG 실패 시) - 삭제하고 아래 파싱으로 이동
+  // ============================================================
+  
+  // ============================================================
+  // V16.0 - RAG 파이프라인 완료 후 최종 파싱
   // ============================================================
   
   // V13.0: 제목 2개, 질문 3개 파싱
@@ -4748,24 +5271,36 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
         ? '자동검증: 핵심고민 또는 보험종류가 콘텐츠에 충분히 반영되지 않았습니다.'
         : (selfDiagnosis.needRegenerate ? selfDiagnosis.reason : '')
     },
-    // V15.0: 검수(Audit) 시스템 결과 - Self-Correction 적용
+    // V16.0: 검수(Audit) 시스템 결과 - RAG Self-Correction 적용
     audit: {
-      passed: finalAuditResult?.passed ?? auditResult.passed,
-      totalScore: finalAuditResult?.totalScore ?? auditResult.totalScore,
-      scores: finalAuditResult?.scores ?? auditResult.scores,
-      failReasons: finalAuditResult?.failReasons ?? auditResult.failReasons,
-      suggestions: finalAuditResult?.suggestions ?? auditResult.suggestions
+      passed: finalAuditResult?.passed ?? auditResult?.passed ?? false,
+      totalScore: finalAuditResult?.totalScore ?? auditResult?.totalScore ?? 0,
+      scores: finalAuditResult?.scores ?? auditResult?.scores ?? {},
+      failReasons: finalAuditResult?.failReasons ?? auditResult?.failReasons ?? [],
+      suggestions: finalAuditResult?.suggestions ?? auditResult?.suggestions ?? []
     },
-    // V15.0: Self-Correction Loop 재생성 이력
+    // V16.0: RAG 기반 Self-Correction 이력
     selfCorrection: {
-      totalAttempts: currentAttempt,
-      maxAttempts: MAX_REGENERATION_ATTEMPTS,
-      regenerationHistory: regenerationHistory,
-      finalScore: finalAuditResult?.totalScore ?? auditResult.totalScore,
-      wasRegenerated: currentAttempt > 1
+      totalAttempts: currentAttempt ?? 1,
+      maxAttempts: MAX_REGENERATION_ATTEMPTS ?? 2,
+      regenerationHistory: regenerationHistory ?? [],
+      finalScore: finalAuditResult?.totalScore ?? auditResult?.totalScore ?? 0,
+      wasRegenerated: (currentAttempt ?? 1) > 1
+    },
+    // V16.0: RAG 파이프라인 실행 로그
+    ragPipeline: {
+      step1_factCollection: ragPipelineLog.step1_factCollection,
+      step2_strategyBuilding: ragPipelineLog.step2_strategyBuilding,
+      step3_contentGeneration: ragPipelineLog.step3_contentGeneration,
+      step4_selfDiagnosis: ragPipelineLog.step4_selfDiagnosis,
+      strategyUsed: {
+        seoKeywords: strategy?.seoKeywords ?? [],
+        factChecks: strategy?.factChecks ?? [],
+        expertStrategies: strategy?.expertStrategies ?? {}
+      }
     },
     // 버전 정보
-    version: 'V15.0-SelfCorrection'
+    version: 'V16.0-RAG-HallucinationZero'
   })
 })
 

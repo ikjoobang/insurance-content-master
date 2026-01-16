@@ -1045,9 +1045,28 @@ ${factContext}
     console.log('[RAG Step 2] 전략 파싱 오류:', error)
   }
   
-  // 파싱 실패 시 기본 전략 반환
+  // 파싱 실패 시 보험 종류별 맞춤 기본 전략 반환
+  const insuranceKeywords: Record<string, string[]> = {
+    '암보험': ['암보험 비갱신형 추천', '암보험 갱신료 인상', '암보험 필수 특약', '암보험 진단비 얼마', '2026년 암보험 개정'],
+    '종신보험': ['종신보험 해지 환급금', '종신보험 손해', '종신보험 사업비', '종신보험 vs 정기보험', '종신보험 감액완납'],
+    '달러종신보험': ['달러보험 환율 리스크', '달러종신보험 해지', '달러보험 사업비 30%', '달러보험 원금 회복', '달러보험 추천'],
+    '운전자보험': ['운전자보험 필수 특약', '운전자보험 변호사 비용', '운전자보험 벌금 한도', '민식이법 운전자보험', '운전자보험 공탁금'],
+    '실손보험': ['실손보험 4세대 전환', '실손보험 갱신료', '실손보험 비급여 자부담', '실손보험 추천', '2026년 실손보험'],
+    '간병보험': ['간병보험 추천', '치매보험 필요성', '간병보험 ADL 판정', '간병비용 월 얼마', '간병보험 납입면제'],
+    '어린이보험': ['태아보험 22주', '어린이보험 100세 만기', '어린이보험 필수 특약', '어린이보험 추천', '태아보험 가입 시기'],
+    '뇌심장보험': ['뇌혈관질환 보장', '급성심근경색 보장', '허혈성심장질환 특약', '뇌출혈 vs 뇌경색', '심혈관보험 추천']
+  }
+  
+  const defaultKeywords = insuranceKeywords[insuranceType] || [
+    `${insuranceType} 추천 2026`, 
+    `${insuranceType} 비교`, 
+    `${insuranceType} 해지 손해`, 
+    `${insuranceType} 필수 특약`, 
+    `${target} ${insuranceType}`
+  ]
+  
   return {
-    seoKeywords: [`${insuranceType} 추천`, `${insuranceType} 비교`, `${insuranceType} 가입`, `${insuranceType} 해지`, `${target} ${insuranceType}`],
+    seoKeywords: defaultKeywords,
     factChecks: ['2026년 비갱신형 특약 강화', '통합 보장 트렌드', '갱신형 보험료 인상 이슈'],
     expertStrategies: {
       factExpert: `${insuranceType} 약관 기준 정확한 보장 범위와 예외 사항 분석`,
@@ -2938,13 +2957,42 @@ const mainPageHtml = `
           <!-- 새로운 UI 순서: 핵심고민(1순위) → 타겟 → 보험종류 → 문체톤 -->
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 xl:gap-8">
             
-            <!-- 칼럼 1: 핵심 고민 (1순위 - 빨간색 강조) -->
+            <!-- 칼럼 1: 핵심 고민 + 사진 업로드 (1순위 - 빨간색 강조) -->
             <div class="space-y-3 lg:space-y-4">
               <div>
                 <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
                   <i class="fas fa-fire text-red-500 mr-1.5"></i><span class="text-red-400">핵심 고민</span> <span class="text-red-300 text-xs lg:text-sm">(1순위)</span>
                 </label>
                 <textarea id="qna-concern" rows="3" placeholder="예: 설계사가 기존 보험 해지하고 새로 가입하라는데 손해 아닌가요?&#10;&#10;비워두면 AI가 자동 생성합니다" class="input-premium w-full px-3 py-2.5 lg:px-4 lg:py-3 text-white resize-none text-sm lg:text-base border-red-500/30 focus:border-red-500/50"></textarea>
+              </div>
+              
+              <!-- 📷 사진 업로드 영역 (드래그 앤 드롭 + 클릭) -->
+              <div>
+                <label class="block text-xs sm:text-sm lg:text-base font-semibold text-white mb-2 lg:mb-3">
+                  <i class="fas fa-camera text-purple-400 mr-1.5"></i><span class="text-purple-300">증권/설계서 사진</span> <span class="text-gray-400 text-xs">(선택, 최대 20MB)</span>
+                </label>
+                <div id="photo-upload-zone" 
+                     class="relative border-2 border-dashed border-purple-500/30 rounded-xl p-4 text-center cursor-pointer hover:border-purple-500/60 hover:bg-purple-500/5 transition-all"
+                     ondrop="handlePhotoDrop(event)" 
+                     ondragover="handlePhotoDragOver(event)" 
+                     ondragleave="handlePhotoDragLeave(event)"
+                     onclick="document.getElementById('photo-input').click()">
+                  <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoSelect(event)" multiple>
+                  <div id="photo-upload-content">
+                    <i class="fas fa-cloud-upload-alt text-3xl text-purple-400 mb-2"></i>
+                    <p class="text-sm text-gray-300">사진을 드래그하거나 클릭하여 업로드</p>
+                    <p class="text-xs text-gray-500 mt-1">JPG, PNG, HEIC 지원 (최대 20MB)</p>
+                  </div>
+                  <div id="photo-preview-container" class="hidden flex flex-wrap gap-2 justify-center"></div>
+                </div>
+                <!-- 사진 분석 결과 표시 영역 -->
+                <div id="photo-analysis-result" class="hidden mt-3 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                  <div class="flex items-center gap-2 mb-2">
+                    <i class="fas fa-search text-purple-400"></i>
+                    <span class="text-purple-300 font-semibold text-sm">AI 사진 분석 결과</span>
+                  </div>
+                  <p id="photo-analysis-text" class="text-gray-300 text-sm"></p>
+                </div>
               </div>
               
               <div class="flex items-center gap-3 lg:gap-4">
@@ -4127,6 +4175,155 @@ const mainPageHtml = `
       });
     }
     
+    // ========== 📷 사진 업로드 및 분석 기능 ==========
+    let uploadedPhotos = []; // 업로드된 사진들 저장
+    let photoAnalysisResult = null; // 사진 분석 결과
+    
+    function handlePhotoDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      document.getElementById('photo-upload-zone').classList.add('border-purple-500', 'bg-purple-500/10');
+    }
+    
+    function handlePhotoDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      document.getElementById('photo-upload-zone').classList.remove('border-purple-500', 'bg-purple-500/10');
+    }
+    
+    function handlePhotoDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      document.getElementById('photo-upload-zone').classList.remove('border-purple-500', 'bg-purple-500/10');
+      
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        processPhotoFiles(files);
+      }
+    }
+    
+    function handlePhotoSelect(e) {
+      const files = e.target.files;
+      if (files.length > 0) {
+        processPhotoFiles(files);
+      }
+    }
+    
+    async function processPhotoFiles(files) {
+      const maxSize = 20 * 1024 * 1024; // 20MB
+      const validTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp'];
+      
+      for (const file of files) {
+        // 파일 크기 체크
+        if (file.size > maxSize) {
+          showToast('파일 크기가 20MB를 초과합니다: ' + file.name);
+          continue;
+        }
+        
+        // 파일 타입 체크
+        if (!validTypes.includes(file.type) && !file.name.toLowerCase().endsWith('.heic')) {
+          showToast('지원하지 않는 파일 형식입니다: ' + file.name);
+          continue;
+        }
+        
+        // 파일을 Base64로 변환
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const base64 = e.target.result;
+          uploadedPhotos.push({
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            base64: base64
+          });
+          updatePhotoPreview();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+    
+    function updatePhotoPreview() {
+      const container = document.getElementById('photo-preview-container');
+      const uploadContent = document.getElementById('photo-upload-content');
+      
+      if (uploadedPhotos.length > 0) {
+        uploadContent.classList.add('hidden');
+        container.classList.remove('hidden');
+        
+        container.innerHTML = uploadedPhotos.map((photo, idx) => 
+          '<div class="relative group">' +
+            '<img src="' + photo.base64 + '" class="w-20 h-20 object-cover rounded-lg border border-purple-500/30 pointer-events-auto">' +
+            '<button onclick="removePhoto(' + idx + ')" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">' +
+              '<i class="fas fa-times text-white text-xs"></i>' +
+            '</button>' +
+            '<span class="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-2xs px-1 truncate rounded-b-lg">' + formatFileSize(photo.size) + '</span>' +
+          '</div>'
+        ).join('') +
+        '<button onclick="analyzePhotos()" class="w-20 h-20 border-2 border-dashed border-purple-500/40 rounded-lg flex flex-col items-center justify-center text-purple-400 hover:bg-purple-500/10 pointer-events-auto">' +
+          '<i class="fas fa-search text-lg mb-1"></i>' +
+          '<span class="text-2xs">분석하기</span>' +
+        '</button>';
+      } else {
+        uploadContent.classList.remove('hidden');
+        container.classList.add('hidden');
+      }
+    }
+    
+    function removePhoto(idx) {
+      uploadedPhotos.splice(idx, 1);
+      updatePhotoPreview();
+      if (uploadedPhotos.length === 0) {
+        document.getElementById('photo-analysis-result').classList.add('hidden');
+        photoAnalysisResult = null;
+      }
+    }
+    
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    
+    async function analyzePhotos() {
+      if (uploadedPhotos.length === 0) {
+        showToast('분석할 사진이 없습니다');
+        return;
+      }
+      
+      const resultDiv = document.getElementById('photo-analysis-result');
+      const textDiv = document.getElementById('photo-analysis-text');
+      
+      resultDiv.classList.remove('hidden');
+      textDiv.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>AI가 사진을 분석 중입니다...';
+      
+      try {
+        const concern = document.getElementById('qna-concern').value.trim();
+        const insuranceType = selections['qna-insurance'] || '';
+        
+        const res = await fetch('/api/analyze/photo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            photos: uploadedPhotos.map(p => p.base64),
+            concern: concern,
+            insuranceType: insuranceType
+          })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success && data.analysis) {
+          photoAnalysisResult = data.analysis;
+          textDiv.innerHTML = data.analysis.replace(/\\n/g, '<br>');
+          showToast('사진 분석 완료! 결과가 Q&A에 반영됩니다');
+        } else {
+          textDiv.innerHTML = '사진 분석에 실패했습니다. Q&A 생성 시 자동으로 재시도합니다.';
+        }
+      } catch (error) {
+        textDiv.innerHTML = '사진 분석 중 오류가 발생했습니다: ' + error.message;
+      }
+    }
+    
     // ========== 설계서 이미지 생성 기능 ==========
     let selectedImageStyle = 'compact-card';
     let currentDesignData = null; // 현재 설계서 데이터 저장
@@ -4381,6 +4578,12 @@ const mainPageHtml = `
       setLoading('btn-qna', true);
       
       try {
+        // 사진이 있고 아직 분석하지 않았으면 먼저 분석
+        if (uploadedPhotos.length > 0 && !photoAnalysisResult) {
+          updateProgress(1, 5, '사진 분석 중...');
+          await analyzePhotos();
+        }
+        
         updateProgress(1, 10, '네이버 키워드 분석 중...');
         
         const res = await fetch('/api/generate/qna-full', {
@@ -4391,7 +4594,9 @@ const mainPageHtml = `
             tone: selections['qna-tone'],
             insuranceType: selections['qna-insurance'],
             concern: concern,
-            generateDesign: generateDesign
+            generateDesign: generateDesign,
+            photoAnalysis: photoAnalysisResult, // 사진 분석 결과 전달
+            hasPhoto: uploadedPhotos.length > 0
           })
         });
         
@@ -4867,9 +5072,96 @@ const adminPageHtml = `
 // Routes
 app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
+// ========== 📷 사진 분석 API (Gemini Vision) ==========
+app.post('/api/analyze/photo', async (c) => {
+  const { photos, concern, insuranceType } = await c.req.json()
+  
+  if (!photos || photos.length === 0) {
+    return c.json({ success: false, error: '사진이 없습니다' }, 400)
+  }
+  
+  const geminiKeys = getGeminiKeys(c.env)
+  if (geminiKeys.length === 0) {
+    return c.json({ success: false, error: 'API key not configured' }, 500)
+  }
+  
+  try {
+    // Gemini Vision API로 사진 분석
+    const apiKey = geminiKeys[Math.floor(Math.random() * geminiKeys.length)]
+    
+    // Base64에서 데이터 부분만 추출
+    const imageData = photos[0].replace(/^data:image\/[a-z]+;base64,/, '')
+    
+    const analysisPrompt = `당신은 보험 전문가입니다. 이 보험 증권/설계서 이미지를 분석해주세요.
+
+【 분석 요청 】
+- 핵심 고민: ${concern || '(미입력)'}
+- 보험 종류: ${insuranceType || '(미입력)'}
+
+【 분석 항목 】
+1. 보험사명과 상품명
+2. 월 보험료 / 납입기간
+3. 주요 보장 내용 (진단비, 수술비, 입원비 등)
+4. 특약 구성
+5. 갱신형/비갱신형 여부
+6. 해지환급금 예시 (있다면)
+
+【 출력 형식 】
+• 보험사: [보험사명]
+• 상품명: [상품명]
+• 월 보험료: [금액]원
+• 납입기간: [기간]
+• 주요 보장: [보장 내용 요약]
+• 특약: [특약 리스트]
+• 갱신 여부: [갱신형/비갱신형]
+• 전문가 의견: [핵심 고민과 연관지어 2-3문장으로 분석]
+
+이미지가 보험 증권이 아니면 "보험 증권을 인식할 수 없습니다"라고 답변하세요.`
+
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-002:generateContent?key=' + apiKey,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: analysisPrompt },
+              {
+                inline_data: {
+                  mime_type: 'image/jpeg',
+                  data: imageData
+                }
+              }
+            ]
+          }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 2048 }
+        })
+      }
+    )
+    
+    if (!response.ok) {
+      throw new Error('Gemini API error: ' + response.status)
+    }
+    
+    const data = await response.json() as any
+    const analysis = data.candidates?.[0]?.content?.parts?.[0]?.text || '분석 실패'
+    
+    return c.json({ success: true, analysis })
+    
+  } catch (error) {
+    console.error('Photo analysis error:', error)
+    return c.json({ 
+      success: false, 
+      error: '사진 분석 중 오류가 발생했습니다',
+      analysis: '사진 분석에 실패했습니다. 직접 정보를 입력해주세요.'
+    })
+  }
+})
+
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '17.5', 
+  version: '17.7', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
@@ -5184,11 +5476,30 @@ D.I.A.+ 최적화 제목
 
 // Q&A 완전 자동화 API (V14.0 - Agentic Workflow with Regeneration Loop)
 app.post('/api/generate/qna-full', async (c) => {
-  const { target: inputTarget, tone: inputTone, insuranceType: inputInsuranceType, concern, generateDesign } = await c.req.json()
+  const { target: inputTarget, tone: inputTone, insuranceType: inputInsuranceType, concern, generateDesign, photoAnalysis, hasPhoto } = await c.req.json()
   
-  // 선택형 필드 기본값 처리 (우선순위: 타겟 → 핵심고민 → 보험종류 → 문제톤)
-  // 빈 값이면 AI가 적절히 추론하도록 기본값 설정
-  const target = inputTarget || '30대 직장인'  // 기본 타겟
+  // ========== V17.6 타깃별 랜덤 직업 시스템 ==========
+  const targetOccupations: Record<string, string[]> = {
+    '20대': ['사회초년생', '대학생', '취준생', '프리랜서', '스타트업 직원', '공무원 준비생'],
+    '30대': ['직장인', '프리랜서', '신혼부부', '자영업자', '육아맘', 'IT 개발자', '공무원', '영업직'],
+    '40대': ['가장', '직장인', '자영업자', '프리랜서', '맞벌이 부부', '중간관리자', '사업가'],
+    '50대': ['은퇴준비', '자영업자', '직장인', '1인 사업자', '프리랜서', '경력단절 복귀', '조기퇴직자']
+  }
+  
+  function getRandomOccupation(ageGroup: string): string {
+    const occupations = targetOccupations[ageGroup]
+    if (!occupations) return ageGroup
+    const randomOccupation = occupations[Math.floor(Math.random() * occupations.length)]
+    return `${ageGroup} ${randomOccupation}`
+  }
+  
+  // 입력된 타깃에서 연령대 추출하고 랜덤 직업 적용
+  let target = inputTarget || '30대 직장인'
+  const ageMatch = target.match(/(20대|30대|40대|50대)/)
+  if (ageMatch) {
+    target = getRandomOccupation(ageMatch[1])
+  }
+  
   const insuranceType = inputInsuranceType || '종합보험'  // 기본 보험종류
   const tone = inputTone || '친근한'  // 기본 톤
   
@@ -6170,12 +6481,20 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
       .filter(kw => kw.length > 2 && kw.length < 30)
       .slice(0, 5)
   }
-  // 기본값: 보험종류 + 핵심고민 기반 키워드 생성
+  // V17.7: 기본값 - 보험종류 + 핵심고민 기반 SEO 최적화 키워드 생성
   if (seoKeywords.length < 5) {
+    // 2026년 보험 트렌드 키워드 포함
     const defaultKeywords = [
-      `${insuranceType} 해지`, `${insuranceType} 갱신`, `${insuranceType} 비교`,
-      `${insuranceType} 추천`, `${insuranceType} 리모델링`, `${insuranceType} 보험료`,
-      `${target} ${insuranceType}`, `${insuranceType} 후기`
+      `${insuranceType} 추천 2026`,
+      `${insuranceType} 비교`,
+      `${target} ${insuranceType} 추천`,
+      `${insuranceType} 갱신 폭탄`,
+      `${insuranceType} 해지 손해`,
+      `${insuranceType} 비갱신`,
+      `${insuranceType} 리모델링`,
+      `${insuranceType} 보험료 비교`,
+      `${insuranceType} 후기`,
+      `${insuranceType} 가입 시기`
     ]
     while (seoKeywords.length < 5 && defaultKeywords.length > 0) {
       const kw = defaultKeywords.shift()
@@ -6386,9 +6705,19 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
     seoKeywords
   })
   
+  // V17.7: SEO 키워드 통합 - seoKeywords 최상위 포함
+  const finalSeoKeywords = seoKeywords.length > 0 ? seoKeywords : [
+    `${insuranceType} 추천`,
+    `${insuranceType} 비교`,
+    `${insuranceType} 해지`,
+    `${target} ${insuranceType}`,
+    `${insuranceType} 갱신`
+  ]
+  
   // V13.0: 제목 2개, 질문 3개, 답변 3개, 댓글 3개, 해시태그 반환
   return c.json({
     keywords: coreKeywords,
+    seoKeywords: finalSeoKeywords,  // V17.7: 최상위 SEO 키워드 포함
     // V13.0: 제목 2개
     title: generatedTitle1,  // 메인 제목 (호환성)
     titles: [generatedTitle1, generatedTitle2],  // 제목 2개 배열
@@ -6481,7 +6810,7 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
       }
     },
     // 버전 정보
-    version: 'V17.5-RealPattern-ScenarioDatabase'
+    version: 'V17.7-SEOKeywords-Enhanced'
   })
 })
 

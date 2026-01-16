@@ -3612,42 +3612,73 @@ ${domainKnowledge}
 당신은 네이버 카페 보험 Q&A SEO 최적화 전문가입니다.
 C-RANK(콘텐츠 신뢰도)와 DIA(문서의 경험적 가치) 알고리즘을 완벽히 충족하는 Q&A를 생성합니다.
 
-==========================================================
-【 입력 변수 매핑 】
-==========================================================
-- TARGET (타깃 고객): ${target}
-- TYPE (보험 종류): ${insuranceType}
-- TONE (답변 말투): ${tones.join(', ')}
-- KEYWORD (핵심 고민): ${hasKeyword ? customerConcern : 'Empty - 자동 생성 필요'}
-- 상황 처리: ${keywordStatus}
-- 시점: **2026년 현재** (2025년 통계 + 2026년 개정 약관 기준)
+############################################################
+#                                                          #
+#    🚨🚨🚨 최우선 필수 준수 사항 (위반 시 실패!) 🚨🚨🚨    #
+#                                                          #
+############################################################
+
+★★★ 보험 종류: 【${insuranceType}】 ★★★
+→ 제목, 질문, 답변 모두 반드시 "${insuranceType}"에 대한 내용이어야 합니다!
+→ "${insuranceType}" 외 다른 보험(암보험, 실비 등) 언급 절대 금지!
+→ 제목에 "${insuranceType}" 또는 관련 키워드 반드시 포함!
+
+${hasKeyword ? `
+★★★ 핵심 고민: 【${customerConcern}】 ★★★
+→ 이것이 사용자가 직접 입력한 핵심 고민입니다!
+→ 질문과 답변의 중심 주제는 반드시 "${customerConcern}"이어야 합니다!
+→ 이 고민을 무시하거나 다른 주제로 바꾸면 실패!
+→ 제목에 이 고민의 핵심 키워드가 반영되어야 합니다!
+` : `
+★★★ 핵심 고민: 없음 (자동 생성) ★★★
+→ "${insuranceType}"에 맞는 일반적인 고민을 생성하세요.
+`}
+
+★★★ 타깃 고객: 【${target}】 ★★★
+→ "${target}"의 시점과 말투로 질문을 작성하세요!
+
+############################################################
 
 ==========================================================
-【 ★★★ 질문자 페르소나 상세 정보 (필수 반영!) ★★★ 】
+【 입력 변수 확인 (다시 한번 체크!) 】
+==========================================================
+✅ TYPE (보험 종류): "${insuranceType}" ← 이것만 다루세요!
+✅ KEYWORD (핵심 고민): "${hasKeyword ? customerConcern : '자동생성'}" ← 이 주제로!
+✅ TARGET (타깃 고객): "${target}" ← 이 사람이 질문!
+✅ TONE (답변 말투): ${tones.join(', ')}
+✅ 시점: **2026년 현재**
+
+==========================================================
+【 질문자 페르소나 】
 ==========================================================
 ■ 성별: ${persona.gender}
 ■ 나이: ${persona.ageNum}세 (${persona.ageGroup})
 ■ 직업: ${persona.occupation}
 ■ 가족상황: ${persona.familyStatus}
 
-【 이 페르소나의 특성 - 질문에 반드시 반영! 】
+【 이 페르소나의 특성 】
 ${personaContexts.map((ctx, i) => `${i + 1}. ${ctx}`).join('\n')}
 
 ==========================================================
 【 PART 1: 제목 생성 규칙 】
 ==========================================================
 
-### 필수 규칙:
-1. 페르소나(${persona.ageNum}세 ${persona.gender} ${persona.occupation}) 시점에서 작성
-2. 반드시 의문문으로 끝나야 함 (?)
-3. ${hasKeyword ? `"${customerConcern}" 핵심 고민 반영` : `${insuranceType} 관련 일반적 고민 생성`}
-4. 클릭 유도 키워드 1개 이상 포함 (호구/손해/해지/충격/거절/폭탄/함정/후회)
-5. 15-30자
+🚨 제목 필수 조건 (반드시 지켜야 함!):
+1. "${insuranceType}" 키워드 반드시 포함! (달러종신이면 "달러종신" 그대로!)
+2. ${hasKeyword ? `"${customerConcern}" 핵심 고민 키워드 반영!` : '일반적 고민 생성'}
+3. 의문문(?)으로 끝남
+4. 클릭 유도 키워드 1개 포함 (호구/손해/해지/충격/거절/폭탄/함정/후회)
+5. 15-35자
 
-### 제목 예시 (페르소나 반영):
-- "${persona.ageNum}세 ${persona.gender} ${persona.occupation}인데 ${insuranceType} ${selectedClickBait} 당한 건가요?"
-- "${persona.ageGroup} ${persona.gender}인데 설계사가 해지하라는데 ${selectedClickBait}?"
-- "${persona.familyStatus === '가장(자녀있음)' ? '애 둘 아빠' : persona.ageGroup + ' ' + persona.gender}인데 ${insuranceType} 이거 맞나요?"
+### 좋은 제목 예시 ("${insuranceType}" + "${hasKeyword ? customerConcern : '고민'}" 반영):
+- "${insuranceType} ${hasKeyword ? customerConcern.slice(0, 10) : ''} ${selectedClickBait} 아닌가요?"
+- "${target}인데 ${insuranceType} 이거 ${selectedClickBait}인 건가요?"
+- "${insuranceType} 가입했는데 ${hasKeyword ? customerConcern.slice(0, 15) + '...' : selectedClickBait + ' 당한 건지'} 봐주세요"
+
+### 나쁜 제목 (절대 금지!):
+❌ "${insuranceType}"이 아닌 다른 보험 이름 사용
+❌ 핵심 고민과 관계없는 제목
+❌ 정보글 스타일 ("~하는 법", "~체크리스트")
 
 ==========================================================
 【 PART 2: 질문 본문 생성 규칙 】
@@ -3670,14 +3701,19 @@ ${persona.ageGroup === '50대' || persona.ageGroup === '60대' ? `- 50-60대 말
 - 시작: "${scenario2.trigger}"
 - 끝: "${scenario2.ending}"
 
-### 질문 본문 필수 요소:
+### 🚨 질문 본문 필수 요소 (반드시 포함!):
 1. 인사 + 자기소개: "${persona.ageNum}세 ${persona.gender} ${persona.occupation}${persona.familyStatus === '가장(자녀있음)' ? ', 아이 둘 있어요' : ''}입니다"
-2. 최근 겪은 일: 위 상황에 맞게 작성
-3. 핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '상황에 맞는 고민 자동 생성'}
+2. 보험 종류 명시: "**${insuranceType}**" ← 반드시 이 보험 이름 언급!
+3. 핵심 고민 반영: ${hasKeyword ? `"${customerConcern}" ← 이 내용이 질문의 핵심!` : '상황에 맞는 고민 자동 생성'}
 4. 구체적 숫자: 월 보험료 X만원, 가입한 지 X년, 해지환급금 X만원 등
 5. 마지막: "쪽지 사절이요, 댓글로 조언 부탁드립니다" 또는 "고수님들 도와주세요!"
 6. 전화번호 절대 금지!
 7. 200-350자
+
+### 🚨 질문 내용 검증 체크리스트:
+☑️ "${insuranceType}"이 질문에 명시되어 있는가?
+☑️ ${hasKeyword ? `"${customerConcern}"이 질문의 핵심 주제인가?` : '보험 종류에 맞는 고민인가?'}
+☑️ 다른 보험(암보험, 실비 등)을 언급하지 않았는가?
 
 【 질문자 톤앤매너 】
 - ${persona.gender === '여성' ? '여성스러운 말투로' : '남성스러운 말투로'}, 예의 바르지만 다급하고 답답한 심경
@@ -3703,8 +3739,9 @@ ${isTraumaticSituation ? `
 ` : ''}
 
 【 Step 2: 팩트 체크 (2-3줄) 】
+- 🚨 "${insuranceType}"에 대한 내용만! 다른 보험 절대 언급 금지!
+- ${hasKeyword ? `🚨 "${customerConcern}" 고민에 대한 직접적인 답변!` : '보험 종류에 맞는 팩트 체크'}
 - 약관상 팩트를 바탕으로 장단점 설명
-- "${insuranceType}"에만 집중! 언급 안 한 보험 이야기 금지!
 - 어려운 용어는 쉬운 비유로 (예: "갱신형 = 월세, 나중에 전세금처럼 오름")
 
 【 Step 3: 전문가 솔루션 (3개 이내) 】
@@ -3731,10 +3768,17 @@ ${isTraumaticSituation ? `
 ${isBeginnerMode ? '- 보험초보 모드: 전문용어는 쉬운 비유로 (예: "납입면제 = 보험료 안 내도 되는 것")' : ''}
 ${isProposalMode ? '- 제안서요청형: 구체적인 설계 대안 제시 포함' : ''}
 
-### 논리 점검 (문맥 철저 준수):
-- "${insuranceType}" 질문에 집중!
-- "${customerConcern}" 핵심 고민에만 답변!
-- 저축보험 질문 → 암 진단비 이야기 금지!
+### 🚨🚨🚨 논리 점검 (최종 검증 - 위반 시 전체 실패!) 🚨🚨🚨
+☑️ 제목에 "${insuranceType}" 또는 관련 키워드가 있는가?
+☑️ 질문이 "${insuranceType}"에 대한 내용인가?
+☑️ 답변이 "${insuranceType}"에 대한 조언인가?
+${hasKeyword ? `☑️ "${customerConcern}" 고민이 질문/답변의 핵심인가?` : ''}
+☑️ 다른 보험(암보험, 실비, 종신 등 "${insuranceType}" 외)을 언급하지 않았는가?
+
+❌ 절대 금지:
+- "${insuranceType}" 외 다른 보험 종류 언급
+- 사용자 고민과 무관한 답변
+- 보험 종류 임의 변경
 
 ### 절대 규칙:
 - 가상 이름(홍길동, 김철수) 금지

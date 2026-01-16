@@ -1,4 +1,4 @@
-# 보험 콘텐츠 마스터 V16.0 - RAG Hallucination Zero
+# 보험 콘텐츠 마스터 V22.0 - Clean-Template (Hallucination Zero)
 
 AI 기반 보험 콘텐츠 자동 생성 플랫폼 + Chrome Extension (네이버 마케팅 프록시)
 
@@ -18,9 +18,9 @@ AI 기반 보험 콘텐츠 자동 생성 플랫폼 + Chrome Extension (네이버
 ### ■ API 엔드포인트
 | 엔드포인트 | 메서드 | 설명 |
 |------------|--------|------|
-| `/api/health` | GET | 서버 상태 확인 (V16.0 RAG 정보 포함) |
+| `/api/health` | GET | 서버 상태 확인 (V22.0 정보 포함) |
 | `/api/naver/keywords` | GET | 네이버 키워드 분석 |
-| `/api/generate/qna-full` | POST | Q&A 전체 자동 생성 (**V16.0 RAG 4단계 파이프라인**) |
+| `/api/generate/qna-full` | POST | Q&A 전체 자동 생성 (**V22.0 Clean-Template**) |
 | `/api/generate/proposal-image` | POST | 설계서 이미지 생성 |
 | `/api/generate/blog` | POST | 블로그 글 생성 |
 | `/api/analyze/blog` | POST | 블로그 SEO 분석 |
@@ -28,7 +28,20 @@ AI 기반 보험 콘텐츠 자동 생성 플랫폼 + Chrome Extension (네이버
 | `/api/proxy/current-ip` | GET | 현재 프록시 IP 확인 |
 | `/api/proxy/status` | GET | 프록시 상태 조회 |
 
-## ✅ V16.0 핵심 업데이트 - RAG 기반 Hallucination Zero Project
+## ✅ V22.0 핵심 업데이트 - Clean-Template (Hallucination Zero)
+
+### 🔥 V22.0 변경사항 (2026-01-16)
+
+1. **시나리오 데이터베이스 완전 삭제**: 앵커링 오류 원천 차단
+2. **예시 출력 완전 제거**: AI가 베낄 구석 제거
+3. **Clean-Template 프롬프트**: 입력 변수만 사용하는 깡통 프롬프트
+4. **3개 페르소나 시스템**: 전문/설득, 리얼토크, 친근
+5. **분량 강제**: 질문 ≥300자, 답변 ≥500자
+6. **빌드 사이즈 최적화**: 258KB → 244KB (14KB 감소)
+
+---
+
+## ✅ RAG 기반 Hallucination Zero Project
 
 ### ❶ RAG 4단계 파이프라인 (핵심 아키텍처)
 

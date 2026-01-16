@@ -4762,15 +4762,30 @@ app.post('/api/generate/qna-full', async (c) => {
   // 2. 가상 연락처 생성 (이름 제외)
   const contact = generateVirtualContact()
   
-  // 3. 고민/질문 자동 생성
+  // 3. 고민/질문 자동 생성 (API 실패 시 기본값 제공)
   let customerConcern = concern
   if (!customerConcern) {
-    const concernPrompt = `당신은 ${target}입니다. ${insuranceType}에 대해 네이버 카페에 질문하려고 합니다.
+    try {
+      const concernPrompt = `당신은 ${target}입니다. ${insuranceType}에 대해 네이버 카페에 질문하려고 합니다.
 현실적이고 구체적인 고민을 50자 이내로 작성해주세요.
 이모티콘이나 특수문자 없이 순수 텍스트만 작성하세요.
 반드시 한 문장으로 작성하세요.`
-    customerConcern = await callGeminiAPI(concernPrompt, geminiKeys)
-    customerConcern = cleanText(customerConcern.replace(/["\n]/g, '').trim())
+      customerConcern = await callGeminiAPI(concernPrompt, geminiKeys)
+      customerConcern = cleanText(customerConcern.replace(/["\n]/g, '').trim())
+    } catch (e) {
+      // API 실패 시 보험종류별 기본 고민 제공
+      const defaultConcerns: Record<string, string> = {
+        '암보험': '암보험 갱신이 다가오는데 보험료가 너무 올라서 고민입니다',
+        '종신보험': '종신보험 가입했는데 이게 저축인지 보험인지 헷갈립니다',
+        '달러종신보험': '달러종신보험 가입했는데 사망보험금이라면서요? 어떡해요',
+        '운전자보험': '운전자보험 옛날에 들었는데 민식이법 때문에 다시 들어야 하나요',
+        '실손보험': '실손보험 4세대로 갈아타야 하는지 고민입니다',
+        '간병보험': '부모님 간병보험 알아보는데 뭘 챙겨야 하는지 모르겠어요',
+        '어린이보험': '아이 어린이보험 가입하려는데 뭘 봐야 하는지 모르겠습니다'
+      }
+      customerConcern = defaultConcerns[insuranceType] || `${insuranceType} 가입하려는데 어떤 걸 봐야 하는지 모르겠습니다`
+      console.log('[V17.2] 고민 자동생성 실패 - 기본 고민 사용:', customerConcern)
+    }
   }
   
   // 4. Q&A 생성 프롬프트 (C-Rank/D.I.A./Agent N 최적화) - V9.5 대폭 강화

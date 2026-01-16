@@ -3476,7 +3476,133 @@ function auditQnAContent(params: {
   }
 }
 
-// Q&A 완전 자동화 API (V13.0 - Agentic Workflow)
+// ============================================================
+// V14.0 - Agentic Workflow: 재생성 루프(Self-Correction Loop)
+// 생성 → 검수 → Fail시 Context 보강 재생성 (최대 2회)
+// ============================================================
+
+// Q&A 생성 핵심 함수 (재귀 호출용)
+async function generateQnAWithAudit(params: {
+  geminiKeys: string[],
+  customerConcern: string,
+  insuranceType: string,
+  target: string,
+  tone: string,
+  attempt: number,
+  previousFailReasons?: string[]
+}): Promise<string> {
+  const { geminiKeys, customerConcern, insuranceType, target, tone, attempt, previousFailReasons } = params
+  
+  // 재생성시 Context 강화 프롬프트
+  const contextReinforcement = attempt > 1 && previousFailReasons ? `
+
+🚨🚨🚨 [재생성 ${attempt}차 - 이전 오류 수정 필수!] 🚨🚨🚨
+이전 생성에서 다음 문제가 발견되었습니다:
+${previousFailReasons.map(r => `❌ ${r}`).join('\n')}
+
+반드시 위 문제를 해결한 콘텐츠를 생성하세요!
+특히 "${customerConcern}"가 모든 질문과 답변에 명시적으로 포함되어야 합니다.
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+
+` : ''
+  
+  // 핵심 고민 강제 주입 (할루시네이션 방지)
+  const forcedContext = `
+########################################################################
+#  🔴 절대 규칙: 아래 핵심 고민이 모든 콘텐츠에 반드시 포함되어야 함! 🔴  #
+########################################################################
+
+📌 핵심 고민 (MUST INCLUDE): "${customerConcern}"
+📌 보험 종류 (MUST INCLUDE): "${insuranceType}"
+📌 타깃 고객: "${target}"
+
+⚠️ 위 3가지가 제목/질문/답변/댓글 전체에 자연스럽게 포함되어야 합니다!
+⚠️ 특히 "${customerConcern}"는 반드시 질문 본문에 그대로 사용하세요!
+⚠️ "${insuranceType}"는 제목과 모든 답변에 최소 2회 이상 언급하세요!
+
+########################################################################
+`
+  
+  const prompt = `${contextReinforcement}${forcedContext}
+
+# 콘텐츠 생성 요청
+
+당신은 네이버 카페 보험 Q&A 전문가입니다.
+
+## 필수 입력 정보
+- 핵심 고민: "${customerConcern}" ← 이것이 Q&A의 핵심 주제!
+- 보험 종류: "${insuranceType}" ← 반드시 언급!
+- 타깃 고객: "${target}" ← 질문자 = 이 사람!
+- 답변 톤: ${tone}
+
+## 출력 형식 (태그와 내용만 출력!)
+
+[제목1]
+(${target}이 ${customerConcern}에 대해 급하게 질문하는 어그로성 제목, 15-35자, ?로 끝)
+
+[제목2]
+(제목1과 다른 스타일의 어그로성 제목, 15-35자, ?로 끝)
+
+[질문1]
+안녕하세요. ${target}입니다.
+${customerConcern} ← 이 문장 반드시 포함!
+${insuranceType} 관련해서 질문 드립니다.
+(구체적 상황 200-350자, 쪽지 사절 댓글로 답변 부탁)
+
+[질문2]
+(다른 화자, 다른 상황이지만 "${customerConcern}"과 "${insuranceType}" 반드시 포함!)
+
+[질문3]
+(또 다른 화자, "${customerConcern}"과 "${insuranceType}" 반드시 포함!)
+
+[답변1]
+(팩트형 전문가: "${customerConcern}"에 대한 약관/수치 기반 분석, "${insuranceType}" 2회 이상 언급, 500-700자)
+
+[답변2]
+(공감형 전문가: "${customerConcern}"에 공감하며 대안 제시, "${insuranceType}" 2회 이상 언급, 500-700자)
+
+[답변3]
+(비교형 전문가: "${customerConcern}"을 타사/과거 상품과 비교, "${insuranceType}" 2회 이상 언급, 500-700자)
+
+[댓글1]
+(질문자의 "${customerConcern}" 상황에 공감하는 경험담, 40-100자)
+
+[댓글2]
+(전문가 답변 뒷받침하는 정보, "${insuranceType}" 언급, 40-100자)
+
+[댓글3]
+(비슷한 상황의 추가 질문, 40-100자)
+
+[검색키워드]
+${insuranceType} 관련 SEO 키워드 5개
+
+[최적화제목1]
+D.I.A.+ 최적화 제목
+
+[최적화제목2]
+에이전트 N 최적화 제목
+
+[강조포인트]
+- (핵심 1)
+- (핵심 2)
+- (핵심 3)
+
+[해시태그]
+#${insuranceType.replace(/\s/g, '')} 포함 10개
+
+[자가진단결과]
+- 핵심고민 반영도: 상
+- 타깃 적합도: 상
+- 보험종류 일치도: 상
+- 재생성 필요: 아니오
+
+⚠️ 중요: [태그]와 내용만 출력! 설명이나 구분선 출력 금지!
+⚠️ "${customerConcern}"가 질문1, 질문2, 질문3에 반드시 포함되어야 함!`
+
+  return await callGeminiAPI(prompt, geminiKeys)
+}
+
+// Q&A 완전 자동화 API (V14.0 - Agentic Workflow with Regeneration Loop)
 app.post('/api/generate/qna-full', async (c) => {
   const { target: inputTarget, tone: inputTone, insuranceType: inputInsuranceType, concern, generateDesign } = await c.req.json()
   
@@ -3764,26 +3890,36 @@ app.post('/api/generate/qna-full', async (c) => {
 
   const domainKnowledge = get2026DomainKnowledge(insuranceType)
 
-  const qnaPrompt = `# System Context: The '2026 Trend-Setter' Insurance Master
+  // ============================================================
+  // V14.0 - 할루시네이션 방지: Context 강제 주입 프롬프트
+  // ============================================================
+  
+  const qnaPrompt = `########################################################################
+#  🔴🔴🔴 절대 규칙: 아래 핵심 고민이 모든 콘텐츠에 반드시 포함! 🔴🔴🔴  #
+########################################################################
 
-당신은 **2026년 현재** 대한민국 보험 트렌드를 주도하는 상위 1% 전문가입니다.
-모든 답변은 **2025년 발표된 최신 통계**와 **2026년 적용된 개정 약관**을 기준으로 작성하십시오.
-오래된 정보(2023년 이전)는 과감히 "구형"으로 규정하고, **2026년형 신규 담보**와 비교하여 설명하십시오.
+📌 핵심 고민 (CRITICAL - MUST INCLUDE IN ALL CONTENT):
+"${customerConcern}"
+
+📌 보험 종류 (MUST INCLUDE):
+"${insuranceType}"
+
+📌 타깃 고객:
+"${target}"
+
+⚠️ 위 3가지가 제목/질문/답변/댓글 전체에 반드시 포함되어야 합니다!
+⚠️ 특히 "${customerConcern}"는 [질문1], [질문2], [질문3]에 그대로 사용!
+⚠️ "${insuranceType}"는 제목과 모든 답변에 최소 2회 이상 언급!
+⚠️ 엉뚱한 내용 생성 시 실패로 간주됩니다!
+
+########################################################################
 
 ${domainKnowledge}
 
-【 답변 작성 시나리오 (2026년형) 】
-**Step 1. 2026년 시점 인식 (Time Awareness)**
-- 인사말에 연도나 최신 느낌을 주입: "안녕하세요. **2026년 최신 개정 정보**만 쏙 뽑아 드리는 보험 멘토입니다."
+# System Context: 2026 보험 전문가
 
-**Step 2. '구형(Old)' vs '신형(New)' 격차 강조**
-- 예: "고객님 증권은 2020년형이네요. 냉정하게 말해 지금 기준으론 **'반쪽짜리'**입니다. 왜냐하면..."
-
-**Step 3. 도메인별 킬러 콘텐츠 (Expertise)**
-- 위 Domain Knowledge의 전문 용어를 반드시 1개 이상 사용하여 설명하십시오.
-
-**Step 4. 행동 유도 (Trigger)**
-- "지금 증권 펴서 **[키워드]**가 있는지 보세요. 2026년 필수 특약이 빠져 있다면 댓글 남겨주세요."
+당신은 **2026년 현재** 대한민국 보험 트렌드 전문가입니다.
+모든 답변은 **2025년 통계**와 **2026년 개정 약관** 기준으로 작성하세요.
 
 ==========================================================
 당신은 네이버 카페 보험 Q&A 전문가입니다.
@@ -3971,26 +4107,27 @@ ${insuranceType && insuranceType !== '종합보험' ? `
 - "이렇게 명쾌하게 설명해주시는 분 처음 봤어요"
 
 ==========================================================
-【 V13.0 출력 형식 - 제목 2개, 질문 3개! 】
+【 V14.0 출력 형식 - Context 강제 포함! 】
 ==========================================================
 
-※ 중요: [태그]와 내용만 출력! 구분선/설명문 출력 금지!
-※ 핵심: "${customerConcern}"과 "${insuranceType}"이 모든 콘텐츠에 관통해야 함!
+🚨🚨🚨 최종 확인: 아래 내용이 반드시 포함되어야 합니다! 🚨🚨🚨
+- "${customerConcern}" ← 질문1,2,3에 이 문장 그대로 포함!
+- "${insuranceType}" ← 제목, 모든 답변에 최소 2회 포함!
+
+※ [태그]와 내용만 출력! 구분선/설명문 출력 금지!
 
 [제목1]
-직접적 호소형 제목 (클릭 키워드: ${clickBait1})
-- 반드시 "${insuranceType}" 또는 "${customerConcern.substring(0, 15)}" 포함!
-- 예: "${target}인데 ${insuranceType} 이거 ${clickBait1} 당한 건가요?"
+${target}인데 ${insuranceType} ${customerConcern.length > 10 ? customerConcern.substring(0, 15) + '...' : ''} ${clickBait1} 당한 건가요?
 
 [제목2]
-충격/걱정형 제목 (클릭 키워드: ${clickBait2})
-- 제목1과 다른 톤!
-- 예: "${insuranceType} ${clickBait2} 맞나요? 걱정되서 글 올립니다"
+${insuranceType} ${clickBait2} 맞나요? ${target}인데 걱정되서 글 올립니다
 
 [질문1]
-화자A: ${questioner1.age} ${questioner1.gender} ${questioner1.job}
-상황: "${scenario1.trigger}"
-핵심 고민: "${customerConcern}" ← 반드시 문장에 포함!
+안녕하세요. ${questioner1.age} ${questioner1.gender} ${questioner1.job}입니다.
+${customerConcern}
+${insuranceType} 관련해서 질문 드립니다.
+${scenario1.trigger}
+(구체적 상황 200-350자 작성, 쪽지 사절 댓글로 답변 부탁)
 보험종류: "${insuranceType}" ← 반드시 언급!
 (200-350자, 전화번호 금지, 구체적 숫자 포함)
 
@@ -4077,9 +4214,17 @@ ${insuranceType && insuranceType !== '종합보험' ? `
 
 ※ 중요: [태그]와 실제 내용만 출력하세요. 괄호 안의 설명은 출력하지 마세요!`
 
-  const qnaResult = await callGeminiAPI(qnaPrompt, geminiKeys)
+  // ============================================================
+  // V15.0 - Self-Correction Loop: 생성 → 검수 → 재생성 (최대 2회)
+  // ============================================================
   
-  // 파싱 - V11.1: 질문 2개, 답변 3개, 댓글 3개
+  const MAX_REGENERATION_ATTEMPTS = 2
+  let currentAttempt = 1
+  let qnaResult = ''
+  let regenerationHistory: Array<{ attempt: number, failReasons: string[], score: number }> = []
+  let finalAuditResult: AuditResult | null = null
+  
+  // 파싱 함수들 (재사용을 위해 미리 정의)
   // 구분선(===) 제거 함수
   const removeSeparators = (text: string) => {
     return text
@@ -4088,6 +4233,152 @@ ${insuranceType && insuranceType !== '종합보험' ? `
       .replace(/【[^】]*】/g, '') // 【...】 패턴 제거
       .trim()
   }
+  
+  // 파싱 및 검수 함수 (Self-Correction Loop에서 재사용)
+  const parseAndAuditQnA = (result: string) => {
+    const title1Match = result.match(/\[제목1\]([\s\S]*?)(?=\[제목2\])/i)
+    const title2Match = result.match(/\[제목2\]([\s\S]*?)(?=\[질문1\])/i)
+    const titleMatch = result.match(/\[제목\]([\s\S]*?)(?=\[질문1\])/i)
+    
+    const question1Match = result.match(/\[질문1\]([\s\S]*?)(?=\[질문2\])/i)
+    const question2Match = result.match(/\[질문2\]([\s\S]*?)(?=\[질문3\]|\[답변1\])/i)
+    const question3Match = result.match(/\[질문3\]([\s\S]*?)(?=\[답변1\])/i)
+    
+    const answer1Match = result.match(/\[답변1\]([\s\S]*?)(?=\[답변2\])/i)
+    const answer2Match = result.match(/\[답변2\]([\s\S]*?)(?=\[답변3\])/i)
+    const answer3Match = result.match(/\[답변3\]([\s\S]*?)(?=\[댓글1\])/i)
+    
+    const comment1Match = result.match(/\[댓글1\]([\s\S]*?)(?=\[댓글2\])/i)
+    const comment2Match = result.match(/\[댓글2\]([\s\S]*?)(?=\[댓글3\])/i)
+    const comment3Match = result.match(/\[댓글3\]([\s\S]*?)(?=\[검색키워드\]|\[강조포인트\])/i)
+    
+    const seoKeywordsMatch = result.match(/\[검색키워드\]([\s\S]*?)(?=\[최적화제목1\])/i)
+    
+    // 제목 2개 추출
+    let parsedTitle1 = title1Match 
+      ? removeSeparators(cleanText(title1Match[1].trim()))
+      : (titleMatch ? removeSeparators(cleanText(titleMatch[1].trim())) : '')
+    let parsedTitle2 = title2Match 
+      ? removeSeparators(cleanText(title2Match[1].trim()))
+      : ''
+    
+    // 질문 3개 추출
+    const parsedQuestions = [
+      question1Match ? cleanText(question1Match[1].trim()) : '',
+      question2Match ? cleanText(question2Match[1].trim()) : '',
+      question3Match ? cleanText(question3Match[1].trim()) : ''
+    ].filter(q => q.length > 30)
+    
+    // 답변 3개 추출
+    const parsedAnswers = [
+      answer1Match ? cleanText(answer1Match[1].trim()) : '',
+      answer2Match ? cleanText(answer2Match[1].trim()) : '',
+      answer3Match ? cleanText(answer3Match[1].trim()) : ''
+    ].filter(a => a.length > 50)
+    
+    // 댓글 3개 추출
+    const parsedComments = [
+      comment1Match ? cleanText(comment1Match[1].trim()) : '',
+      comment2Match ? cleanText(comment2Match[1].trim()) : '',
+      comment3Match ? cleanText(comment3Match[1].trim()) : ''
+    ].filter(c => c.length > 10)
+    
+    // SEO 키워드 추출
+    let parsedSeoKeywords: string[] = []
+    if (seoKeywordsMatch) {
+      parsedSeoKeywords = seoKeywordsMatch[1]
+        .split(/[\n,]/)
+        .map(kw => cleanText(kw.replace(/^[-•*\d.)\s]+/, '').trim()))
+        .filter(kw => kw.length > 2 && kw.length < 30)
+        .slice(0, 5)
+    }
+    
+    // 검수 실행
+    const auditResult = auditQnAContent({
+      customerConcern,
+      insuranceType,
+      target,
+      titles: [parsedTitle1, parsedTitle2].filter(t => t.length > 0),
+      questions: parsedQuestions,
+      answers: parsedAnswers,
+      comments: parsedComments,
+      seoKeywords: parsedSeoKeywords
+    })
+    
+    return {
+      titles: [parsedTitle1, parsedTitle2],
+      questions: parsedQuestions,
+      answers: parsedAnswers,
+      comments: parsedComments,
+      seoKeywords: parsedSeoKeywords,
+      auditResult
+    }
+  }
+  
+  // ============================================================
+  // V15.0 - Self-Correction Loop 실행 (최대 2회 재생성)
+  // ============================================================
+  
+  console.log('[V15.0] Self-Correction Loop 시작 - 핵심고민:', customerConcern.substring(0, 30))
+  
+  while (currentAttempt <= MAX_REGENERATION_ATTEMPTS + 1) {
+    // 재생성 시 Context 강화 프롬프트
+    const contextReinforcement = currentAttempt > 1 && regenerationHistory.length > 0 ? `
+
+🚨🚨🚨 [재생성 ${currentAttempt}차 - 이전 오류 반드시 수정!] 🚨🚨🚨
+이전 생성에서 다음 문제가 발견되었습니다:
+${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ ${r}`).join('\n')}
+
+⚠️ 반드시 위 문제를 해결해야 합니다!
+⚠️ 특히 "${customerConcern}"가 [질문1], [질문2], [질문3]에 반드시 그대로 포함!
+⚠️ "${insuranceType}"가 모든 [답변]에 최소 2회 이상 언급!
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+
+` : ''
+    
+    // 현재 프롬프트에 Context 강화 추가
+    const enhancedQnaPrompt = contextReinforcement + qnaPrompt
+    
+    // Gemini API 호출
+    console.log(`[V15.0] ${currentAttempt}차 생성 시도...`)
+    qnaResult = await callGeminiAPI(enhancedQnaPrompt, geminiKeys)
+    
+    // 파싱 및 검수
+    const { auditResult: currentAudit } = parseAndAuditQnA(qnaResult)
+    finalAuditResult = currentAudit
+    
+    console.log(`[V15.0] ${currentAttempt}차 검수 결과 - 통과: ${currentAudit.passed}, 점수: ${currentAudit.totalScore}`)
+    
+    // 검수 통과 시 루프 종료
+    if (currentAudit.passed || currentAudit.totalScore >= 75) {
+      console.log(`[V15.0] 검수 통과! (${currentAttempt}차 시도)`)
+      break
+    }
+    
+    // 검수 실패 - 재생성 기록 저장
+    regenerationHistory.push({
+      attempt: currentAttempt,
+      failReasons: currentAudit.failReasons,
+      score: currentAudit.totalScore
+    })
+    
+    // 최대 재생성 횟수 도달 시 종료
+    if (currentAttempt > MAX_REGENERATION_ATTEMPTS) {
+      console.log(`[V15.0] 최대 재생성 횟수(${MAX_REGENERATION_ATTEMPTS}회) 도달 - 현재 결과 사용`)
+      break
+    }
+    
+    console.log(`[V15.0] 검수 실패 - ${currentAttempt + 1}차 재생성 준비...`)
+    console.log(`[V15.0] 실패 사유: ${currentAudit.failReasons.join(', ')}`)
+    
+    currentAttempt++
+  }
+  
+  console.log(`[V15.0] Self-Correction Loop 완료 - 총 ${currentAttempt}회 시도, 최종 점수: ${finalAuditResult?.totalScore}`)
+  
+  // ============================================================
+  // 최종 파싱 (Self-Correction Loop 완료 후)
+  // ============================================================
   
   // V13.0: 제목 2개, 질문 3개 파싱
   const title1Match = qnaResult.match(/\[제목1\]([\s\S]*?)(?=\[제목2\])/i)
@@ -4452,16 +4743,24 @@ ${insuranceType && insuranceType !== '종합보험' ? `
         ? '자동검증: 핵심고민 또는 보험종류가 콘텐츠에 충분히 반영되지 않았습니다.'
         : (selfDiagnosis.needRegenerate ? selfDiagnosis.reason : '')
     },
-    // V13.0: 검수(Audit) 시스템 결과
+    // V15.0: 검수(Audit) 시스템 결과 - Self-Correction 적용
     audit: {
-      passed: auditResult.passed,
-      totalScore: auditResult.totalScore,
-      scores: auditResult.scores,
-      failReasons: auditResult.failReasons,
-      suggestions: auditResult.suggestions
+      passed: finalAuditResult?.passed ?? auditResult.passed,
+      totalScore: finalAuditResult?.totalScore ?? auditResult.totalScore,
+      scores: finalAuditResult?.scores ?? auditResult.scores,
+      failReasons: finalAuditResult?.failReasons ?? auditResult.failReasons,
+      suggestions: finalAuditResult?.suggestions ?? auditResult.suggestions
+    },
+    // V15.0: Self-Correction Loop 재생성 이력
+    selfCorrection: {
+      totalAttempts: currentAttempt,
+      maxAttempts: MAX_REGENERATION_ATTEMPTS,
+      regenerationHistory: regenerationHistory,
+      finalScore: finalAuditResult?.totalScore ?? auditResult.totalScore,
+      wasRegenerated: currentAttempt > 1
     },
     // 버전 정보
-    version: 'V13.0-Agentic'
+    version: 'V15.0-SelfCorrection'
   })
 })
 

@@ -59,14 +59,17 @@ async function callGeminiAPI(prompt: string, apiKeys: string | string[], retries
     const apiKey = keys[keyIndex % keys.length]
     
     try {
+      // V15.1: gemini-1.5-pro-002로 변경 (Reasoning/Context Window 향상)
+      // - Flash: 빠르지만 복잡한 프롬프트 지시사항 누락
+      // - Pro: 느리지만 검수→재생성 로직 정확 수행, Negative Constraints 준수
       const response = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-002:generateContent?key=' + apiKey,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.8, topK: 40, topP: 0.95, maxOutputTokens: 8192 }
+            generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 8192 }
           })
         }
       )
@@ -3298,10 +3301,12 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '9.5', 
-  ai: 'gemini + naver + gemini-image', 
+  version: '15.1', 
+  ai: 'gemini-1.5-pro + naver + gemini-image', 
+  textModel: 'gemini-1.5-pro-002',
+  imageModel: 'gemini-2.5-flash-image',
   year: 2026,
-  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style'],
+  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style', 'self-correction-loop'],
   timestamp: new Date().toISOString() 
 }))
 

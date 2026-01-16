@@ -5286,7 +5286,7 @@ app.post('/api/analyze/photo', async (c) => {
 
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '18.0', 
+  version: '18.1', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
@@ -5655,21 +5655,50 @@ app.post('/api/generate/qna-full', async (c) => {
   if (photoAnalysis && photoAnalysis !== '보험 증권을 인식할 수 없습니다') {
     photoContext = `\n\n【 사진 분석 결과 】\n${photoAnalysis}`
     
-    // V18.0: 사진에서 추정연령 추출하여 타깃 자동 조정
+    // V18.1: 사진에서 추정연령 또는 계약일로 나이 추정
+    let extractedAge = 0
+    
+    // 방법1: 추정연령 직접 추출
     const ageMatch = photoAnalysis.match(/추정연령[:\s]*(\d+)대|(\d+)대\s*(초반|중반|후반)?/)
     if (ageMatch) {
-      const extractedAge = ageMatch[1] || ageMatch[2]
-      if (extractedAge) {
-        const ageNum = parseInt(extractedAge)
-        // 사진에서 추출한 나이가 사용자가 선택한 나이와 다르면 조정
-        const inputAgeMatch = inputTarget?.match(/(\d+)대/)
-        const inputAge = inputAgeMatch ? parseInt(inputAgeMatch[1]) : 30
+      extractedAge = parseInt(ageMatch[1] || ageMatch[2])
+    }
+    
+    // 방법2: 계약일로부터 나이 추정 (가입 당시 30대 가정 + 경과 연수)
+    if (!extractedAge) {
+      const contractMatch = photoAnalysis.match(/계약일[:\s]*(\d{4})년|가입[:\s]*(\d{4})년|(\d{4})년.*가입|(\d+)년\s*경과/)
+      if (contractMatch) {
+        const contractYear = contractMatch[1] || contractMatch[2] || contractMatch[3]
+        const yearsElapsed = contractMatch[4]
         
-        // 사진의 나이가 입력된 나이보다 10살 이상 많으면 사진 기준으로 조정
-        if (ageNum >= inputAge + 10) {
-          adjustedTarget = target.replace(/\d+대/, `${ageNum}대`)
-          console.log(`[V18.0] 사진 기준 타깃 조정: ${target} → ${adjustedTarget}`)
+        if (contractYear) {
+          const yearsPassed = 2026 - parseInt(contractYear)
+          // 가입 당시 30대 중반(35세) 가정
+          const estimatedAge = 35 + yearsPassed
+          extractedAge = Math.floor(estimatedAge / 10) * 10  // 10대 단위로 반올림
+          console.log(`[V18.1] 계약일(${contractYear}년) 기준 추정연령: ${estimatedAge}세 → ${extractedAge}대`)
+        } else if (yearsElapsed) {
+          // "19년 경과" 같은 패턴
+          const estimatedAge = 35 + parseInt(yearsElapsed)
+          extractedAge = Math.floor(estimatedAge / 10) * 10
+          console.log(`[V18.1] 경과연수(${yearsElapsed}년) 기준 추정연령: ${estimatedAge}세 → ${extractedAge}대`)
         }
+      }
+    }
+    
+    // 추출된 나이로 타깃 조정
+    if (extractedAge > 0) {
+      const inputAgeMatch = inputTarget?.match(/(\d+)대/)
+      const inputAge = inputAgeMatch ? parseInt(inputAgeMatch[1]) : 30
+      
+      // 사진의 나이가 입력된 나이보다 10살 이상 많으면 사진 기준으로 조정
+      if (extractedAge >= inputAge + 10) {
+        // 새로운 연령대에 맞는 랜덤 직업 적용
+        const newAgeGroup = `${extractedAge}대`
+        const newOccupations = targetOccupations[newAgeGroup] || ['직장인']
+        const newOccupation = newOccupations[Math.floor(Math.random() * newOccupations.length)]
+        adjustedTarget = `${newAgeGroup} ${newOccupation}`
+        console.log(`[V18.1] 사진 기준 타깃 조정: ${target} → ${adjustedTarget}`)
       }
     }
   }
@@ -6964,7 +6993,7 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
       }
     },
     // 버전 정보
-    version: 'V18.0-PhotoAnalysis-SmartTarget'
+    version: 'V18.1-SmartAge-ContractDate'
   })
 })
 

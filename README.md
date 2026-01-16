@@ -1,4 +1,4 @@
-# 보험 콘텐츠 마스터 V15.0 - Self-Correction System
+# 보험 콘텐츠 마스터 V16.0 - RAG Hallucination Zero
 
 AI 기반 보험 콘텐츠 자동 생성 플랫폼 + Chrome Extension (네이버 마케팅 프록시)
 
@@ -12,12 +12,15 @@ AI 기반 보험 콘텐츠 자동 생성 플랫폼 + Chrome Extension (네이버
 - **API 서버**: https://insurance-content-master.pages.dev/api/
 - **Health Check**: https://insurance-content-master.pages.dev/api/health
 
+### ■ GitHub 저장소
+- **Backend (Full Stack)**: https://github.com/ikjoobang/insurance-content-master
+
 ### ■ API 엔드포인트
 | 엔드포인트 | 메서드 | 설명 |
 |------------|--------|------|
-| `/api/health` | GET | 서버 상태 확인 |
+| `/api/health` | GET | 서버 상태 확인 (V16.0 RAG 정보 포함) |
 | `/api/naver/keywords` | GET | 네이버 키워드 분석 |
-| `/api/generate/qna-full` | POST | Q&A 전체 자동 생성 (**V15.0 Self-Correction**) |
+| `/api/generate/qna-full` | POST | Q&A 전체 자동 생성 (**V16.0 RAG 4단계 파이프라인**) |
 | `/api/generate/proposal-image` | POST | 설계서 이미지 생성 |
 | `/api/generate/blog` | POST | 블로그 글 생성 |
 | `/api/analyze/blog` | POST | 블로그 SEO 분석 |
@@ -25,59 +28,125 @@ AI 기반 보험 콘텐츠 자동 생성 플랫폼 + Chrome Extension (네이버
 | `/api/proxy/current-ip` | GET | 현재 프록시 IP 확인 |
 | `/api/proxy/status` | GET | 프록시 상태 조회 |
 
-## ✅ V15.0 핵심 업데이트 - Self-Correction System
+## ✅ V16.0 핵심 업데이트 - RAG 기반 Hallucination Zero Project
 
-### ❶ Self-Correction Loop (할루시네이션 방지)
-**문제점 해결**: 단계 간 컨텍스트 단절로 핵심 고민이 Q&A에는 반영되나 전문가 답변/댓글에서 증발하거나 Hallucination 발생하는 문제 해결
+### ❶ RAG 4단계 파이프라인 (핵심 아키텍처)
 
-**Agentic Workflow 구조**:
+**목표**: AI가 검색 결과(Fact)만 사용하도록 강제하여 할루시네이션 완전 차단, 사용자 맥락 100% 유지
+
+**파이프라인 흐름**:
 ```
-입력 → AI 생성(Draft) → 자가 진단 검수 → 재생성 판단(최대 2회) → 배포
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Step 1: 팩트 수집        Step 2: 전략 수립      Step 3: 콘텐츠 생성        │
+│  [네이버 검색 API]  →     [전략 JSON]     →     [RAG 기반 작성]           │
+│  블로그/뉴스 검색         SEO 키워드 5개         JSON에 없는 내용           │
+│  상위 5+3개 수집          팩트 체크 3개          절대 생성 금지             │
+│                          전문가 전략 3명                                   │
+│                                                                            │
+│                               ↓ 자가진단 실패 시 재생성 (최대 2회)          │
+│                                                                            │
+│  Step 4: 자가 진단                                                         │
+│  [Self-Diagnosis Loop]                                                     │
+│  핵심고민 포함 여부                                                        │
+│  2026년 트렌드 반영                                                        │
+│  검수 점수 70점 이상 통과                                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **최대 2회 재생성**: 검수 실패 시 Context 강화 후 재생성
-- **재생성 이력 추적**: 각 시도의 점수와 실패 사유 기록
-- **Context 강제 주입**: 재생성 시 핵심 고민/보험종류를 더 강하게 주입
+### ❷ 기술 스택 변경
 
-### ❷ 4대 검수 기준 (auditQnAContent)
-| 기준 | 검증 내용 | 감점 조건 |
-|------|----------|----------|
-| **SEO 최적화** | C-Rank / D.I.A.+ / Agent N | 보험종류 미포함 -30점, 키워드 밀도 부족 -20점 |
-| **문맥 일치성** | 핵심고민이 질문/답변/댓글 전반에 반영 | 질문 미반영 -25점, 답변 미반영 -30점 |
-| **전문가 다각화** | 3명의 서로 다른 관점 전문가 | 답변 3개 미만 -40점, 300자 미만 -15점/개 |
-| **댓글 현실성** | 단순 칭찬 금지, 경험담 중심 | 댓글 3개 미만 -30점, 단순 칭찬만 -20점 |
+| 구분 | 기존 (V15.0) | 변경 (V16.0) |
+|------|-------------|--------------|
+| **텍스트 모델** | gemini-2.0-flash | **gemini-1.5-pro-002** (추론력 강화) |
+| **이미지 모델** | gemini-2.5-flash-image | gemini-2.5-flash-image (유지) |
+| **검색 연동** | 키워드 추출만 | **RAG 팩트 수집 (블로그+뉴스)** |
+| **콘텐츠 생성** | 단일 프롬프트 | **전략 JSON 기반 체이닝** |
 
-### ❸ 응답에 포함되는 Self-Correction 정보
+### ❸ RAG 파이프라인 상세
+
+**Step 1 - 팩트 수집 (collectFactData)**
+```javascript
+// 네이버 검색 API 호출
+queries = [
+  "2026년 {보험종류} 개정",
+  "{보험종류} {핵심고민 앞 20자}",
+  "{보험종류} 추천 {타깃}"
+]
+// 블로그 5개 + 뉴스 3개 수집
+```
+
+**Step 2 - 전략 수립 (buildStrategy)**
 ```json
 {
-  "selfCorrection": {
-    "totalAttempts": 2,           // 총 시도 횟수
-    "maxAttempts": 2,             // 최대 허용 횟수
-    "wasRegenerated": true,       // 재생성 여부
-    "finalScore": 85,             // 최종 검수 점수
-    "regenerationHistory": [      // 재생성 이력
-      {
-        "attempt": 1,
-        "score": 65,
-        "failReasons": ["문맥: 질문에 핵심고민이 충분히 반영되지 않음"]
-      }
-    ]
+  "seoKeywords": ["암보험 추천", "암보험 비교", "..."],
+  "factChecks": ["2026년 비갱신형 특약 강화", "통합 보장 트렌드", "..."],
+  "expertStrategies": {
+    "factExpert": "약관 기준 정확한 보장 범위 분석",
+    "empathyExpert": "고민 상황에 대한 공감과 현실적 대안",
+    "comparisonExpert": "타사 상품 및 2020년형 vs 2026년형 비교"
   },
-  "audit": {
-    "passed": true,
-    "totalScore": 85,
-    "scores": {
-      "seoOptimization": 90,
-      "contextConsistency": 80,
-      "expertDiversity": 85,
-      "commentRealism": 85
-    }
-  },
-  "version": "V15.0-SelfCorrection"
+  "userContextSummary": "타깃이 핵심고민에 대해 고민하는 상황"
 }
 ```
 
-## ✅ 기존 기능 (V13.0+)
+**Step 3 - 콘텐츠 생성 (generateContentWithStrategy)**
+- 전략 JSON 안에서만 작성 (할루시네이션 차단)
+- 핵심 고민 필수 포함
+- 보험종류 최소 2회 언급
+
+**Step 4 - 자가 진단 (selfDiagnoseContent)**
+- 핵심고민 포함 여부 검증
+- 2026년 트렌드 반영 여부 검증
+- 검수 점수 70점 미만 시 재생성
+
+### ❹ 응답에 포함되는 RAG 정보
+
+```json
+{
+  "version": "V16.0-RAG-HallucinationZero",
+  "ragPipeline": {
+    "step1_factCollection": {
+      "success": true,
+      "blogCount": 5,
+      "newsCount": 3
+    },
+    "step2_strategyBuilding": {
+      "success": true,
+      "seoKeywords": ["암보험 추천", "암보험 비교", "..."]
+    },
+    "step3_contentGeneration": {
+      "success": true,
+      "generatedLength": 1279
+    },
+    "step4_selfDiagnosis": {
+      "pass": true,
+      "failReasons": []
+    },
+    "strategyUsed": {
+      "factChecks": ["2026년 비갱신형 특약 강화", "..."],
+      "expertStrategies": {...}
+    }
+  },
+  "selfCorrection": {
+    "totalAttempts": 1,
+    "maxAttempts": 2,
+    "wasRegenerated": false,
+    "finalScore": 84
+  },
+  "audit": {
+    "passed": true,
+    "totalScore": 84,
+    "scores": {
+      "seoOptimization": 80,
+      "contextConsistency": 100,
+      "expertDiversity": 55,
+      "commentRealism": 100
+    }
+  }
+}
+```
+
+## ✅ 기존 기능 유지
 
 ### ❶ Q&A 자동 생성 (보험카페용)
 - **제목 2개** (다양한 어그로성)
@@ -97,6 +166,14 @@ AI 기반 보험 콘텐츠 자동 생성 플랫폼 + Chrome Extension (네이버
 - 보험사별 브랜드 컬러 적용
 - Compact Card 스타일 설계서
 - PDF 다운로드 지원
+
+### ❹ 4대 검수 기준 (auditQnAContent)
+| 기준 | 검증 내용 | 감점 조건 |
+|------|----------|----------|
+| **SEO 최적화** | C-Rank / D.I.A.+ / Agent N | 보험종류 미포함 -30점, 키워드 밀도 부족 -20점 |
+| **문맥 일치성** | 핵심고민이 질문/답변/댓글 전반에 반영 | 질문 미반영 -25점, 답변 미반영 -30점 |
+| **전문가 다각화** | 3명의 서로 다른 관점 전문가 | 답변 3개 미만 -40점, 300자 미만 -15점/개 |
+| **댓글 현실성** | 단순 칭찬 금지, 경험담 중심 | 댓글 3개 미만 -30점, 단순 칭찬만 -20점 |
 
 ## 🔧 Chrome Extension (네이버 마케팅 프록시)
 
@@ -141,7 +218,7 @@ chrome-extension/
 ```
 webapp/
 ├── src/
-│   └── index.tsx          # 메인 애플리케이션 (4,900줄+)
+│   └── index.tsx          # 메인 애플리케이션 (5,300줄+)
 ├── chrome-extension/      # Chrome Extension 소스
 │   ├── manifest.json
 │   ├── background.js
@@ -161,7 +238,9 @@ webapp/
 
 - **프레임워크**: Hono (TypeScript)
 - **배포**: Cloudflare Pages
-- **AI**: Google Gemini 2.0 Flash (4개 키 로테이션)
+- **AI (텍스트)**: Google Gemini 1.5 Pro (4개 키 로테이션)
+- **AI (이미지)**: Google Gemini 2.5 Flash Image
+- **RAG**: NAVER Search API (블로그 + 뉴스) → 전략 JSON → 콘텐츠 생성
 - **키워드 분석**: NAVER DataLab API
 - **프록시**: Bright Data Residential Proxy
 - **폰트**: Pretendard Variable
@@ -171,11 +250,27 @@ webapp/
 
 | 버전 | 날짜 | 주요 변경사항 |
 |------|------|---------------|
-| **V15.0** | **2026-01-16** | **Self-Correction Loop 도입, 할루시네이션 방지, 재생성 이력 추적** |
+| **V16.0** | **2026-01-16** | **RAG 4단계 파이프라인 도입, Hallucination Zero, gemini-1.5-pro 전환** |
+| V15.0 | 2026-01-16 | Self-Correction Loop 도입, 재생성 이력 추적 |
 | V14.0 | 2026-01-16 | Context 강제 주입 프롬프트, 재생성 함수 분리 |
 | V13.0 | 2026-01-16 | Agentic Workflow, 제목 2개/질문 3개 확장, Chrome Extension 완성 |
 | V12.2 | 2026-01-16 | 자가진단 워크플로우, SEO 키워드/최적화 제목 출력 |
 | V11.4 | 2026-01-15 | 전문가 답변 3종 다각화, 도메인 지식 2026 기준 |
+
+## 📋 RAG Hallucination Zero Project 개발 명세
+
+**수신**: 젠스파이크 개발팀  
+**작성자**: 방익주  
+**목표**: 할루시네이션 완전 차단 및 사용자 맥락 100% 유지
+
+### 핵심 변경
+- Gemini Flash 단독 사용 중지 → **NAVER Search API + Gemini 1.5 Pro 체이닝** 도입
+- 로직 흐름: `[네이버 검색 API] → [정보 추출] → [전략 수립] → [글쓰기] → [검수]`
+
+### 원칙
+- AI가 가져다 준 검색 결과(Fact)만 사용하도록 강제
+- 전략 JSON에 없는 내용은 절대 생성 금지
+- Context 강제 주입으로 맥락 100% 유지
 
 ## ⚠️ 주의사항
 
@@ -187,5 +282,5 @@ webapp/
 ## 👨‍💻 개발자 정보
 
 - **개발자**: 방익주
-- **버전**: V15.0
+- **버전**: V16.0-RAG-HallucinationZero
 - **최종 업데이트**: 2026-01-16

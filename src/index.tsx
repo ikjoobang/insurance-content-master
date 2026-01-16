@@ -3132,13 +3132,14 @@ app.post('/api/generate/qna-full', async (c) => {
 - 선택된 문체 톤: ${tones.join(', ')} (복수 선택됨 - 모든 톤을 자연스럽게 조합)
 - 기본 문체: ${baseTones.length > 0 ? baseTones.join(' + ') : '친근한'}
 - 핵심 키워드: ${coreKeywords.join(', ')}
-- 연락처: ${contact.phone}
 ${specialToneGuide}
 ${empathyFirstGuide}
 
-★★★ 최우선 적용 - 사용자 핵심 고민 ★★★
+★★★★★ 최우선 적용 - 사용자 핵심 고민 ★★★★★
 "${customerConcern}"
-→ 이 고민 내용을 제목, 질문, 답변, 해시태그에 최우선으로 반영할 것!
+→ 이 핵심 고민 내용이 [질문]에 반드시 그대로 담겨야 함!
+→ 질문자는 보험을 잘 모르는 초보자 관점에서 질문해야 함!
+→ "설계사 소개 받아서 가입했는데...", "추천 좀 해주세요" 같은 자연스러운 요청 형식!
 → 선택된 모든 문체 톤(${tones.join(', ')})을 자연스럽게 융합하여 답변 작성!
 
 ==========================================================
@@ -3146,26 +3147,30 @@ ${empathyFirstGuide}
 ==========================================================
 
 [제목]
-★ 전문가에게 질문/고민하는 형태로 작성 (필수!)
-★ 사용자 핵심 고민 "${customerConcern}" 내용을 반드시 반영
+★ 보험 초보자가 전문가에게 질문/고민하는 형태로 작성 (필수!)
+★ 사용자 핵심 고민 "${customerConcern}" 내용을 제목에 반드시 반영
 - "${target}"이 전문가에게 묻는 질문 형태: "~해도 될까요?", "~어떻게 해야 하나요?", "~추천해주세요"
 - 핵심 키워드 "${coreKeywords[0]}" 필수 포함 (C-RANK 최적화)
 - 15-25자, 검색 의도 명확히 반영
-- 예시: "${target} ${insuranceType} 추천해주세요", "${insuranceType} 가입하려는데 어디가 좋을까요?"
+- 예시: "${insuranceType} 이렇게 가입해도 될까요?", "${insuranceType} 추천 좀 해주세요"
 
 [질문1-${selectedType1.style}]
-"${selectedType1.example}" 같은 느낌으로 시작
-- ${target}이 진짜 네이버 카페에 쓸 것 같은 현실적인 질문
+★★★ 핵심 고민 "${customerConcern}"을 질문 내용에 반드시 포함! ★★★
+- 보험 초보자가 네이버 카페에 쓸 것 같은 현실적인 질문
+- "설계사 소개 받아서 가입했는데...", "추천 좀 해주세요" 같은 자연스러운 형식
 - 150-250자
 - 이름 없이 시작 (예: "안녕하세요", "저", "요즘", "다름이 아니라")
-- 마지막에 연락처: ${contact.phone}
+- 전화번호 절대 포함 금지!
 - 핵심 키워드 1-2회 자연 배치
+- 마지막에 "좋은 설계사분 추천 부탁드려요" 또는 "조언 부탁드립니다" 형식으로 마무리
 
 [질문2-다른유형]
 [질문1]과 완전히 다른 스타일의 질문
-- 다른 상황, 다른 톤, 다른 고민으로 작성
+★★★ 핵심 고민 "${customerConcern}"을 다른 관점에서 질문! ★★★
+- 다른 상황, 다른 톤이지만 같은 핵심 고민을 담아서 작성
 - 150-250자
-- 같은 보험 종류지만 다른 관점의 질문
+- 전화번호 절대 포함 금지!
+- "믿을 만한 설계사 연결해주실 분 계실까요?" 같은 자연스러운 마무리
 
 [답변1-${selectedExpert1.style}]
 ${selectedExpert1.desc}
@@ -3239,10 +3244,10 @@ ${selectedExpert3.desc}
   // 제목 추출
   const generatedTitle = titleMatch ? cleanText(titleMatch[1].trim()) : `${target} ${insuranceType} 추천`
   
-  // 질문 2개 추출
+  // 질문 2개 추출 (전화번호 제외)
   const questions = [
-    question1Match ? cleanText(question1Match[1].trim()) : `안녕하세요. ${target}인데 ${insuranceType} 가입하려고 하는데요... 연락처: ${contact.phone}`,
-    question2Match ? cleanText(question2Match[1].trim()) : `요즘 ${insuranceType} 알아보고 있는데 추천 좀 해주세요. ${contact.phone}`
+    question1Match ? cleanText(question1Match[1].trim()) : `안녕하세요. ${target}인데 ${insuranceType} 가입하려고 하는데요. ${customerConcern} 좋은 설계사분 추천 부탁드려요.`,
+    question2Match ? cleanText(question2Match[1].trim()) : `요즘 ${insuranceType} 알아보고 있는데요. ${customerConcern} 믿을 만한 설계사 연결해주실 분 계실까요?`
   ].filter(q => q.length > 30)
   
   // 답변 3개 추출
@@ -3416,7 +3421,7 @@ ${selectedExpert3.desc}
     hashtags: generatedHashtags,
     // 질문 2개 (각각 복사 가능)
     questions: questions,
-    question: questions[0] || `안녕하세요. ${target}인데 ${insuranceType} 관련 질문이 있어요. ${contact.phone}`,
+    question: questions[0] || `안녕하세요. ${target}인데 ${insuranceType} 관련 질문이 있어요. 좋은 설계사분 추천 부탁드려요.`,
     // 답변 3개 (각각 복사 가능) 
     answers: answers,
     answer: answers[0] || `${insuranceType}에 대해 답변드립니다.`,

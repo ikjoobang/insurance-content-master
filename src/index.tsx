@@ -3,6 +3,10 @@ import { cors } from 'hono/cors'
 
 type Bindings = {
   GEMINI_API_KEY?: string
+  GEMINI_API_KEY_1?: string
+  GEMINI_API_KEY_2?: string
+  GEMINI_API_KEY_3?: string
+  GEMINI_API_KEY_4?: string
   NAVER_CLIENT_ID?: string
   NAVER_CLIENT_SECRET?: string
 }
@@ -11,11 +15,44 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('/*', cors())
 
+// ========== Gemini API 키 로테이션 관리 ==========
 // API 키는 환경 변수에서 가져옴 (Cloudflare Secrets)
 // 코드에 직접 키를 넣지 않음 - 보안!
 
-async function callGeminiAPI(prompt: string, apiKey: string, retries = 3): Promise<string> {
-  for (let attempt = 0; attempt < retries; attempt++) {
+let currentKeyIndex = 0
+
+function getGeminiKeys(env: Bindings): string[] {
+  const keys: string[] = []
+  if (env.GEMINI_API_KEY_1) keys.push(env.GEMINI_API_KEY_1)
+  if (env.GEMINI_API_KEY_2) keys.push(env.GEMINI_API_KEY_2)
+  if (env.GEMINI_API_KEY_3) keys.push(env.GEMINI_API_KEY_3)
+  if (env.GEMINI_API_KEY_4) keys.push(env.GEMINI_API_KEY_4)
+  // 폴백: 단일 키가 있으면 사용
+  if (keys.length === 0 && env.GEMINI_API_KEY) {
+    keys.push(env.GEMINI_API_KEY)
+  }
+  return keys
+}
+
+function getNextGeminiKey(keys: string[]): string {
+  if (keys.length === 0) return ''
+  const key = keys[currentKeyIndex % keys.length]
+  currentKeyIndex = (currentKeyIndex + 1) % keys.length
+  return key
+}
+
+async function callGeminiAPI(prompt: string, apiKeys: string | string[], retries = 3): Promise<string> {
+  // 배열이면 키 로테이션, 단일 문자열이면 그대로 사용
+  const keys = Array.isArray(apiKeys) ? apiKeys : [apiKeys]
+  if (keys.length === 0 || !keys[0]) {
+    throw new Error('No API keys available')
+  }
+  
+  let keyIndex = currentKeyIndex
+  
+  for (let attempt = 0; attempt < retries * keys.length; attempt++) {
+    const apiKey = keys[keyIndex % keys.length]
+    
     try {
       const response = await fetch(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
@@ -29,10 +66,19 @@ async function callGeminiAPI(prompt: string, apiKey: string, retries = 3): Promi
         }
       )
       
+      // 403/429 에러시 다음 키로 전환
+      if (response.status === 403 || response.status === 429) {
+        console.log(`Key ${keyIndex % keys.length + 1} rate limited, switching to next key`)
+        keyIndex++
+        currentKeyIndex = keyIndex % keys.length
+        continue
+      }
+      
       if (!response.ok) continue
       const data = await response.json() as any
       return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
     } catch (error) {
+      keyIndex++
       continue
     }
   }
@@ -127,7 +173,7 @@ ${style === 'highlight' ? '- Yellow highlighter marks on key numbers (premium, c
   return prompt
 }
 
-async function generateInsuranceImage(data: ImageGenerationData, apiKey: string): Promise<{ success: boolean, imageUrl?: string, error?: string, model?: string }> {
+async function generateInsuranceImage(data: ImageGenerationData, apiKey: string, allKeys?: string[]): Promise<{ success: boolean, imageUrl?: string, error?: string, model?: string }> {
   const prompt = buildCompactCardPrompt(data)
   
   // 모델 우선순위: gemini-2.5-flash-image > gemini-2.0-flash-preview-image-generation
@@ -136,53 +182,68 @@ async function generateInsuranceImage(data: ImageGenerationData, apiKey: string)
     'gemini-2.0-flash-preview-image-generation'
   ]
   
+  // 키 배열이 있으면 로테이션, 없으면 단일 키 사용
+  const keys = allKeys && allKeys.length > 0 ? allKeys : [apiKey]
+  let keyIndex = 0
+  
   for (const model of models) {
-    try {
-      console.log(`Trying image generation with model: ${model}`)
+    // 각 모델에 대해 모든 키 시도
+    for (let keyAttempt = 0; keyAttempt < keys.length; keyAttempt++) {
+      const currentKey = keys[(keyIndex + keyAttempt) % keys.length]
       
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              responseModalities: ['image', 'text']
-            }
-          })
+      try {
+        console.log(`Trying image generation with model: ${model}, key: ${(keyIndex + keyAttempt) % keys.length + 1}`)
+        
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${currentKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                responseModalities: ['image', 'text']
+              }
+            })
+          }
+        )
+        
+        // 403/429 에러시 다음 키로
+        if (response.status === 403 || response.status === 429) {
+          console.log(`Key ${(keyIndex + keyAttempt) % keys.length + 1} rate limited for ${model}`)
+          continue
         }
-      )
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Gemini Image API error with ${model}:`, response.status, errorText)
-        continue // 다음 모델 시도
-      }
-      
-      const result = await response.json() as any
-      const parts = result.candidates?.[0]?.content?.parts || []
-      
-      // 이미지 데이터 추출
-      for (const part of parts) {
-        if (part.inlineData?.mimeType?.startsWith('image/')) {
-          const base64Data = part.inlineData.data
-          const imageUrl = `data:${part.inlineData.mimeType};base64,${base64Data}`
-          return { success: true, imageUrl, model }
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`Gemini Image API error with ${model}:`, response.status, errorText)
+          break // 다른 에러는 다음 모델로
         }
+        
+        const result = await response.json() as any
+        const parts = result.candidates?.[0]?.content?.parts || []
+        
+        // 이미지 데이터 추출
+        for (const part of parts) {
+          if (part.inlineData?.mimeType?.startsWith('image/')) {
+            const base64Data = part.inlineData.data
+            const imageUrl = `data:${part.inlineData.mimeType};base64,${base64Data}`
+            return { success: true, imageUrl, model }
+          }
+        }
+        
+        // 텍스트만 반환된 경우 (이미지 없음)
+        console.log(`No image in response from ${model}, trying next model`)
+        break // 다음 모델로
+        
+      } catch (error) {
+        console.error(`Image generation error with ${model}:`, error)
+        continue // 다음 키 시도
       }
-      
-      // 텍스트만 반환된 경우 (이미지 없음)
-      console.log(`No image in response from ${model}, trying next model`)
-      continue
-      
-    } catch (error) {
-      console.error(`Image generation error with ${model}:`, error)
-      continue
     }
   }
   
-  return { success: false, error: 'All image generation models failed' }
+  return { success: false, error: 'All image generation models and keys failed' }
 }
 
 // 텍스트 정리 함수 (이모티콘, ##, ** 완전 제거)
@@ -2173,7 +2234,7 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '9.1', 
+  version: '9.2', 
   ai: 'gemini + naver + gemini-image', 
   year: 2026,
   features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style'],
@@ -2195,12 +2256,12 @@ app.get('/api/naver/keywords', async (c) => {
 app.post('/api/generate/qna-full', async (c) => {
   const { target, tone, insuranceType, concern, generateDesign } = await c.req.json()
   
-  // 환경 변수에서 API 키 가져오기 (Cloudflare Secrets)
-  const geminiKey = c.env?.GEMINI_API_KEY || ''
+  // 환경 변수에서 API 키 가져오기 (Cloudflare Secrets) - 4개 키 로테이션
+  const geminiKeys = getGeminiKeys(c.env)
   const naverClientId = c.env?.NAVER_CLIENT_ID || 'fUhHJ1HWyF6fFw_aBfkg'
   const naverClientSecret = c.env?.NAVER_CLIENT_SECRET || 'gA4jUFDYK0'
   
-  if (!geminiKey) {
+  if (geminiKeys.length === 0) {
     return c.json({ error: 'API key not configured' }, 500)
   }
   
@@ -2222,7 +2283,7 @@ app.post('/api/generate/qna-full', async (c) => {
 현실적이고 구체적인 고민을 50자 이내로 작성해주세요.
 이모티콘이나 특수문자 없이 순수 텍스트만 작성하세요.
 반드시 한 문장으로 작성하세요.`
-    customerConcern = await callGeminiAPI(concernPrompt, geminiKey)
+    customerConcern = await callGeminiAPI(concernPrompt, geminiKeys)
     customerConcern = cleanText(customerConcern.replace(/["\n]/g, '').trim())
   }
   
@@ -2278,7 +2339,7 @@ app.post('/api/generate/qna-full', async (c) => {
 [댓글3]
 (추천/감사 댓글 50-80자. 이모티콘 없이)`
 
-  const qnaResult = await callGeminiAPI(qnaPrompt, geminiKey)
+  const qnaResult = await callGeminiAPI(qnaPrompt, geminiKeys)
   
   // 파싱
   const questionMatch = qnaResult.match(/\[질문\]([\s\S]*?)(?=\[답변\])/i)
@@ -2367,7 +2428,7 @@ app.post('/api/generate/qna-full', async (c) => {
 }`
 
     try {
-      const designData = await callGeminiAPI(designPrompt, geminiKey)
+      const designData = await callGeminiAPI(designPrompt, geminiKeys)
       const jsonMatch = designData.match(/\{[\s\S]*\}/)
       
       if (jsonMatch) {
@@ -2450,10 +2511,12 @@ app.post('/api/generate/proposal-image', async (c) => {
     style = 'compact-card'
   } = body
   
-  const geminiKey = c.env?.GEMINI_API_KEY || ''
-  if (!geminiKey) {
+  // 4개 키 로테이션
+  const geminiKeys = getGeminiKeys(c.env)
+  if (geminiKeys.length === 0) {
     return c.json({ success: false, error: 'API key not configured' }, 500)
   }
+  const geminiKey = getNextGeminiKey(geminiKeys)
   
   // 문서번호 자동 생성 (없으면)
   const finalDocNumber = docNumber || `INS-${Date.now()}`
@@ -2478,16 +2541,16 @@ app.post('/api/generate/proposal-image', async (c) => {
     style: style as 'compact-card' | 'full-document' | 'highlight' | 'scan-copy'
   }
   
-  console.log('Generating proposal image:', { companyName, insuranceType, style, docNumber: finalDocNumber })
+  console.log('Generating proposal image:', { companyName, insuranceType, style, docNumber: finalDocNumber, keysAvailable: geminiKeys.length })
   
-  const result = await generateInsuranceImage(imageData, geminiKey)
+  const result = await generateInsuranceImage(imageData, geminiKey, geminiKeys)
   
   if (result.success) {
     return c.json({
       success: true,
       imageUrl: result.imageUrl,
       docNumber: finalDocNumber,
-      model: 'gemini-2.0-flash-exp-image-generation',
+      model: result.model || 'gemini-2.5-flash-image',
       style,
       message: '설계서 이미지가 생성되었습니다.'
     })
@@ -2504,8 +2567,8 @@ app.post('/api/generate/proposal-image', async (c) => {
 app.post('/api/generate/blog', async (c) => {
   const { topic, keywords, region, type, target } = await c.req.json()
   
-  const geminiKey = c.env?.GEMINI_API_KEY || ''
-  if (!geminiKey) {
+  const geminiKeys = getGeminiKeys(c.env)
+  if (geminiKeys.length === 0) {
     return c.json({ error: 'API key not configured' }, 500)
   }
   
@@ -2541,7 +2604,7 @@ app.post('/api/generate/blog', async (c) => {
 (10개)`
 
   try {
-    const result = await callGeminiAPI(prompt, geminiKey)
+    const result = await callGeminiAPI(prompt, geminiKeys)
     
     const titleMatch = result.match(/\[제목\]\s*([\s\S]*?)(?=\[본문\])/i)
     const contentMatch = result.match(/\[본문\]\s*([\s\S]*?)(?=\[해시태그\])/i)
@@ -2565,8 +2628,8 @@ app.post('/api/generate/blog', async (c) => {
 app.post('/api/analyze/blog', async (c) => {
   const { content, keyword, region, type } = await c.req.json()
   
-  const geminiKey = c.env?.GEMINI_API_KEY || ''
-  if (!geminiKey) {
+  const geminiKeys = getGeminiKeys(c.env)
+  if (geminiKeys.length === 0) {
     return c.json({ error: 'API key not configured' }, 500)
   }
   
@@ -2601,7 +2664,7 @@ GEO: (숫자)
 (개선안)`
 
   try {
-    const result = await callGeminiAPI(prompt, geminiKey)
+    const result = await callGeminiAPI(prompt, geminiKeys)
     
     const seoMatch = result.match(/SEO:\s*(\d+)/i)
     const crankMatch = result.match(/C-RANK:\s*(\d+)/i)

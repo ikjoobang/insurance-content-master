@@ -1730,17 +1730,36 @@ ${strategy.seoKeywords.join(', ')}
     const isRealTalk = toneNormalized.includes('보험초보') || toneNormalized.includes('현실') || toneNormalized.includes('사이다')
     const isExpert = toneNormalized.includes('전문') || toneNormalized.includes('설득')
     
-    // V17.5 리얼 토크 스타일 (사이다) - 네이버 카페 실제 패턴 기반
+    // V17.8 리얼 토크 스타일 (사이다) - 제목 랜덤화 (핵심고민 반영)
     if (isRealTalk) {
+      // 랜덤 금액 (8만원~19만원)
+      const randomAmount = (Math.floor(Math.random() * 12) + 8)
+      // 랜덤 보험사
+      const companies = ['메리츠', '삼성생명', '한화생명', 'DB손해보험', '교보생명', 'KB손해보험', '현대해상', '신한라이프']
+      const randomCompany = companies[Math.floor(Math.random() * companies.length)]
+      
+      const realTalkTitleTemplates = [
+        `월 ${randomAmount}만원짜리 ${insuranceType} 이거 괜찮을까요? ${target}입니다`,
+        `${target}인데 ${insuranceType} ${customerConcern.substring(0, 15)}... 어떡하죠?`,
+        `${randomCompany} ${insuranceType} 가입했는데 후회중이에요 ㅠㅠ`,
+        `${insuranceType} 눈탱이 맞은 건가요? ${target}입니다`,
+        `${customerConcern.substring(0, 18)} 때문에 미치겠어요 ㅠㅠ`,
+        `${target} ${insuranceType} 리모델링 해야하나요? 의견 부탁해요`,
+        `월 ${randomAmount}만원 ${insuranceType} 손절할까요 유지할까요?`,
+        `장롱 속 ${insuranceType} 발견했는데 이거 어쩌죠?`
+      ]
+      const realTalkTitle1 = realTalkTitleTemplates[Math.floor(Math.random() * realTalkTitleTemplates.length)]
+      const realTalkTitle2 = realTalkTitleTemplates[Math.floor(Math.random() * realTalkTitleTemplates.length)]
+      
       return `[제목1]
-월 17만원짜리 ${insuranceType} 이거 괜찮을까요? ${target}입니다
+${realTalkTitle1}
 
 [제목2]
-장롱 속에 묻혀있던 ${insuranceType} 발견했는데 리모델링해야 하죠?
+${realTalkTitle2}
 
 [질문1]
 급질문요 ㅠㅠ 저 ${target}인데요.
-엄마 친구 설계사 이모가 메리츠 ${insuranceType} 무조건 좋다고 해서 월 17만원짜리 가입했어요.
+엄마 친구 설계사 이모가 ${randomCompany} ${insuranceType} 무조건 좋다고 해서 월 ${randomAmount}만원짜리 가입했어요.
 ${customerConcern}
 근데 유튜브 보니까 사업비가 30%나 빠진다면서요? 이거 진짜예요?
 이미 3회차 납입했는데 지금이라도 손절하는 게 맞을까요?
@@ -1877,13 +1896,26 @@ ${insuranceType} 호구 탈출법, 20년차 전문가가 알려드립니다
 - 재생성 사유: Fallback Human-Like 템플릿 적용`
     }
     
-    // V17.3 전문가 스타일 - 완전히 다른 3명
+    // V17.8 전문가 스타일 - 제목 랜덤화 (핵심고민 반영)
     if (isExpert) {
+      const expertTitleTemplates = [
+        `${target} ${insuranceType} 전문가 분석 요청드립니다 (${customerConcern.substring(0, 12)})`,
+        `${insuranceType} 가입 검토 중입니다. ${customerConcern.substring(0, 15)}...`,
+        `${target}인데 ${insuranceType} 객관적 조언 부탁드립니다`,
+        `2026년 기준 ${insuranceType} 분석 요청 - ${target}입니다`,
+        `${customerConcern.substring(0, 18)} 상황인데 ${insuranceType} 어떻게 할까요?`,
+        `${insuranceType} 약관 분석 부탁드립니다. ${target} 상황이에요`,
+        `${target} ${insuranceType} 손익분기점 계산 요청드립니다`,
+        `${insuranceType} 전문가님들 의견 부탁드려요. ${customerConcern.substring(0, 12)}`
+      ]
+      const expertTitle1 = expertTitleTemplates[Math.floor(Math.random() * expertTitleTemplates.length)]
+      const expertTitle2 = expertTitleTemplates[Math.floor(Math.random() * expertTitleTemplates.length)]
+      
       return `[제목1]
-${target}인데 ${insuranceType} 가입해도 될까요? 전문가 조언 부탁드립니다
+${expertTitle1}
 
 [제목2]
-${insuranceType} 2026년 기준으로 어떤 상품이 좋은가요?
+${expertTitle2}
 
 [질문1]
 안녕하십니까. ${target}입니다.
@@ -1999,17 +2031,30 @@ ${target} ${insuranceType} 금융감독원 기준 완벽 분석
 - 재생성 사유: Fallback Expert 템플릿 적용`
     }
     
-    // 친근/공감 스타일 (기본값)
+    // V17.8: 친근/공감 스타일 - 제목 랜덤화 (핵심고민 반영)
+    const friendlyTitleTemplates = [
+      `${target}인데 ${customerConcern.substring(0, 20)}... 어떻게 해야 하나요?`,
+      `${insuranceType} 때문에 고민이에요 ㅠㅠ ${target}입니다`,
+      `${target} ${insuranceType} 질문이요! ${customerConcern.substring(0, 15)}...`,
+      `혹시 ${insuranceType} 아시는 분? ${customerConcern.substring(0, 15)} 고민중이에요`,
+      `${target}인데 ${insuranceType} 이거 맞나요? 조언 부탁드려요`,
+      `${insuranceType} 고민 글이에요... ${target}입니다 ㅠㅠ`,
+      `${target} ${insuranceType} 도움 요청합니다! ${customerConcern.substring(0, 12)}`,
+      `급해요! ${target}인데 ${insuranceType} 관련 질문이요`
+    ]
+    const friendlyTitle1 = friendlyTitleTemplates[Math.floor(Math.random() * friendlyTitleTemplates.length)]
+    const friendlyTitle2 = friendlyTitleTemplates[Math.floor(Math.random() * friendlyTitleTemplates.length)]
+    
     return `[제목1]
-${target}인데 ${insuranceType} 때문에 밤잠을 못 자요 ㅠㅠ 도와주세요
+${friendlyTitle1}
 
 [제목2]
-${insuranceType} 고민하다 지쳤어요... 비슷한 경험 있으신 분 계신가요?
+${friendlyTitle2}
 
 [질문1]
 안녕하세요~ ${target}이에요 :)
 ${customerConcern}
-요즘 ${insuranceType} 때문에 밤잠을 설치고 있어요 ㅠㅠ
+요즘 ${insuranceType} 때문에 고민이 많아요 ㅠㅠ
 유튜브도 보고 블로그도 찾아봤는데 너무 어렵더라구요.
 비슷한 경험 있으신 분들 조언 좀 부탁드려요~
 쪽지 사절이에요, 댓글로 편하게 답변 주시면 감사하겠습니다!
@@ -5161,7 +5206,7 @@ app.post('/api/analyze/photo', async (c) => {
 
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '17.7', 
+  version: '17.8', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
@@ -6810,7 +6855,7 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
       }
     },
     // 버전 정보
-    version: 'V17.7-SEOKeywords-Enhanced'
+    version: 'V17.8-RandomTitles'
   })
 })
 

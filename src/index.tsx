@@ -1085,7 +1085,8 @@ async function generateContentWithStrategy(
   strategy: StrategyJSON,
   additionalContext: string,
   geminiKeys: string[],
-  tone: string = '친근한'  // 톤 파라미터 추가
+  tone: string = '친근한',  // 톤 파라미터 추가
+  photoContext: string = ''  // V17.9: 사진 분석 결과
 ): Promise<string> {
   
   // ============================================================
@@ -1533,6 +1534,7 @@ ${scenarioContext}
 📌 타깃 고객: "${target}"
 📌 보험 종류: "${insuranceType}" ← 다른 보험 언급 금지!
 📌 핵심 고민(KEYWORD): "${customerConcern}" ← 모든 섹션에 반드시 포함!
+${photoContext ? `📌 사진 분석 정보: ${photoContext} ← 답변에 이 분석 결과를 반영하여 전문가 조언 제공!` : ''}
 
 【 전략 JSON (참고용) 】
 ${JSON.stringify(strategy, null, 2)}
@@ -5163,8 +5165,9 @@ app.post('/api/analyze/photo', async (c) => {
 
 이미지가 보험 증권이 아니면 "보험 증권을 인식할 수 없습니다"라고 답변하세요.`
 
+    // V17.9: Vision API - gemini-2.0-flash-exp 사용 (v1beta API)
     const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-002:generateContent?key=' + apiKey,
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=' + apiKey,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -5186,7 +5189,13 @@ app.post('/api/analyze/photo', async (c) => {
     )
     
     if (!response.ok) {
-      throw new Error('Gemini API error: ' + response.status)
+      const errorText = await response.text()
+      return c.json({ 
+        success: false, 
+        error: `Gemini API error: ${response.status}`,
+        detail: errorText,
+        analysis: '사진 분석에 실패했습니다.'
+      })
     }
     
     const data = await response.json() as any
@@ -5194,11 +5203,11 @@ app.post('/api/analyze/photo', async (c) => {
     
     return c.json({ success: true, analysis })
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Photo analysis error:', error)
     return c.json({ 
       success: false, 
-      error: '사진 분석 중 오류가 발생했습니다',
+      error: error?.message || '사진 분석 중 오류가 발생했습니다',
       analysis: '사진 분석에 실패했습니다. 직접 정보를 입력해주세요.'
     })
   }
@@ -5206,7 +5215,7 @@ app.post('/api/analyze/photo', async (c) => {
 
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '17.8', 
+  version: '17.9', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
@@ -5567,6 +5576,12 @@ app.post('/api/generate/qna-full', async (c) => {
   
   // 2. 가상 연락처 생성 (이름 제외)
   const contact = generateVirtualContact()
+  
+  // V17.9: 사진 분석 결과가 있으면 핵심 고민에 통합
+  let photoContext = ''
+  if (photoAnalysis && photoAnalysis !== '보험 증권을 인식할 수 없습니다') {
+    photoContext = `\n\n【 사진 분석 결과 】\n${photoAnalysis}`
+  }
   
   // 3. 고민/질문 자동 생성 (API 실패 시 기본값 제공)
   let customerConcern = concern
@@ -6372,7 +6387,8 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
       strategy,
       previousFailContext + additionalContext,
       geminiKeys,
-      tone  // 멀티 페르소나를 위한 톤 파라미터 전달
+      tone,  // 멀티 페르소나를 위한 톤 파라미터 전달
+      photoContext  // V17.9: 사진 분석 결과 전달
     )
     ragPipelineLog.step3_contentGeneration = {
       success: qnaResult.length > 500,
@@ -6855,7 +6871,7 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
       }
     },
     // 버전 정보
-    version: 'V17.8-RandomTitles'
+    version: 'V17.9-PhotoAnalysisIntegration'
   })
 })
 

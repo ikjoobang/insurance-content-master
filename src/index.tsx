@@ -1569,60 +1569,115 @@ const mainPageHtml = `
             <div id="qna-keywords" class="flex flex-wrap gap-1.5 lg:gap-2"></div>
           </div>
           
-          <!-- 질문 -->
-          <div class="result-card p-4 lg:p-5">
-            <div class="flex items-center justify-between mb-3 lg:mb-4">
-              <div class="flex items-center gap-2">
-                <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-md bg-blue-500/20 flex items-center justify-center">
-                  <i class="fas fa-question text-blue-400 text-xs lg:text-sm"></i>
-                </div>
-                <span class="font-semibold text-white text-sm lg:text-base">질문</span>
-                <span class="text-gray-400 text-xs lg:text-sm">(세컨)</span>
+          <!-- 질문 2개 (각각 복사 가능) -->
+          <div class="result-card p-4 lg:p-5 lg:col-span-2">
+            <div class="flex items-center gap-2 mb-4">
+              <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <i class="fas fa-question text-blue-400"></i>
               </div>
-              <button onclick="copyText('qna-q')" class="px-3 py-1.5 rounded-md bg-white/5 text-gray-100 hover:bg-white/10 text-xs lg:text-sm">
-                <i class="fas fa-copy"></i>
-              </button>
+              <span class="font-bold text-white text-base lg:text-lg">질문</span>
+              <span class="text-gray-400 text-xs">(세컨계정용 - 2개)</span>
             </div>
-            <div id="qna-q" class="result-content text-gray-100 whitespace-pre-wrap leading-relaxed bg-white/8 rounded-lg p-3 lg:p-4 text-sm lg:text-base"></div>
+            <div class="space-y-3">
+              <!-- 질문 1 -->
+              <div class="bg-white/5 rounded-lg p-3 border-l-3 border-blue-500">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-blue-400 text-xs font-semibold">질문 1</span>
+                  <button onclick="copyText('qna-q1')" class="px-2 py-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 text-xs">
+                    <i class="fas fa-copy mr-1"></i>복사
+                  </button>
+                </div>
+                <div id="qna-q1" class="text-gray-100 text-sm whitespace-pre-wrap leading-relaxed"></div>
+              </div>
+              <!-- 질문 2 -->
+              <div class="bg-white/5 rounded-lg p-3 border-l-3 border-cyan-500">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-cyan-400 text-xs font-semibold">질문 2 (다른 스타일)</span>
+                  <button onclick="copyText('qna-q2')" class="px-2 py-1 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 text-xs">
+                    <i class="fas fa-copy mr-1"></i>복사
+                  </button>
+                </div>
+                <div id="qna-q2" class="text-gray-100 text-sm whitespace-pre-wrap leading-relaxed"></div>
+              </div>
+            </div>
           </div>
           
-          <!-- 댓글 -->
-          <div class="result-card p-4 lg:p-5">
-            <div class="flex items-center justify-between mb-3 lg:mb-4">
-              <div class="flex items-center gap-2">
-                <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-md bg-yellow-500/20 flex items-center justify-center">
-                  <i class="fas fa-comments text-yellow-400 text-xs lg:text-sm"></i>
-                </div>
-                <span class="font-semibold text-white text-sm lg:text-base">댓글</span>
+          <!-- 댓글 5개 (각각 복사 가능) -->
+          <div class="result-card p-4 lg:p-5 lg:col-span-2">
+            <div class="flex items-center gap-2 mb-4">
+              <div class="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                <i class="fas fa-comments text-yellow-400"></i>
               </div>
-              <button onclick="copyText('qna-c')" class="px-3 py-1.5 rounded-md bg-white/5 text-gray-100 hover:bg-white/10 text-xs lg:text-sm">
-                <i class="fas fa-copy"></i>
+              <span class="font-bold text-white text-base lg:text-lg">댓글</span>
+              <span class="text-gray-400 text-xs">(5개 - 각각 복사)</span>
+              <button onclick="copyAllComments()" class="ml-auto px-3 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 text-xs font-medium">
+                <i class="fas fa-copy mr-1"></i>전체 복사
               </button>
             </div>
-            <div id="qna-c" class="result-content text-gray-100 whitespace-pre-wrap leading-relaxed bg-white/8 rounded-lg p-3 lg:p-4 text-sm lg:text-base"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2" id="qna-comments-grid">
+              <!-- 댓글들이 여기에 동적으로 추가됨 -->
+            </div>
+          </div>
+        </div>
+        
+        <!-- 전문가 답변 3개 (각각 복사 가능) - 전체 너비 -->
+        <div class="result-card p-4 lg:p-6 mb-4 lg:mb-6">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center">
+              <i class="fas fa-user-tie text-white text-lg"></i>
+            </div>
+            <div>
+              <span class="font-bold text-white text-base lg:text-lg">전문가 답변</span>
+              <span class="text-gray-400 text-xs ml-2">(본계정용 - 3가지 스타일)</span>
+            </div>
+            <span id="qna-char" class="ml-2 px-2 py-1 rounded-full bg-primary/20 text-primary text-xs font-semibold">0자</span>
           </div>
           
-          <!-- 전문가 답변 -->
-          <div class="result-card p-4 lg:p-5">
-            <div class="flex items-center justify-between mb-3 lg:mb-4">
-              <div class="flex items-center gap-2">
-                <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-md bg-primary/20 flex items-center justify-center">
-                  <i class="fas fa-user-tie text-primary text-xs lg:text-sm"></i>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" id="qna-answers-grid">
+            <!-- 답변 1 -->
+            <div class="bg-white/5 rounded-lg p-4 border-t-3 border-primary">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <span class="text-primary text-sm font-bold">답변 1</span>
+                  <span id="answer1-style" class="text-gray-500 text-xs ml-1"></span>
                 </div>
-                <span class="font-semibold text-white text-sm lg:text-base">전문가 답변</span>
-                <span class="text-gray-400 text-xs lg:text-sm">(본계정)</span>
-                <span id="qna-char" class="px-2 py-1 rounded-full bg-primary/20 text-primary text-xs lg:text-sm font-semibold">0자</span>
+                <button onclick="copyText('qna-a1')" class="px-3 py-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 text-xs font-medium">
+                  <i class="fas fa-copy mr-1"></i>복사
+                </button>
               </div>
-              <button onclick="copyText('qna-a')" class="px-3 py-1.5 rounded-md bg-primary/20 text-primary hover:bg-primary/30 text-xs lg:text-sm">
-                <i class="fas fa-copy"></i>
-              </button>
+              <div id="qna-a1" class="text-gray-100 text-sm whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto"></div>
             </div>
-            <div id="qna-a" class="result-content text-gray-100 whitespace-pre-wrap leading-relaxed bg-white/8 rounded-lg p-3 lg:p-4 text-sm lg:text-base"></div>
-            
-            <div id="qna-highlights" class="mt-3 lg:mt-4 p-3 lg:p-4 bg-yellow-500/10 border border-yellow-500/15 rounded-lg hidden">
-              <h4 class="font-semibold text-yellow-400 text-xs lg:text-sm mb-2">핵심 포인트</h4>
-              <ul id="qna-highlights-list" class="text-gray-100 text-xs lg:text-sm space-y-1"></ul>
+            <!-- 답변 2 -->
+            <div class="bg-white/5 rounded-lg p-4 border-t-3 border-emerald-500">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <span class="text-emerald-400 text-sm font-bold">답변 2</span>
+                  <span id="answer2-style" class="text-gray-500 text-xs ml-1"></span>
+                </div>
+                <button onclick="copyText('qna-a2')" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-xs font-medium">
+                  <i class="fas fa-copy mr-1"></i>복사
+                </button>
+              </div>
+              <div id="qna-a2" class="text-gray-100 text-sm whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto"></div>
             </div>
+            <!-- 답변 3 -->
+            <div class="bg-white/5 rounded-lg p-4 border-t-3 border-purple-500">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <span class="text-purple-400 text-sm font-bold">답변 3</span>
+                  <span id="answer3-style" class="text-gray-500 text-xs ml-1"></span>
+                </div>
+                <button onclick="copyText('qna-a3')" class="px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 text-xs font-medium">
+                  <i class="fas fa-copy mr-1"></i>복사
+                </button>
+              </div>
+              <div id="qna-a3" class="text-gray-100 text-sm whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto"></div>
+            </div>
+          </div>
+          
+          <div id="qna-highlights" class="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/15 rounded-lg hidden">
+            <h4 class="font-semibold text-yellow-400 text-sm mb-2"><i class="fas fa-star mr-1"></i>핵심 포인트</h4>
+            <ul id="qna-highlights-list" class="text-gray-100 text-sm space-y-1"></ul>
           </div>
         </div>
         
@@ -2251,14 +2306,43 @@ const mainPageHtml = `
           document.getElementById('qna-title-section').classList.add('hidden');
         }
         
-        document.getElementById('qna-q').textContent = data.question;
-        document.getElementById('qna-a').textContent = data.answer;
-        document.getElementById('qna-c').textContent = data.comments;
-        document.getElementById('qna-char').textContent = data.answer.length + '자';
+        // V9.5: 질문 2개 업데이트
+        const questions = data.questions || [data.question];
+        document.getElementById('qna-q1').textContent = questions[0] || '';
+        document.getElementById('qna-q2').textContent = questions[1] || '(두 번째 질문이 생성되지 않았습니다)';
+        
+        // V9.5: 답변 3개 업데이트
+        const answers = data.answers || [data.answer];
+        document.getElementById('qna-a1').textContent = answers[0] || '';
+        document.getElementById('qna-a2').textContent = answers[1] || '(두 번째 답변이 생성되지 않았습니다)';
+        document.getElementById('qna-a3').textContent = answers[2] || '(세 번째 답변이 생성되지 않았습니다)';
+        document.getElementById('qna-char').textContent = (answers[0] || '').length + '자';
+        
+        // V9.5: 댓글 5개 업데이트 (각각 복사 가능)
+        const comments = data.comments || [];
+        const commentsGrid = document.getElementById('qna-comments-grid');
+        const commentColors = ['yellow', 'orange', 'pink', 'violet', 'teal'];
+        const commentLabels = ['깨달음', '감사', '비슷경험', '질문', '해결'];
+        commentsGrid.innerHTML = comments.map((c, i) => {
+          const color = commentColors[i] || 'gray';
+          const label = commentLabels[i] || '';
+          return '<div class="bg-white/5 rounded-lg p-2.5 border-l-2 border-' + color + '-500">' +
+            '<div class="flex items-center justify-between mb-1.5">' +
+              '<span class="text-' + color + '-400 text-2xs font-semibold">' + label + '</span>' +
+              '<button onclick="copyText(\\'qna-c' + (i+1) + '\\')" class="px-1.5 py-0.5 rounded bg-' + color + '-500/20 text-' + color + '-400 text-2xs hover:bg-' + color + '-500/30">' +
+                '<i class="fas fa-copy"></i>' +
+              '</button>' +
+            '</div>' +
+            '<div id="qna-c' + (i+1) + '" class="text-gray-200 text-xs leading-relaxed">' + c + '</div>' +
+          '</div>';
+        }).join('');
+        
+        // 전역 댓글 저장 (전체 복사용)
+        window.generatedComments = comments;
         
         if (data.highlights && data.highlights.length > 0) {
           const highlightsList = document.getElementById('qna-highlights-list');
-          highlightsList.innerHTML = data.highlights.map(h => '<li>' + h + '</li>').join('');
+          highlightsList.innerHTML = data.highlights.map(h => '<li><i class="fas fa-check text-yellow-400 mr-2"></i>' + h + '</li>').join('');
           document.getElementById('qna-highlights').classList.remove('hidden');
         } else {
           document.getElementById('qna-highlights').classList.add('hidden');
@@ -2307,6 +2391,19 @@ const mainPageHtml = `
     
     function copyKeyword(kw) {
       navigator.clipboard.writeText(kw).then(() => showToast(kw + ' 복사!'));
+    }
+    
+    // V9.5: 댓글 전체 복사
+    function copyAllComments() {
+      if (window.generatedComments && window.generatedComments.length > 0) {
+        const allText = window.generatedComments.join('\\n\\n');
+        window.intentionalCopy = true;
+        navigator.clipboard.writeText(allText).then(() => {
+          showToast('댓글 ' + window.generatedComments.length + '개 전체 복사 완료!');
+        });
+      } else {
+        showToast('복사할 댓글이 없습니다');
+      }
     }
 
     async function generateBlog() {
@@ -2667,7 +2764,7 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '9.3', 
+  version: '9.5', 
   ai: 'gemini + naver + gemini-image', 
   year: 2026,
   features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style'],
@@ -2720,36 +2817,69 @@ app.post('/api/generate/qna-full', async (c) => {
     customerConcern = cleanText(customerConcern.replace(/["\n]/g, '').trim())
   }
   
-  // 4. Q&A 생성 프롬프트 (C-Rank/D.I.A./Agent N 최적화)
-  // 일반인 관점 질문 유형 12가지 중 랜덤 선택
-  const questionTypes = [
-    '순수하게 궁금해서 질문하는 형태',
-    '비교를 요청하는 형태 (A vs B)',
-    '경험담을 묻는 형태',
-    '추천을 요청하는 형태',
-    '걱정/불안을 토로하는 형태',
-    '초보자 관점에서 기초 질문',
-    '가격/비용 관련 질문',
-    '타이밍 질문 (언제 가입?)',
-    '후기/리뷰 요청 형태',
-    '특정 상황 질문 (나이, 직업 등)',
-    '주변 권유로 인한 질문',
-    '뉴스/정보 확인 질문'
-  ]
-  const selectedQuestionType = questionTypes[Math.floor(Math.random() * questionTypes.length)]
+  // 4. Q&A 생성 프롬프트 (C-Rank/D.I.A./Agent N 최적화) - V9.5 대폭 강화
   
-  const qnaPrompt = `당신은 네이버 C-Rank 1위 달성을 위한 보험 Q&A 전문 작성 AI입니다.
+  // 질문 유형 20가지 (현실적인 일반인 질문 스타일)
+  const questionTypes = [
+    { style: '급한형', example: '지금 급한데요, 내일까지 결정해야 하는데...' },
+    { style: '조언형', example: '이거 어떻게 해야 할지 모르겠어서요...' },
+    { style: '속은형', example: '혹시 저 속은 건 아닌가요? 설계사가...' },
+    { style: '현실고민형', example: '솔직히 돈이 없어서 고민인데...' },
+    { style: '비교형', example: 'A회사랑 B회사 중에 뭐가 나은가요?' },
+    { style: '불안형', example: '제가 너무 늦은 거 아닌가요? 나이가...' },
+    { style: '경험요청형', example: '실제로 가입하신 분 계신가요?' },
+    { style: '추천요청형', example: '제 상황에 맞는 거 추천 좀 해주세요' },
+    { style: '확인형', example: '제가 알아본 게 맞는지 확인 좀...' },
+    { style: '동네형질문', example: '형, 이거 진짜 필요한 거 맞아요?' },
+    { style: '초보형', example: '보험 처음인데 뭐부터 해야 해요?' },
+    { style: '가격질문형', example: '이 정도면 비싼 건가요? 싼 건가요?' },
+    { style: '타이밍형', example: '지금 가입하는 게 맞아요? 좀 더 기다려야?' },
+    { style: '후회형', example: '제가 이미 가입한 게 있는데 잘못한 건가요?' },
+    { style: '주변권유형', example: '친구가 자꾸 가입하라는데 정말 필요해요?' },
+    { style: '뉴스확인형', example: '뉴스에서 봤는데 이게 맞는 말이에요?' },
+    { style: '솔직고백형', example: '솔직히 말하면 저 건강이 좀 안 좋은데...' },
+    { style: '가족걱정형', example: '제가 없으면 가족이 걱정돼서요...' },
+    { style: '직접경험형', example: '저번에 아파서 병원 갔는데 비용이...' },
+    { style: '분노형', example: '왜 이렇게 복잡해요? 쉽게 좀 설명해주세요' }
+  ]
+  const selectedType1 = questionTypes[Math.floor(Math.random() * questionTypes.length)]
+  const selectedType2 = questionTypes[Math.floor(Math.random() * questionTypes.length)]
+  
+  // 전문가 유형 10가지
+  const expertTypes = [
+    { style: '친근한형', desc: '동네 형처럼 편하게 설명, "~요" 체' },
+    { style: '전문가형', desc: '데이터와 통계로 논리적 설명' },
+    { style: '안심형', desc: '먼저 안심시키고 차근차근 설명' },
+    { style: '공감형', desc: '감정을 먼저 공감하고 해결책 제시' },
+    { style: '실용형', desc: '실제 사례와 현실적인 조언 중심' },
+    { style: '비교분석형', desc: '여러 옵션을 비교해서 객관적 분석' },
+    { style: '단호형', desc: '명확하게 맞고 틀림을 구분해서 설명' },
+    { style: '선배형', desc: '나도 겪어봤다는 경험담 기반 조언' },
+    { style: '컨설턴트형', desc: '체계적인 단계별 해결책 제시' },
+    { style: '멘토형', desc: '장기적인 관점에서 인생 조언 포함' }
+  ]
+  const selectedExpert1 = expertTypes[Math.floor(Math.random() * expertTypes.length)]
+  const selectedExpert2 = expertTypes[Math.floor(Math.random() * expertTypes.length)]
+  const selectedExpert3 = expertTypes[Math.floor(Math.random() * expertTypes.length)]
+  
+  const qnaPrompt = `당신은 네이버 검색 상위 1위를 무조건 달성하기 위한 보험 Q&A 전문 작성 AI입니다.
 
-【 네이버 알고리즘 최적화 필수 요소 】
-■ C-Rank: 콘텐츠 신뢰도 점수 - 전문성 있는 정보, 정확한 수치/통계 필수
-■ D.I.A.: 의도 파악 알고리즘 - 검색자의 의도(${target}이 ${insuranceType} 검색)에 정확히 부합
-■ Agent N: 최신 AI 검색 - 구조화된 답변, 핵심 키워드 3회 이상 자연 배치
+【 네이버 상위 1위 필수 알고리즘 】
+■ C-Rank (콘텐츠 신뢰도): 전문성 + 정확한 수치/통계 + 구체적 정보
+■ D.I.A. (의도 파악): "${target}이 ${insuranceType} 검색"할 때 원하는 정보 100% 일치
+■ Agent N (AI 검색): 구조화된 답변 + 핵심 키워드 자연 반복 (최소 4회)
+
+【 네이버 상위 노출 핵심 원칙 】
+1. 핵심 키워드 "${coreKeywords[0]}" 반드시 제목/질문/답변에 4회 이상 자연 배치
+2. 2026년 최신 정보, 구체적 숫자(보험료, %, 년수) 필수 포함
+3. 검색자의 진짜 고민을 해결하는 답변
+4. CTA로 자연스럽게 마무리
 
 【 절대 규칙 】
-- 이모티콘 금지 (100% 금지)
-- 마크다운(##, **, 등) 금지
-- 가상 이름 금지
-- 2026년 기준 최신 정보
+- 이모티콘 100% 금지
+- 마크다운(##, **, 백틱) 금지
+- 가상 이름(홍길동, 김철수 등) 금지
+- 순수 텍스트만 출력
 
 【 생성 조건 】
 - 타겟: ${target}
@@ -2757,62 +2887,79 @@ app.post('/api/generate/qna-full', async (c) => {
 - 문체: ${tone}
 - 고민: ${customerConcern}
 - 핵심 키워드: ${coreKeywords.join(', ')}
-- 질문 유형: ${selectedQuestionType}
+- 연락처: ${contact.phone}
 
-【 출력 형식 】
+==========================================================
+【 출력 형식 - 반드시 아래 형식 그대로 출력 】
+==========================================================
 
 [제목]
-(15-25자, 클릭 유도형, 핵심 키워드 포함, 물음표 또는 느낌표로 종료)
-예시: "${target} ${insuranceType}, 지금 가입해도 될까요?" 또는 "${insuranceType} 추천, ${target} 필수 체크 3가지!"
+15-25자, 클릭 유도형, 핵심 키워드 "${coreKeywords[0]}" 필수 포함
+물음표(?) 또는 느낌표(!)로 종료
 
-[질문]
-(${selectedQuestionType} 스타일로 작성)
+[질문1-${selectedType1.style}]
+"${selectedType1.example}" 같은 느낌으로 시작
+- ${target}이 진짜 네이버 카페에 쓸 것 같은 현실적인 질문
 - 150-250자
-- 이름 없이 시작 ("안녕하세요", "제가", "요즘" 등)
-- ${target}의 실제 고민을 담아 공감 유도
-- 연락처 맨 마지막: ${contact.phone}
+- 이름 없이 시작 (예: "안녕하세요", "저", "요즘", "다름이 아니라")
+- 마지막에 연락처: ${contact.phone}
 - 핵심 키워드 1-2회 자연 배치
 
-[답변]
-(전문가 답변 - C-Rank 최적화)
-구조:
-1. 공감 인사 (1-2문장)
-2. 핵심 결론 먼저 (2-3문장)
-3. 이유/근거 설명 (2026년 기준 구체적 수치/통계 포함)
-4. ${target}에게 맞춤 조언 (3가지 포인트)
-5. 주의사항/체크포인트 (2-3가지)
-6. 마무리 CTA (상담 권유)
+[질문2-다른유형]
+[질문1]과 완전히 다른 스타일의 질문
+- 다른 상황, 다른 톤, 다른 고민으로 작성
+- 150-250자
+- 같은 보험 종류지만 다른 관점의 질문
 
-- 총 400-600자
-- 핵심 키워드(${coreKeywords[0]}) 3회 이상 자연 배치
+[답변1-${selectedExpert1.style}]
+${selectedExpert1.desc}
+- 400-600자
+- 핵심 키워드 "${coreKeywords[0]}" 3회 이상 자연 배치
+- 구조: 공감 → 핵심결론 → 근거설명(2026년 기준 수치) → 맞춤조언 3가지 → CTA
 - ${tone} 톤 유지
+- 마지막은 자연스러운 상담 유도 CTA로 마무리
+
+[답변2-${selectedExpert2.style}]
+${selectedExpert2.desc}
+- [답변1]과 완전히 다른 스타일로 작성
+- 400-600자
+- 같은 질문에 대한 다른 전문가의 시각
+
+[답변3-${selectedExpert3.style}]
+${selectedExpert3.desc}
+- [답변1], [답변2]와 다른 새로운 스타일
+- 400-600자
+- 또 다른 관점에서의 전문가 답변
 
 [강조포인트]
-- (핵심 장점 1 - 수치 포함)
-- (핵심 장점 2 - 비교 포함)
-- (핵심 장점 3 - 혜택 포함)
+- (핵심 장점 1 - 구체적 수치 포함)
+- (핵심 장점 2 - 타사 비교 포함)
+- (핵심 장점 3 - ${target} 맞춤 혜택)
 
-[댓글1-몰랐다형]
-(40-60자) "저도 이거 몰랐는데 덕분에 알았네요" 스타일
+[댓글1-깨달음형]
+40-80자, "아~ 이래서 그랬구나", "저도 이거 몰랐는데 이제 알겠네요" 느낌
 
 [댓글2-감사형]
-(40-60자) "상세한 답변 감사합니다" 스타일
+40-80자, "답변 진짜 도움됐어요", "이렇게 자세히 설명해주시다니" 느낌
 
-[댓글3-비슷형]
-(40-60자) "저도 비슷한 상황인데 참고가 되네요" 스타일
+[댓글3-비슷경험형]
+40-80자, "저도 비슷한 상황이라", "제 친구도 이런 경우였는데" 느낌
 
-[댓글4-경험형]
-(40-60자) "저는 가입했는데 만족합니다" 스타일의 실제 경험담
+[댓글4-질문형]
+40-80자, "그러면 저도 연락드려도 될까요?", "혹시 더 궁금한 거 있으면" 느낌
 
-[댓글5-추천형]
-(40-60자) "이 글 저장해둡니다" 또는 "주변에 추천해야겠어요" 스타일`
+[댓글5-해결형]
+40-80자, "덕분에 궁금한 거 해결됐어요", "이 글 저장해둘게요" 느낌`
 
   const qnaResult = await callGeminiAPI(qnaPrompt, geminiKeys)
   
-  // 파싱
-  const titleMatch = qnaResult.match(/\[제목\]([\s\S]*?)(?=\[질문\])/i)
-  const questionMatch = qnaResult.match(/\[질문\]([\s\S]*?)(?=\[답변\])/i)
-  const answerMatch = qnaResult.match(/\[답변\]([\s\S]*?)(?=\[강조포인트\])/i)
+  // 파싱 - V9.5: 질문 2개, 답변 3개, 댓글 5개
+  const titleMatch = qnaResult.match(/\[제목\]([\s\S]*?)(?=\[질문1)/i)
+  const question1Match = qnaResult.match(/\[질문1[^\]]*\]([\s\S]*?)(?=\[질문2)/i)
+  const question2Match = qnaResult.match(/\[질문2[^\]]*\]([\s\S]*?)(?=\[답변1)/i)
+  const answer1Match = qnaResult.match(/\[답변1[^\]]*\]([\s\S]*?)(?=\[답변2)/i)
+  const answer2Match = qnaResult.match(/\[답변2[^\]]*\]([\s\S]*?)(?=\[답변3)/i)
+  const answer3Match = qnaResult.match(/\[답변3[^\]]*\]([\s\S]*?)(?=\[강조포인트\])/i)
   const highlightsMatch = qnaResult.match(/\[강조포인트\]([\s\S]*?)(?=\[댓글1)/i)
   const comment1Match = qnaResult.match(/\[댓글1[^\]]*\]([\s\S]*?)(?=\[댓글2)/i)
   const comment2Match = qnaResult.match(/\[댓글2[^\]]*\]([\s\S]*?)(?=\[댓글3)/i)
@@ -2822,6 +2969,19 @@ app.post('/api/generate/qna-full', async (c) => {
   
   // 제목 추출
   const generatedTitle = titleMatch ? cleanText(titleMatch[1].trim()) : `${target} ${insuranceType} 추천`
+  
+  // 질문 2개 추출
+  const questions = [
+    question1Match ? cleanText(question1Match[1].trim()) : `안녕하세요. ${target}인데 ${insuranceType} 가입하려고 하는데요... 연락처: ${contact.phone}`,
+    question2Match ? cleanText(question2Match[1].trim()) : `요즘 ${insuranceType} 알아보고 있는데 추천 좀 해주세요. ${contact.phone}`
+  ].filter(q => q.length > 30)
+  
+  // 답변 3개 추출
+  const answers = [
+    answer1Match ? cleanText(answer1Match[1].trim()) : `${insuranceType}에 대해 답변드립니다.`,
+    answer2Match ? cleanText(answer2Match[1].trim()) : '',
+    answer3Match ? cleanText(answer3Match[1].trim()) : ''
+  ].filter(a => a.length > 50)
   
   // 강조 포인트 파싱
   let highlights: string[] = []
@@ -2834,25 +2994,22 @@ app.post('/api/generate/qna-full', async (c) => {
   }
   
   // 댓글 5개 수집
-  const allComments = [
-    comment1Match ? cleanText(comment1Match[1].trim()) : '저도 이거 몰랐는데 덕분에 알았네요',
-    comment2Match ? cleanText(comment2Match[1].trim()) : '상세한 답변 감사합니다',
-    comment3Match ? cleanText(comment3Match[1].trim()) : '저도 비슷한 상황인데 참고가 되네요',
-    comment4Match ? cleanText(comment4Match[1].trim()) : '저는 가입했는데 만족합니다',
-    comment5Match ? cleanText(comment5Match[1].trim()) : '이 글 저장해둡니다'
+  const comments = [
+    comment1Match ? cleanText(comment1Match[1].trim()) : '아 이래서 그랬구나, 저도 이거 몰랐는데 이제 알겠네요',
+    comment2Match ? cleanText(comment2Match[1].trim()) : '답변 진짜 도움됐어요, 이렇게 자세히 설명해주시다니 감사합니다',
+    comment3Match ? cleanText(comment3Match[1].trim()) : '저도 비슷한 상황이라 참고가 많이 되네요',
+    comment4Match ? cleanText(comment4Match[1].trim()) : '그러면 저도 연락드려도 될까요? 궁금한 게 있어서요',
+    comment5Match ? cleanText(comment5Match[1].trim()) : '덕분에 궁금한 거 해결됐어요, 이 글 저장해둘게요'
   ].filter(c => c.length > 10)
   
-  // SEO 점수 계산
-  const question = questionMatch ? cleanText(questionMatch[1].trim()) : ''
-  const answer = answerMatch ? cleanText(answerMatch[1].trim()) : ''
-  
+  // SEO 점수 계산 (첫 번째 질문/답변 기준)
   const seoScore = calculateSEOScore({
     title: generatedTitle,
-    question,
-    answer,
+    question: questions[0] || '',
+    answer: answers[0] || '',
     keywords: coreKeywords,
     highlights,
-    commentsCount: allComments.length,
+    commentsCount: comments.length,
     target,
     insuranceType
   })
@@ -2977,20 +3134,21 @@ app.post('/api/generate/qna-full', async (c) => {
     }
   }
   
-  // 텍스트 정리 후 반환 (SEO 점수 포함!)
+  // V9.5: 질문 2개, 답변 3개, 댓글 5개 반환
   return c.json({
     keywords: coreKeywords,
     title: generatedTitle,
-    question: cleanText(questionMatch ? questionMatch[1].trim() : `[${target}] ${insuranceType} 가입 고민\n\n${customerConcern}\n\n연락처: ${contact.phone}`),
-    answer: cleanText(answerMatch ? answerMatch[1].trim() : `${insuranceType}에 대해 답변 드립니다.`),
+    // 질문 2개 (각각 복사 가능)
+    questions: questions,
+    question: questions[0] || `안녕하세요. ${target}인데 ${insuranceType} 관련 질문이 있어요. ${contact.phone}`,
+    // 답변 3개 (각각 복사 가능) 
+    answers: answers,
+    answer: answers[0] || `${insuranceType}에 대해 답변드립니다.`,
+    // 강조 포인트
     highlights: highlights,
-    comments: cleanText([
-      comment1Match ? comment1Match[1].trim() : '저도 같은 고민이었어요!',
-      comment2Match ? comment2Match[1].trim() : '전문가 답변 감사합니다.',
-      comment3Match ? comment3Match[1].trim() : '저도 상담 받아봐야겠네요.',
-      comment4Match ? comment4Match[1].trim() : '저는 가입했는데 만족합니다.',
-      comment5Match ? comment5Match[1].trim() : '이 글 저장해둡니다.'
-    ].join('\n\n')),
+    // 댓글 5개 (각각 복사 가능)
+    comments: comments,
+    // 설계서 데이터
     designHtml: designHtml,
     designText: designText,
     monthlyPremium: parsedMonthlyPremium || '89,000원',

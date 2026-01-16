@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>네이버 마케팅 프록시</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #1e3a5f 0%, #0f2744 100%);
+      color: #fff;
+    }
+    
+    .container {
+      padding: 20px;
+    }
+    
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .logo {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 10px;
+    }
+    
+    .title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .subtitle {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    
+    /* Status Card */
+    .status-card {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    
+    .status-row:last-child {
+      margin-bottom: 0;
+    }
+    
+    .status-label {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    
+    .status-value {
+      font-size: 13px;
+      font-weight: 500;
+    }
+    
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .status-badge.active {
+      background: rgba(34, 197, 94, 0.2);
+      color: #22c55e;
+    }
+    
+    .status-badge.inactive {
+      background: rgba(107, 114, 128, 0.2);
+      color: #9ca3af;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    
+    .status-dot.active {
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+    }
+    
+    .status-dot.inactive {
+      background: #6b7280;
+    }
+    
+    /* Toggle Switch */
+    .toggle-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    
+    .toggle-label {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      width: 50px;
+      height: 28px;
+    }
+    
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #4b5563;
+      transition: 0.3s;
+      border-radius: 28px;
+    }
+    
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 22px;
+      width: 22px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .toggle-slider {
+      background-color: #22c55e;
+    }
+    
+    input:checked + .toggle-slider:before {
+      transform: translateX(22px);
+    }
+    
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      transform: translateY(-1px);
+    }
+    
+    .btn-primary:disabled {
+      background: #4b5563;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .btn-icon {
+      font-size: 16px;
+    }
+    
+    /* Info Section */
+    .info-section {
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(59, 130, 246, 0.1);
+      border-radius: 8px;
+      border-left: 3px solid #3b82f6;
+    }
+    
+    .info-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #60a5fa;
+      margin-bottom: 6px;
+    }
+    
+    .info-text {
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+    
+    /* Loading */
+    .loading {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .loading.show {
+      display: flex;
+    }
+    
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Footer */
+    .footer {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 10px;
+      color: #64748b;
+    }
+    
+    .footer a {
+      color: #60a5fa;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <img src="icons/icon48.png" alt="Logo" class="logo">
+      <h1 class="title">네이버 마케팅 프록시</h1>
+      <p class="subtitle">보험 설계사 전용 보안 연결</p>
+    </div>
+    
+    <!-- Status Card -->
+    <div class="status-card">
+      <div class="status-row">
+        <span class="status-label">연결 상태</span>
+        <span class="status-badge inactive" id="statusBadge">
+          <span class="status-dot inactive" id="statusDot"></span>
+          <span id="statusText">비활성</span>
+        </span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">프록시 IP</span>
+        <span class="status-value" id="proxyIP">-</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">마지막 변경</span>
+        <span class="status-value" id="lastChanged">-</span>
+      </div>
+    </div>
+    
+    <!-- Toggle Section -->
+    <div class="toggle-section">
+      <span class="toggle-label">프록시 활성화</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="proxyToggle">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    
+    <!-- Change IP Button -->
+    <button class="btn btn-primary" id="changeIPBtn" disabled>
+      <span class="btn-text">
+        <span class="btn-icon">🔄</span> 새 IP 받기
+      </span>
+      <span class="loading" id="loading">
+        <span class="spinner"></span>
+        IP 변경 중...
+      </span>
+    </button>
+    
+    <!-- Info Section -->
+    <div class="info-section">
+      <div class="info-title">분할 터널링 적용</div>
+      <div class="info-text">
+        *.naver.com 트래픽만 프록시를 경유합니다.<br>
+        보험사, 은행 등 다른 사이트는 직접 연결됩니다.
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      v1.0.0 | <a href="https://insurance-content-master.pages.dev" target="_blank">대시보드 열기</a>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

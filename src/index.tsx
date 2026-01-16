@@ -5286,7 +5286,7 @@ app.post('/api/analyze/photo', async (c) => {
 
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '18.1', 
+  version: '18.2', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
@@ -5665,24 +5665,45 @@ app.post('/api/generate/qna-full', async (c) => {
     }
     
     // 방법2: 계약일로부터 나이 추정 (가입 당시 30대 가정 + 경과 연수)
+    // V18.2: 더 다양한 날짜 형식 지원 (2007.03.15, 2007-03-15, 2007/03/15 등)
     if (!extractedAge) {
-      const contractMatch = photoAnalysis.match(/계약일[:\s]*(\d{4})년|가입[:\s]*(\d{4})년|(\d{4})년.*가입|(\d+)년\s*경과/)
-      if (contractMatch) {
-        const contractYear = contractMatch[1] || contractMatch[2] || contractMatch[3]
-        const yearsElapsed = contractMatch[4]
-        
-        if (contractYear) {
-          const yearsPassed = 2026 - parseInt(contractYear)
-          // 가입 당시 30대 중반(35세) 가정
-          const estimatedAge = 35 + yearsPassed
-          extractedAge = Math.floor(estimatedAge / 10) * 10  // 10대 단위로 반올림
-          console.log(`[V18.1] 계약일(${contractYear}년) 기준 추정연령: ${estimatedAge}세 → ${extractedAge}대`)
-        } else if (yearsElapsed) {
-          // "19년 경과" 같은 패턴
-          const estimatedAge = 35 + parseInt(yearsElapsed)
-          extractedAge = Math.floor(estimatedAge / 10) * 10
-          console.log(`[V18.1] 경과연수(${yearsElapsed}년) 기준 추정연령: ${estimatedAge}세 → ${extractedAge}대`)
-        }
+      // 여러 패턴을 순차적으로 시도
+      let contractYear = null
+      let yearsElapsed = null
+      
+      // 패턴1: "계약일: 2007년" 또는 "계약일: 2007.03.15"
+      const pattern1 = photoAnalysis.match(/계약일[:\s]*(\d{4})/)
+      if (pattern1) contractYear = pattern1[1]
+      
+      // 패턴2: "가입일: 2007년" 또는 "가입: 2007년"
+      if (!contractYear) {
+        const pattern2 = photoAnalysis.match(/가입일?[:\s]*(\d{4})/)
+        if (pattern2) contractYear = pattern2[1]
+      }
+      
+      // 패턴3: "2007년 가입" 또는 "2007년에 가입"
+      if (!contractYear) {
+        const pattern3 = photoAnalysis.match(/(\d{4})년.*가입/)
+        if (pattern3) contractYear = pattern3[1]
+      }
+      
+      // 패턴4: "19년 경과" 또는 "가입 후 19년"
+      if (!contractYear) {
+        const pattern4 = photoAnalysis.match(/(\d+)년\s*경과|가입\s*후\s*(\d+)년/)
+        if (pattern4) yearsElapsed = pattern4[1] || pattern4[2]
+      }
+      
+      if (contractYear) {
+        const yearsPassed = 2026 - parseInt(contractYear)
+        // 가입 당시 30대 중반(35세) 가정
+        const estimatedAge = 35 + yearsPassed
+        extractedAge = Math.floor(estimatedAge / 10) * 10  // 10대 단위로 반올림
+        console.log(`[V18.2] 계약일(${contractYear}년) 기준 추정연령: ${estimatedAge}세 → ${extractedAge}대`)
+      } else if (yearsElapsed) {
+        // "19년 경과" 같은 패턴
+        const estimatedAge = 35 + parseInt(yearsElapsed)
+        extractedAge = Math.floor(estimatedAge / 10) * 10
+        console.log(`[V18.2] 경과연수(${yearsElapsed}년) 기준 추정연령: ${estimatedAge}세 → ${extractedAge}대`)
       }
     }
     
@@ -6993,7 +7014,7 @@ ${regenerationHistory[regenerationHistory.length - 1].failReasons.map(r => `❌ 
       }
     },
     // 버전 정보
-    version: 'V18.1-SmartAge-ContractDate'
+    version: 'V18.2-ImprovedDateParsing'
   })
 })
 

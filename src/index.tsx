@@ -3385,22 +3385,7 @@ app.post('/api/generate/qna-full', async (c) => {
   const selectedType1 = questionTypes[Math.floor(Math.random() * questionTypes.length)]
   const selectedType2 = questionTypes[Math.floor(Math.random() * questionTypes.length)]
   
-  // 전문가 유형 10가지
-  const expertTypes = [
-    { style: '친근한형', desc: '동네 형처럼 편하게 설명, "~요" 체' },
-    { style: '전문가형', desc: '데이터와 통계로 논리적 설명' },
-    { style: '안심형', desc: '먼저 안심시키고 차근차근 설명' },
-    { style: '공감형', desc: '감정을 먼저 공감하고 해결책 제시' },
-    { style: '실용형', desc: '실제 사례와 현실적인 조언 중심' },
-    { style: '비교분석형', desc: '여러 옵션을 비교해서 객관적 분석' },
-    { style: '단호형', desc: '명확하게 맞고 틀림을 구분해서 설명' },
-    { style: '선배형', desc: '나도 겪어봤다는 경험담 기반 조언' },
-    { style: '컨설턴트형', desc: '체계적인 단계별 해결책 제시' },
-    { style: '멘토형', desc: '장기적인 관점에서 인생 조언 포함' }
-  ]
-  const selectedExpert1 = expertTypes[Math.floor(Math.random() * expertTypes.length)]
-  const selectedExpert2 = expertTypes[Math.floor(Math.random() * expertTypes.length)]
-  const selectedExpert3 = expertTypes[Math.floor(Math.random() * expertTypes.length)]
+  // 전문가 유형은 아래 새 버전으로 이동 (3가지 다른 관점)
   
   // 톤 분석 - 다중 선택된 톤 처리
   const tones = tone.split(',').map((t: string) => t.trim())
@@ -3419,9 +3404,41 @@ app.post('/api/generate/qna-full', async (c) => {
   const hasKeyword = customerConcern && customerConcern.length > 3
   const keywordStatus = hasKeyword ? '상황 A (핵심 고민 있음)' : '상황 B (핵심 고민 없음)'
   
-  // 클릭유도 키워드 리스트
-  const clickBaitKeywords = ['호구', '손해', '해지', '충격', '거절', '폭탄', '함정', '후회', '속은', '실수']
-  const selectedClickBait = clickBaitKeywords[Math.floor(Math.random() * clickBaitKeywords.length)]
+  // 클릭유도 키워드 리스트 - 3개 다르게 선택
+  const clickBaitKeywords = ['호구', '손해', '해지', '충격', '거절', '폭탄', '함정', '후회', '속은', '실수', '사기', '위험', '경고', '주의']
+  const shuffledClickBaits = clickBaitKeywords.sort(() => Math.random() - 0.5)
+  const clickBait1 = shuffledClickBaits[0]
+  const clickBait2 = shuffledClickBaits[1]
+  const clickBait3 = shuffledClickBaits[2]
+  
+  // 전문가 유형 3가지 (각각 다른 관점!)
+  const expertTypes = [
+    { type: '공감형 멘토', style: '따뜻하게 공감하면서 조언', focus: '감정 케어 + 실용 조언', opening: '많이 걱정되셨죠? 충분히 이해해요.' },
+    { type: '데이터 분석가', style: '숫자와 통계로 객관적 분석', focus: '손익 계산 + 비교 분석', opening: '객관적으로 숫자로 말씀드릴게요.' },
+    { type: '현장 베테랑', style: '20년 경험 기반 실전 조언', focus: '실제 사례 + 현실적 해법', opening: '제가 20년간 봐온 케이스 중에...' },
+    { type: '소비자 보호 전문가', style: '고객 권리 중심 조언', focus: '약관 해석 + 권리 주장법', opening: '소비자 입장에서 말씀드리면...' },
+    { type: '재무설계사', style: '장기적 재무 관점 조언', focus: '자산 배분 + 미래 설계', opening: '장기적인 관점에서 보면요...' },
+    { type: '보험 리모델링 전문가', style: '기존 보험 분석 + 개선안', focus: '비교 분석 + 최적화', opening: '기존 보험 구조를 분석해보니...' }
+  ]
+  const shuffledExperts = expertTypes.sort(() => Math.random() - 0.5)
+  const expert1 = shuffledExperts[0]
+  const expert2 = shuffledExperts[1]
+  const expert3 = shuffledExperts[2]
+  
+  // 질문자 유형 다양화 (질문1, 질문2는 완전히 다른 사람!)
+  const questionerTypes = [
+    { age: '20대 후반', gender: '여성', job: '직장인', situation: '사회초년생, 보험 처음', style: '캐주얼, 솔직' },
+    { age: '30대 초반', gender: '남성', job: '회사원', situation: '신혼, 아이 계획 중', style: '실용적, 직접적' },
+    { age: '30대 후반', gender: '여성', job: '워킹맘', situation: '아이 둘, 육아+직장', style: '바쁨, 핵심만' },
+    { age: '40대 초반', gender: '남성', job: '자영업자', situation: '가장, 사업 운영', style: '현실적, 비용 민감' },
+    { age: '40대 후반', gender: '여성', job: '전업주부', situation: '자녀 대학생', style: '꼼꼼, 비교 선호' },
+    { age: '50대 초반', gender: '남성', job: '직장인', situation: '은퇴 준비, 노후 걱정', style: '신중, 안정 추구' },
+    { age: '50대 후반', gender: '여성', job: '자영업', situation: '건강 걱정 시작', style: '걱정 많음, 상세 질문' },
+    { age: '30대 중반', gender: '남성', job: '프리랜서', situation: '4대보험 없음', style: '불안, 정보 갈증' }
+  ]
+  const shuffledQuestioners = questionerTypes.sort(() => Math.random() - 0.5)
+  const questioner1 = shuffledQuestioners[0]
+  const questioner2 = shuffledQuestioners[1]
   
   // ============================================================
   // 타깃 페르소나 상세 분석 (성별/연령/직업/가족상황)
@@ -3662,47 +3679,36 @@ ${insuranceType && insuranceType !== '종합보험' ? `
 [핵심] ${hasKeyword ? `"${customerConcern}"` : '고민'}에 대한 명확한 해결책 제시
 
 ==========================================================
-【 질문자 정보 】
-==========================================================
-■ 타깃: ${target}
-■ 성별: ${persona.gender} / 나이: ${persona.ageNum}세
-■ 직업: ${persona.occupation} / 가족: ${persona.familyStatus}
-
-==========================================================
 【 PART 1: 제목 생성 규칙 】
 ==========================================================
 
-제목 = "${target}"이 "${hasKeyword ? customerConcern : '보험 고민'}"에 대해 쓴 질문 제목
+📌 제목 키워드 랜덤 선택 (매번 다르게!):
+- 이번 제목용 클릭 키워드: "${clickBait1}" 또는 "${clickBait2}" 또는 "${clickBait3}" 중 하나 사용
 
-📌 제목 작성 우선순위:
-1순위: ${hasKeyword ? `핵심 고민 "${customerConcern}" 키워드 반영` : '타깃에 맞는 고민 생성'}
-2순위: ${insuranceType !== '종합보험' ? `"${insuranceType}" 보험 종류 언급` : '고민에 맞는 보험 자연스럽게'}
-3순위: 클릭 유도 키워드 1개 (호구/손해/해지/충격/거절/폭탄/함정/후회)
-4순위: 의문문(?)으로 끝남, 15-35자
-5. 15-35자
+제목 예시 (핵심고민 + 클릭키워드):
+- "${hasKeyword ? customerConcern.slice(0, 15) : insuranceType} ${clickBait1} 당한 건가요?"
+- "${questioner1.age} ${questioner1.job}인데 ${clickBait2} 아닌지 봐주세요"
+- "${insuranceType} 이거 ${clickBait3}인 거 맞나요?"
 
-### 좋은 제목 예시 ("${insuranceType}" + "${hasKeyword ? customerConcern : '고민'}" 반영):
-- "${insuranceType} ${hasKeyword ? customerConcern.slice(0, 10) : ''} ${selectedClickBait} 아닌가요?"
-- "${target}인데 ${insuranceType} 이거 ${selectedClickBait}인 건가요?"
-- "${insuranceType} 가입했는데 ${hasKeyword ? customerConcern.slice(0, 15) + '...' : selectedClickBait + ' 당한 건지'} 봐주세요"
-
-### 나쁜 제목 (절대 금지!):
-❌ "${insuranceType}"이 아닌 다른 보험 이름 사용
-❌ 핵심 고민과 관계없는 제목
-❌ 정보글 스타일 ("~하는 법", "~체크리스트")
+※ 의문문(?)으로 끝, 15-35자
 
 ==========================================================
-【 PART 2: 질문 본문 생성 규칙 】
+【 PART 2: 질문 생성 - 두 명의 완전히 다른 질문자! 】
 ==========================================================
 
-### ★★★ 질문자 페르소나 (반드시 이 사람처럼 작성!) ★★★
-- 나는 ${persona.ageNum}세 ${persona.gender} ${persona.occupation}입니다
-- 가족상황: ${persona.familyStatus}
-${persona.gender === '여성' ? `- 여성 특유의 말투: "~거든요", "~잖아요", "진짜 걱정돼서요", "혹시 아시는 분?"` : `- 남성 특유의 말투: "~입니다", "~한데요", "솔직히", "객관적으로"`}
-${persona.ageGroup === '20대' ? `- 20대 말투: 약간 캐주얼, "ㅠㅠ", "진짜", "대체 뭐가 뭔지"` : ''}
-${persona.ageGroup === '30대' ? `- 30대 말투: 실용적, 직접적, "결론이 뭔가요", "딱 정리해주세요"` : ''}
-${persona.ageGroup === '40대' ? `- 40대 말투: 약간 격식, "여쭤봅니다", "조언 부탁드립니다"` : ''}
-${persona.ageGroup === '50대' || persona.ageGroup === '60대' ? `- 50-60대 말투: 정중, "문의드립니다", "답변 부탁드립니다"` : ''}
+★★★ [질문1] 질문자 A ★★★
+■ 프로필: ${questioner1.age} ${questioner1.gender} ${questioner1.job}
+■ 상황: ${questioner1.situation}
+■ 말투: ${questioner1.style}
+■ 트리거: "${scenario1.trigger}"
+■ 핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'}
+
+★★★ [질문2] 질문자 B (완전히 다른 사람!) ★★★
+■ 프로필: ${questioner2.age} ${questioner2.gender} ${questioner2.job}
+■ 상황: ${questioner2.situation}
+■ 말투: ${questioner2.style}
+■ 트리거: "${scenario2.trigger}"
+■ 핵심 고민: ${hasKeyword ? `"${customerConcern}" (같은 고민, 다른 관점)` : '자동 생성'}
 
 ### 질문1 상황: "${scenario1.situation}"
 - 시작: "${scenario1.trigger}"
@@ -3734,67 +3740,35 @@ ${persona.ageGroup === '50대' || persona.ageGroup === '60대' ? `- 50-60대 말
 20년 경력 보험 전문가. 어려운 내용도 초보자가 이해할 수 있게 쉽게 설명.
 
 ### ⭐ 답변의 핵심 (우선순위!) ⭐
-${hasKeyword ? `
-1순위: "${customerConcern}" ← 이 고민에 대한 명확한 답변!
-       질문자가 가장 궁금해하는 것에 직접적으로 답하세요.
-` : ''}
-2순위: "${target}" 눈높이에 맞춘 쉬운 설명
-       - 전문용어 → 쉬운 비유 (예: "갱신형 = 월세처럼 나중에 올라요")
-       - "쉽게 말해서~", "예를 들면~" 적극 활용
-${insuranceType !== '종합보험' ? `
-3순위: "${insuranceType}"에 대한 정확한 정보 제공
-` : ''}
+############################################################
+#     ⭐ 3명의 전문가가 각각 다른 관점으로 답변! ⭐          #
+############################################################
 
-### 답변 구조 (4-Step):
-【 Step 1: 공감 】 "${hasKeyword ? customerConcern : '고민'}" 에 공감하는 한 문장
-${isTraumaticSituation ? '→ 힘든 상황 공감 우선!' : '→ "그 고민 충분히 이해합니다"'}
+★★★ [답변1] 전문가 A: ${expert1.type} ★★★
+■ 스타일: ${expert1.style}
+■ 초점: ${expert1.focus}
+■ 시작 멘트 예시: "${expert1.opening}"
+■ 핵심: ${hasKeyword ? `"${customerConcern}"` : '질문'}에 대해 ${expert1.focus} 관점으로 답변
 
-【 Step 2: 핵심 답변 】 ${hasKeyword ? `"${customerConcern}"에 대한 직접적 답변` : '질문에 대한 명확한 답'}
-- 결론부터! "결론부터 말씀드리면~"
-- 쉬운 비유로 설명
+★★★ [답변2] 전문가 B: ${expert2.type} ★★★
+■ 스타일: ${expert2.style}
+■ 초점: ${expert2.focus}
+■ 시작 멘트 예시: "${expert2.opening}"
+■ 핵심: 같은 고민, 완전히 다른 관점 (${expert2.focus})으로 답변
 
-【 Step 3: 구체적 조언 】 3개 이내 포인트
-✅ 이렇게 하세요 (해결책)
-⚠️ 이건 주의하세요 (함정)
-💡 추가 팁 (실용 조언)
+★★★ [답변3] 전문가 C: ${expert3.type} ★★★
+■ 스타일: ${expert3.style}
+■ 초점: ${expert3.focus}
+■ 시작 멘트 예시: "${expert3.opening}"
+■ 핵심: 또 다른 관점 (${expert3.focus})으로 실용적 조언
 
-【 Step 4: 행동 유도 】 당장 할 수 있는 것
-- "증권 X페이지 확인해보세요"
-- "댓글로 ~~ 알려주시면 분석해드릴게요"
+### 답변 공통 구조:
+1. 공감 한 문장
+2. ${hasKeyword ? `"${customerConcern}"` : '질문'}에 대한 답 (각 전문가 관점으로!)
+3. 실용적 조언 2-3개 (✅⚠️💡)
+4. 행동 유도 ("댓글로 ~~ 주시면 분석해드릴게요")
 
-【 Step 3: 전문가 솔루션 (3개 이내) 】
-글머리 기호로 핵심 포인트 정리:
-✅ **첫 번째 포인트:** 유지/해지 판단 기준 (구체적 수치)
-⚠️ **두 번째 포인트:** 주의사항/함정
-💡 **세 번째 포인트:** 실행 가능한 조언
-
-【 Step 4: 강력한 CTA (행동 유도) 】
-- 막연한 상담 권유 금지! ("전문가와 상의하세요" ❌)
-- 당장 확인할 수 있는 구체적 행동 지시!
-- Good: "지금 바로 증권 3페이지 **'해지환급금 예시표'** 확인하고 댓글로 사진 올려주세요. 3초 만에 분석해 드립니다!" ✅
-- Good: "상품명에 **'변액'** 또는 **'유니버셜'** 있는지 확인! 있으면 댓글 주세요. 긴급 상황입니다." ✅
-
-### 가독성 규칙 (필수):
-1. 절대 4줄 이상 뭉쳐쓰기 금지! 문단마다 공백 줄!
-2. 핵심 키워드(금액, 기간, 상품명)는 **볼드** 처리
-3. 글머리 기호 활용: ✅ 해결책, ⚠️ 경고, 💡 팁
-4. 이모지로 시각적 강조 (문장 시작에 1-2개)
-
-### 톤앤매너:
-- 선택된 톤: ${tones.join(', ')}
-- 확신 있으면서도 따뜻한 전문가 어조
-${isBeginnerMode ? '- 보험초보 모드: 전문용어는 쉬운 비유로 (예: "납입면제 = 보험료 안 내도 되는 것")' : ''}
-${isProposalMode ? '- 제안서요청형: 구체적인 설계 대안 제시 포함' : ''}
-
-### 최종 검증 (우선순위 체크!)
-${hasKeyword ? `
-1순위 ☑️ "${customerConcern}" 고민이 질문/답변의 핵심인가? ← 가장 중요!
-` : ''}
-2순위 ☑️ "${target}" 눈높이에 맞게 쉽게 설명했는가?
-${insuranceType !== '종합보험' ? `
-3순위 ☑️ "${insuranceType}"에 대한 내용인가?
-` : ''}
-4순위 ☑️ 초보자도 이해할 수 있게 쉬운 말로 썼는가?
+### 가독성: 4줄 이상 뭉침 금지, **볼드** 활용, 이모지 적당히
 
 ### 절대 규칙:
 - 가상 이름(홍길동, 김철수) 금지
@@ -3837,31 +3811,36 @@ ${insuranceType !== '종합보험' ? `
 - "저 ${insuranceType} 가입했는데 후회될까요?"
 
 [질문1]
-★★★ 페르소나: ${persona.ageNum}세 ${persona.gender} ${persona.occupation} (${persona.familyStatus}) ★★★
-상황: "${scenario1.situation}" - "${scenario1.trigger}..."
-(${persona.gender === '여성' ? '여성스러운 말투' : '남성스러운 말투'}, ${hasKeyword ? `핵심 고민: "${customerConcern}"` : `${insuranceType} 관련 상황`}, 구체적 숫자 포함)
-(첫 문장: "${persona.ageNum}세 ${persona.gender} ${persona.occupation}이에요/입니다")
-(마지막: "쪽지 사절이요, 댓글로 조언 부탁드립니다", 전화번호 금지, 200-350자)
+질문자A: ${questioner1.age} ${questioner1.gender} ${questioner1.job} (${questioner1.situation})
+말투: ${questioner1.style}
+상황: "${scenario1.trigger}..."
+핵심 고민: ${hasKeyword ? `"${customerConcern}"` : '자동 생성'}
+(200-350자, 전화번호 금지, 마지막: "쪽지 사절이요, 댓글로 조언 부탁드립니다")
 
 [질문2]
-★★★ 같은 페르소나지만 완전히 다른 상황! ★★★
-상황: "${scenario2.situation}" - "${scenario2.trigger}..."
-(${hasKeyword ? `같은 핵심 고민 "${customerConcern}"이지만 다른 각도` : `${insuranceType} 다른 문제 상황`})
-(첫 문장: 나이/성별/직업 다르게 표현 - "저 ${persona.ageGroup} ${persona.occupation}인데요")
-(마지막: "고수님들 도와주세요!", 전화번호 금지, 200-350자)
+질문자B: ${questioner2.age} ${questioner2.gender} ${questioner2.job} (${questioner2.situation}) ← 완전히 다른 사람!
+말투: ${questioner2.style}
+상황: "${scenario2.trigger}..."
+핵심 고민: ${hasKeyword ? `"${customerConcern}" (같은 고민, 다른 상황)` : '자동 생성'}
+(200-350자, 전화번호 금지, 마지막: "고수님들 도와주세요!")
 
 [답변1]
-(공감형 전문가 - [질문1]에 대한 답변)
-(4-Step: 1.공감 이모지+한줄 2.팩트체크 2-3줄 3.글머리기호 ✅⚠️💡 3개 4.강력한CTA)
-(500-700자, 4줄이상 금지, **볼드** 필수)
+전문가A: ${expert1.type}
+관점: ${expert1.focus}
+시작: "${expert1.opening}"
+(같은 고민에 대해 ${expert1.style}로 답변, 500-700자)
 
 [답변2]
-(분석형 전문가 - 다른 관점)
-(데이터/통계 중심, 비교 분석, 같은 가독성 규칙, 강력한 CTA, 500-700자)
+전문가B: ${expert2.type} ← 완전히 다른 관점!
+관점: ${expert2.focus}
+시작: "${expert2.opening}"
+(같은 고민에 대해 ${expert2.style}로 답변, 500-700자)
 
 [답변3]
-(멘토형 전문가 - [질문2]에 대한 답변)
-(따뜻하고 포괄적, 장기적 관점, 액션 플랜, 강력한 CTA, 500-700자)
+전문가C: ${expert3.type} ← 또 다른 관점!
+관점: ${expert3.focus}
+시작: "${expert3.opening}"
+(같은 고민에 대해 ${expert3.style}로 답변, 500-700자)
 
 [댓글1]
 (공감형 40-80자)

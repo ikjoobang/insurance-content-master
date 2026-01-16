@@ -3849,6 +3849,25 @@ ${insuranceType && insuranceType !== '종합보험' ? `
 [댓글3]
 (질문형 40-80자)
 
+==========================================================
+【 PART 5: 자가진단 (SEO 최적화 검수) 】
+==========================================================
+
+### C-Rank / D.I.A.+ / 에이전트 N 최적화 항목:
+
+[검색키워드]
+- C-Rank 최적화된 SEO 키워드 5개 (네이버 검색 상위 노출용)
+- 형식: "${insuranceType}" 관련 + "${hasKeyword ? customerConcern : '보험 고민'}" 연관 키워드
+- 예시: "${insuranceType} 해지", "${insuranceType} 갱신", "${insuranceType} 비교", "${insuranceType} 추천", "${insuranceType} 리모델링"
+
+[최적화제목1]
+- D.I.A.+ 알고리즘 최적화 제목 (클릭률 UP)
+- 질문자 톤 + 클릭유도 키워드 + 15-35자
+
+[최적화제목2]  
+- 에이전트 N 최적화 제목 (AI 추천용)
+- 다른 관점 + 다른 클릭 키워드 사용
+
 [강조포인트]
 - (핵심 장점 1)
 - (핵심 장점 2)
@@ -3856,6 +3875,13 @@ ${insuranceType && insuranceType !== '종합보험' ? `
 
 [해시태그]
 (10개, #으로 시작, 띄어쓰기로 구분)
+
+[자가진단결과]
+- 핵심고민 반영도: (상/중/하)
+- 타깃 적합도: (상/중/하)  
+- 보험종류 일치도: (상/중/하)
+- 재생성 필요: (예/아니오)
+- 재생성 사유: (있을 경우만)
 
 ※ 중요: [태그]와 실제 내용만 출력하세요. 괄호 안의 설명은 출력하지 마세요!`
 
@@ -3880,8 +3906,14 @@ ${insuranceType && insuranceType !== '종합보험' ? `
   const highlightsMatch = qnaResult.match(/\[강조포인트\]([\s\S]*?)(?=\[해시태그\])/i)
   const comment1Match = qnaResult.match(/\[댓글1\]([\s\S]*?)(?=\[댓글2\])/i)
   const comment2Match = qnaResult.match(/\[댓글2\]([\s\S]*?)(?=\[댓글3\])/i)
-  const comment3Match = qnaResult.match(/\[댓글3\]([\s\S]*?)(?=\[강조포인트\])/i)
-  const hashtagMatch = qnaResult.match(/\[해시태그\]([\s\S]*?)$/i)
+  const comment3Match = qnaResult.match(/\[댓글3\]([\s\S]*?)(?=\[검색키워드\]|\[강조포인트\])/i)
+  const hashtagMatch = qnaResult.match(/\[해시태그\]([\s\S]*?)(?=\[자가진단결과\]|$)/i)
+  
+  // V12.2: 자가진단 워크플로우 - 검색키워드, 최적화제목, 자가진단결과 파싱
+  const seoKeywordsMatch = qnaResult.match(/\[검색키워드\]([\s\S]*?)(?=\[최적화제목1\])/i)
+  const optimizedTitle1Match = qnaResult.match(/\[최적화제목1\]([\s\S]*?)(?=\[최적화제목2\])/i)
+  const optimizedTitle2Match = qnaResult.match(/\[최적화제목2\]([\s\S]*?)(?=\[강조포인트\])/i)
+  const selfDiagnosisMatch = qnaResult.match(/\[자가진단결과\]([\s\S]*?)$/i)
   
   // 제목 추출 (의문문 확인) - 구분선 제거
   let generatedTitle = titleMatch 
@@ -3921,6 +3953,83 @@ ${insuranceType && insuranceType !== '종합보험' ? `
     comment2Match ? cleanText(comment2Match[1].trim()) : '와 이건 진짜 찐 정보네요. 바로 증권 확인해봐야겠어요',
     comment3Match ? cleanText(comment3Match[1].trim()) : '저도 증권 분석 부탁드려도 될까요? 비슷한 상황인 것 같아서요'
   ].filter(c => c.length > 10)
+  
+  // V12.2: 자가진단 워크플로우 데이터 처리
+  // 검색 최적화 키워드 5개 파싱
+  let seoKeywords: string[] = []
+  if (seoKeywordsMatch) {
+    seoKeywords = seoKeywordsMatch[1]
+      .split(/[\n,]/)
+      .map(kw => cleanText(kw.replace(/^[-•*\d.)\s]+/, '').trim()))
+      .filter(kw => kw.length > 2 && kw.length < 30)
+      .slice(0, 5)
+  }
+  // 기본값: 보험종류 + 핵심고민 기반 키워드 생성
+  if (seoKeywords.length < 5) {
+    const defaultKeywords = [
+      `${insuranceType} 해지`, `${insuranceType} 갱신`, `${insuranceType} 비교`,
+      `${insuranceType} 추천`, `${insuranceType} 리모델링`, `${insuranceType} 보험료`,
+      `${target} ${insuranceType}`, `${insuranceType} 후기`
+    ]
+    while (seoKeywords.length < 5 && defaultKeywords.length > 0) {
+      const kw = defaultKeywords.shift()
+      if (kw && !seoKeywords.includes(kw)) seoKeywords.push(kw)
+    }
+  }
+  
+  // 최적화 제목 2개 파싱
+  const optimizedTitle1 = optimizedTitle1Match 
+    ? removeSeparators(cleanText(optimizedTitle1Match[1].trim())).replace(/^\d+\.\s*/, '')
+    : `${target}인데 ${insuranceType} 이거 손해 보는 건가요?`
+  const optimizedTitle2 = optimizedTitle2Match 
+    ? removeSeparators(cleanText(optimizedTitle2Match[1].trim())).replace(/^\d+\.\s*/, '')
+    : `${insuranceType} 갱신 폭탄 맞은 건가요? 도와주세요`
+  
+  // 자가진단 결과 파싱
+  interface SelfDiagnosis {
+    concernReflection: string  // 핵심고민 반영도
+    targetFit: string          // 타깃 적합도  
+    insuranceMatch: string     // 보험종류 일치도
+    needRegenerate: boolean    // 재생성 필요 여부
+    reason: string             // 재생성 사유
+  }
+  
+  let selfDiagnosis: SelfDiagnosis = {
+    concernReflection: '상',
+    targetFit: '상',
+    insuranceMatch: '상',
+    needRegenerate: false,
+    reason: ''
+  }
+  
+  if (selfDiagnosisMatch) {
+    const diagText = selfDiagnosisMatch[1]
+    const concernMatch = diagText.match(/핵심고민\s*반영도[:\s]*(상|중|하)/i)
+    const targetMatch = diagText.match(/타깃\s*적합도[:\s]*(상|중|하)/i)
+    const insuranceMatchResult = diagText.match(/보험종류\s*일치도[:\s]*(상|중|하)/i)
+    const regenMatch = diagText.match(/재생성\s*필요[:\s]*(예|아니오|yes|no)/i)
+    const reasonMatch = diagText.match(/재생성\s*사유[:\s]*([^\n]+)/i)
+    
+    selfDiagnosis = {
+      concernReflection: concernMatch ? concernMatch[1] : '상',
+      targetFit: targetMatch ? targetMatch[1] : '상',
+      insuranceMatch: insuranceMatchResult ? insuranceMatchResult[1] : '상',
+      needRegenerate: regenMatch ? (regenMatch[1] === '예' || regenMatch[1].toLowerCase() === 'yes') : false,
+      reason: reasonMatch ? reasonMatch[1].trim() : ''
+    }
+  }
+  
+  // 자동 자가진단 (AI 결과와 별도로 로직 기반 검증)
+  const autoValidation = {
+    hasConcernInTitle: hasKeyword ? generatedTitle.includes(customerConcern.substring(0, 10)) || 
+      generatedTitle.toLowerCase().includes(insuranceType.toLowerCase()) : true,
+    hasConcernInQuestion: hasKeyword ? (questions[0] || '').includes(customerConcern.substring(0, 10)) : true,
+    hasInsuranceType: (questions[0] || '').includes(insuranceType) || (answers[0] || '').includes(insuranceType),
+    hasTargetReference: (questions[0] || '').includes(target.substring(0, 5)) || generatedTitle.includes(target.substring(0, 5))
+  }
+  
+  // 자동 재생성 필요 여부 판단
+  const autoNeedRegenerate = !autoValidation.hasConcernInQuestion || !autoValidation.hasInsuranceType
   
   // SEO 점수 계산 (첫 번째 질문/답변 기준)
   const seoScore = calculateSEOScore({
@@ -4094,6 +4203,34 @@ ${insuranceType && insuranceType !== '종합보험' ? `
       strengths: seoScore.strengths,
       improvements: seoScore.improvements,
       tips: seoScore.tips
+    },
+    // V12.2: 자가진단 워크플로우 데이터
+    selfDiagnosis: {
+      // C-Rank / D.I.A.+ / 에이전트 N 최적화 키워드 5개
+      seoKeywords: seoKeywords,
+      // 최적화 제목 2가지
+      optimizedTitles: [optimizedTitle1, optimizedTitle2],
+      // AI 자가진단 결과
+      aiDiagnosis: {
+        concernReflection: selfDiagnosis.concernReflection,  // 핵심고민 반영도 (상/중/하)
+        targetFit: selfDiagnosis.targetFit,                  // 타깃 적합도 (상/중/하)
+        insuranceMatch: selfDiagnosis.insuranceMatch,        // 보험종류 일치도 (상/중/하)
+        needRegenerate: selfDiagnosis.needRegenerate,        // 재생성 필요 여부
+        reason: selfDiagnosis.reason                         // 재생성 사유
+      },
+      // 자동 검증 결과
+      autoValidation: {
+        hasConcernInTitle: autoValidation.hasConcernInTitle,
+        hasConcernInQuestion: autoValidation.hasConcernInQuestion,
+        hasInsuranceType: autoValidation.hasInsuranceType,
+        hasTargetReference: autoValidation.hasTargetReference,
+        needRegenerate: autoNeedRegenerate
+      },
+      // 최종 재생성 필요 여부 (AI + 자동 검증 종합)
+      finalNeedRegenerate: selfDiagnosis.needRegenerate || autoNeedRegenerate,
+      finalReason: autoNeedRegenerate 
+        ? '자동검증: 핵심고민 또는 보험종류가 콘텐츠에 충분히 반영되지 않았습니다.'
+        : (selfDiagnosis.needRegenerate ? selfDiagnosis.reason : '')
     }
   })
 })

@@ -39,6 +39,152 @@ async function callGeminiAPI(prompt: string, apiKey: string, retries = 3): Promi
   throw new Error('API call failed')
 }
 
+// ========== 보험사 브랜드 컬러 ==========
+const BRAND_COLORS: Record<string, { color: string, subColor: string }> = {
+  '삼성생명': { color: '#0066B3', subColor: '#004A8F' },
+  '한화생명': { color: '#FF6600', subColor: '#CC5200' },
+  '교보생명': { color: '#00A651', subColor: '#008542' },
+  '신한라이프': { color: '#0046FF', subColor: '#0035CC' },
+  'NH농협생명': { color: '#00A73C', subColor: '#008530' },
+  '동양생명': { color: '#ED1C24', subColor: '#C41920' },
+  '하나생명': { color: '#008878', subColor: '#006B5F' },
+  'KB손해보험': { color: '#FFB900', subColor: '#CC9400' },
+  '현대해상': { color: '#4A8FE4', subColor: '#3A72B6' },
+  'DB손해보험': { color: '#007856', subColor: '#006045' },
+  '메리츠화재': { color: '#FF6600', subColor: '#CC5200' },
+  '롯데손해보험': { color: '#E60012', subColor: '#B8000E' }
+}
+
+// ========== Gemini 이미지 생성 API ==========
+interface ImageGenerationData {
+  companyName: string
+  insuranceType: string
+  customerAge: string
+  customerGender: string
+  monthlyPremium: string
+  docNumber: string
+  coverages: Array<{ name: string, amount: string, premium?: string }>
+  style?: 'compact-card' | 'full-document' | 'highlight' | 'scan-copy'
+}
+
+function buildCompactCardPrompt(data: ImageGenerationData): string {
+  const brand = BRAND_COLORS[data.companyName] || BRAND_COLORS['삼성생명']
+  const brandColor = brand.color
+  
+  // 보장내역 텍스트 생성 (최대 8개)
+  const displayCoverages = data.coverages.slice(0, 8)
+  const coverageLines = displayCoverages.map((c, i) => 
+    `${i + 1}. ${c.name}: ${c.amount}${c.premium ? ` (월 ${c.premium})` : ''}`
+  ).join('\n')
+  
+  const style = data.style || 'compact-card'
+  
+  // 컴팩트 카드 스타일 프롬프트
+  const prompt = `Create a photorealistic image of a compact Korean insurance proposal card.
+
+=== DOCUMENT SPECIFICATIONS ===
+Format: Compact card (cropped upper portion of insurance document)
+Aspect Ratio: 4:3 (landscape, showing only top section)
+Style: ${style === 'scan-copy' ? 'Slightly tilted scan copy on desk' : style === 'highlight' ? 'Document with yellow highlighter marks' : 'Clean professional document photo'}
+
+=== CRITICAL: EXACT KOREAN TEXT TO RENDER ===
+All text must be rendered EXACTLY as shown below, character by character:
+
+[HEADER SECTION - Brand color: ${brandColor}]
+Company Logo Area: "${data.companyName}"
+Document Title: "보험 가입 설계서"
+Document Number: "${data.docNumber}"
+
+[CUSTOMER INFO SECTION - Gray background]
+고객정보: ${data.customerAge} / ${data.customerGender}
+보험종류: ${data.insuranceType}
+
+[COVERAGE TABLE - Compact, small text]
+보장내역:
+${coverageLines}
+
+[PREMIUM SECTION - Highlighted]
+월 납입보험료: ${data.monthlyPremium}
+
+=== VISUAL STYLE ===
+- Professional A4 document, showing ONLY the top 40% portion
+- Clean white background with subtle shadow
+- Text size: Small but clearly legible (8-9pt equivalent)
+- Brand color accent on header (${brandColor})
+- Korean sans-serif font (Noto Sans KR or similar)
+- High resolution, 4K quality
+- Document appears slightly cropped at bottom, implying more content below
+${style === 'scan-copy' ? '- Document placed on wooden desk, slightly tilted (5-10 degrees)\n- Soft natural lighting from window\n- Subtle paper texture visible' : ''}
+${style === 'highlight' ? '- Yellow highlighter marks on key numbers (premium, coverage amounts)\n- Pen or highlighter visible at edge of frame' : ''}
+
+=== IMPORTANT ===
+- Render ALL Korean text exactly as specified
+- Do NOT translate or modify any text
+- Keep text small but sharp and readable
+- Focus on the upper portion of the document only
+- Make it look like a real photo of a real insurance document`
+
+  return prompt
+}
+
+async function generateInsuranceImage(data: ImageGenerationData, apiKey: string): Promise<{ success: boolean, imageUrl?: string, error?: string, model?: string }> {
+  const prompt = buildCompactCardPrompt(data)
+  
+  // 모델 우선순위: gemini-2.5-flash-image > gemini-2.0-flash-preview-image-generation
+  const models = [
+    'gemini-2.5-flash-image',
+    'gemini-2.0-flash-preview-image-generation'
+  ]
+  
+  for (const model of models) {
+    try {
+      console.log(`Trying image generation with model: ${model}`)
+      
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseModalities: ['image', 'text']
+            }
+          })
+        }
+      )
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Gemini Image API error with ${model}:`, response.status, errorText)
+        continue // 다음 모델 시도
+      }
+      
+      const result = await response.json() as any
+      const parts = result.candidates?.[0]?.content?.parts || []
+      
+      // 이미지 데이터 추출
+      for (const part of parts) {
+        if (part.inlineData?.mimeType?.startsWith('image/')) {
+          const base64Data = part.inlineData.data
+          const imageUrl = `data:${part.inlineData.mimeType};base64,${base64Data}`
+          return { success: true, imageUrl, model }
+        }
+      }
+      
+      // 텍스트만 반환된 경우 (이미지 없음)
+      console.log(`No image in response from ${model}, trying next model`)
+      continue
+      
+    } catch (error) {
+      console.error(`Image generation error with ${model}:`, error)
+      continue
+    }
+  }
+  
+  return { success: false, error: 'All image generation models failed' }
+}
+
 // 텍스트 정리 함수 (이모티콘, ##, ** 완전 제거)
 function cleanText(text: string): string {
   return text
@@ -1092,10 +1238,61 @@ const mainPageHtml = `
               <span class="font-semibold text-white text-sm lg:text-base">설계서</span>
               <span class="text-gray-400 text-xs lg:text-sm">(복사용)</span>
             </div>
-            <button onclick="copyDesignText()" class="px-4 py-2 lg:px-5 lg:py-2.5 rounded-md bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-sm lg:text-base font-medium" title="텍스트 복사 (카페/블로그용)">
-              <i class="fas fa-copy mr-2"></i>복사하기
-            </button>
+            <div class="flex gap-2">
+              <button onclick="generateProposalImage()" id="btn-gen-image" class="px-3 py-2 lg:px-4 lg:py-2.5 rounded-md bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 text-sm lg:text-base font-medium" title="설계서 이미지 생성">
+                <i class="fas fa-image mr-1.5"></i>이미지
+              </button>
+              <button onclick="copyDesignText()" class="px-4 py-2 lg:px-5 lg:py-2.5 rounded-md bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-sm lg:text-base font-medium" title="텍스트 복사 (카페/블로그용)">
+                <i class="fas fa-copy mr-2"></i>복사
+              </button>
+            </div>
           </div>
+          
+          <!-- 이미지 스타일 선택 -->
+          <div id="image-style-selector" class="mb-3 lg:mb-4 hidden">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-gray-300 text-xs">이미지 스타일:</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="selectImageStyle('compact-card')" class="image-style-btn px-3 py-1.5 rounded-md text-xs font-medium bg-purple-500/30 text-purple-300 border border-purple-500/50" data-style="compact-card">
+                <i class="fas fa-crop-alt mr-1"></i>컴팩트 카드
+              </button>
+              <button onclick="selectImageStyle('scan-copy')" class="image-style-btn px-3 py-1.5 rounded-md text-xs font-medium bg-white/10 text-gray-300 hover:bg-white/20" data-style="scan-copy">
+                <i class="fas fa-desktop mr-1"></i>책상 위 스캔
+              </button>
+              <button onclick="selectImageStyle('highlight')" class="image-style-btn px-3 py-1.5 rounded-md text-xs font-medium bg-white/10 text-gray-300 hover:bg-white/20" data-style="highlight">
+                <i class="fas fa-highlighter mr-1"></i>형광펜 강조
+              </button>
+            </div>
+          </div>
+          
+          <!-- 이미지 생성 결과 미리보기 -->
+          <div id="image-preview-section" class="mb-4 hidden">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-gray-300 text-xs font-medium"><i class="fas fa-image mr-1 text-purple-400"></i>생성된 이미지</span>
+              <div class="flex gap-2">
+                <button onclick="downloadProposalImage()" class="px-3 py-1.5 rounded-md bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 text-xs font-medium">
+                  <i class="fas fa-download mr-1"></i>다운로드
+                </button>
+                <button onclick="copyImageToClipboard()" class="px-3 py-1.5 rounded-md bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 text-xs font-medium">
+                  <i class="fas fa-copy mr-1"></i>이미지 복사
+                </button>
+              </div>
+            </div>
+            <div class="relative bg-black/30 rounded-lg overflow-hidden" style="max-height: 350px;">
+              <img id="proposal-image" src="" alt="설계서 이미지" class="w-full h-auto object-contain" style="max-height: 350px;">
+              <div id="image-loading" class="absolute inset-0 flex items-center justify-center bg-black/60 hidden">
+                <div class="text-center">
+                  <div class="spinner mb-2"></div>
+                  <span class="text-purple-400 text-sm">AI 이미지 생성 중...</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-2 text-center">
+              <span id="image-doc-number" class="text-gray-500 text-xs"></span>
+            </div>
+          </div>
+          
           <div id="design-preview" class="design-preview overflow-auto max-h-[400px] lg:max-h-[600px] xl:max-h-[700px] rounded-lg"></div>
           <textarea id="design-text-content" class="hidden"></textarea>
         </div>
@@ -1371,6 +1568,136 @@ const mainPageHtml = `
         showToast('설계서 복사 완료!');
       });
     }
+    
+    // ========== 설계서 이미지 생성 기능 ==========
+    let selectedImageStyle = 'compact-card';
+    let currentDesignData = null; // 현재 설계서 데이터 저장
+    let generatedImageUrl = null;
+    
+    function selectImageStyle(style) {
+      selectedImageStyle = style;
+      document.querySelectorAll('.image-style-btn').forEach(btn => {
+        if (btn.dataset.style === style) {
+          btn.classList.remove('bg-white/10', 'text-gray-300');
+          btn.classList.add('bg-purple-500/30', 'text-purple-300', 'border', 'border-purple-500/50');
+        } else {
+          btn.classList.remove('bg-purple-500/30', 'text-purple-300', 'border', 'border-purple-500/50');
+          btn.classList.add('bg-white/10', 'text-gray-300');
+        }
+      });
+    }
+    
+    async function generateProposalImage() {
+      // 스타일 선택 UI 표시
+      document.getElementById('image-style-selector').classList.remove('hidden');
+      
+      // 현재 설계서 데이터 가져오기
+      const designHtml = document.getElementById('design-preview').innerHTML;
+      if (!designHtml) {
+        showToast('먼저 설계서를 생성해주세요');
+        return;
+      }
+      
+      // 버튼 로딩 상태
+      const btn = document.getElementById('btn-gen-image');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner"></div><span class="text-xs">생성중...</span>';
+      
+      // 이미지 미리보기 섹션 표시 + 로딩
+      document.getElementById('image-preview-section').classList.remove('hidden');
+      document.getElementById('image-loading').classList.remove('hidden');
+      document.getElementById('proposal-image').src = '';
+      
+      try {
+        // 설계서 데이터 추출 (선택된 값들에서)
+        const companyName = selections['qna-company'] || '삼성생명';
+        const insuranceType = selections['qna-insurance'] || '종신보험';
+        const target = selections['qna-target'] || '30대 직장인';
+        
+        // 나이/성별 추론
+        const ageMatch = target.match(/(\\d+)대/);
+        const customerAge = ageMatch ? ageMatch[1] + '세' : '35세';
+        const customerGender = target.includes('여성') || target.includes('엄마') || target.includes('주부') ? '여성' : '남성';
+        
+        // API 호출
+        const res = await fetch('/api/generate/proposal-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyName,
+            insuranceType,
+            customerAge,
+            customerGender,
+            monthlyPremium: currentDesignData?.monthlyPremium || '89,000원',
+            coverages: currentDesignData?.coverages || [],
+            style: selectedImageStyle
+          })
+        });
+        
+        const data = await res.json();
+        
+        document.getElementById('image-loading').classList.add('hidden');
+        
+        if (data.success && data.imageUrl) {
+          generatedImageUrl = data.imageUrl;
+          document.getElementById('proposal-image').src = data.imageUrl;
+          document.getElementById('image-doc-number').textContent = '문서번호: ' + data.docNumber;
+          showToast('설계서 이미지 생성 완료!');
+        } else {
+          showToast('이미지 생성 실패: ' + (data.error || '알 수 없는 오류'));
+          document.getElementById('image-preview-section').classList.add('hidden');
+        }
+      } catch (error) {
+        document.getElementById('image-loading').classList.add('hidden');
+        document.getElementById('image-preview-section').classList.add('hidden');
+        showToast('이미지 생성 오류: ' + error.message);
+        console.error('Image generation error:', error);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-image mr-1.5"></i>이미지';
+      }
+    }
+    
+    function downloadProposalImage() {
+      if (!generatedImageUrl) {
+        showToast('다운로드할 이미지가 없습니다');
+        return;
+      }
+      
+      const link = document.createElement('a');
+      link.href = generatedImageUrl;
+      link.download = 'insurance_proposal_' + Date.now() + '.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('이미지 다운로드 완료!');
+    }
+    
+    async function copyImageToClipboard() {
+      if (!generatedImageUrl) {
+        showToast('복사할 이미지가 없습니다');
+        return;
+      }
+      
+      try {
+        // base64 이미지를 Blob으로 변환
+        const response = await fetch(generatedImageUrl);
+        const blob = await response.blob();
+        
+        await navigator.clipboard.write([
+          new ClipboardItem({ [blob.type]: blob })
+        ]);
+        showToast('이미지가 클립보드에 복사되었습니다!');
+      } catch (error) {
+        // 폴백: 이미지 URL 복사
+        try {
+          await navigator.clipboard.writeText(generatedImageUrl);
+          showToast('이미지 URL이 복사되었습니다');
+        } catch (e) {
+          showToast('이미지 복사 실패');
+        }
+      }
+    }
 
     function updateProgress(step, percent, status) {
       document.getElementById('qna-progress').classList.remove('hidden');
@@ -1456,8 +1783,18 @@ const mainPageHtml = `
           if (data.designText) {
             document.getElementById('design-text-content').value = data.designText;
           }
+          // 이미지 생성용 데이터 저장
+          currentDesignData = {
+            monthlyPremium: data.monthlyPremium || '89,000원',
+            coverages: data.coverages || []
+          };
+          // 이미지 미리보기 영역 초기화
+          document.getElementById('image-preview-section').classList.add('hidden');
+          document.getElementById('image-style-selector').classList.add('hidden');
+          generatedImageUrl = null;
         } else {
           document.getElementById('design-section').classList.add('hidden');
+          currentDesignData = null;
         }
         
         document.getElementById('qna-progress').classList.add('hidden');
@@ -1836,10 +2173,10 @@ app.get('/', (c) => c.html(mainPageHtml))
 app.get('/admin', (c) => c.html(adminPageHtml))
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '6.8', 
-  ai: 'gemini + naver', 
+  version: '9.1', 
+  ai: 'gemini + naver + gemini-image', 
   year: 2026,
-  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection'],
+  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style'],
   timestamp: new Date().toISOString() 
 }))
 
@@ -1982,6 +2319,9 @@ app.post('/api/generate/qna-full', async (c) => {
   // 6. 설계서 생성 (텍스트 표 형식 - 복사/붙여넣기용 + HTML 표시용)
   let designHtml = ''
   let designText = ''
+  let parsedMonthlyPremium = ''
+  let parsedCoverages: Array<{name: string, amount: string, premium?: string}> = []
+  
   if (generateDesign) {
     const designPrompt = `${target}를 위한 ${insuranceType} 보험 설계서용 상세 보장 내역을 JSON으로 생성해주세요.
 
@@ -2033,6 +2373,20 @@ app.post('/api/generate/qna-full', async (c) => {
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0])
         
+        // 이미지 생성용 보장내역 추출
+        const coveragesForImage = [
+          ...(parsed.mainCoverage || []).map((c: any) => ({
+            name: c.name,
+            amount: c.coverage,
+            premium: c.premium
+          })),
+          ...(parsed.riders || []).slice(0, 5).map((r: any) => ({
+            name: r.name,
+            amount: r.coverage,
+            premium: r.premium
+          }))
+        ]
+        
         // 텍스트 + HTML 둘 다 생성
         const designResult = generateInsuranceDesignData({
           companyName: parsed.companyName || '삼성생명',
@@ -2054,6 +2408,10 @@ app.post('/api/generate/qna-full', async (c) => {
         
         designHtml = designResult.html
         designText = designResult.text
+        
+        // 이미지 생성용 데이터도 저장
+        parsedMonthlyPremium = parsed.totalPremium || '100,000원'
+        parsedCoverages = coveragesForImage
       }
     } catch (e) {
       console.log('Design generation error:', e)
@@ -2072,8 +2430,74 @@ app.post('/api/generate/qna-full', async (c) => {
       comment3Match ? comment3Match[1].trim() : '저도 상담 받아봐야겠네요.'
     ].join('\n\n')),
     designHtml: designHtml,
-    designText: designText
+    designText: designText,
+    monthlyPremium: parsedMonthlyPremium || '89,000원',
+    coverages: parsedCoverages || []
   })
+})
+
+// ========== 설계서 이미지 생성 API ==========
+app.post('/api/generate/proposal-image', async (c) => {
+  const body = await c.req.json()
+  const {
+    companyName = '삼성생명',
+    insuranceType = '종신보험',
+    customerAge = '35세',
+    customerGender = '남성',
+    monthlyPremium = '89,000원',
+    docNumber,
+    coverages = [],
+    style = 'compact-card'
+  } = body
+  
+  const geminiKey = c.env?.GEMINI_API_KEY || ''
+  if (!geminiKey) {
+    return c.json({ success: false, error: 'API key not configured' }, 500)
+  }
+  
+  // 문서번호 자동 생성 (없으면)
+  const finalDocNumber = docNumber || `INS-${Date.now()}`
+  
+  // 기본 보장내역 (없으면)
+  const finalCoverages = coverages.length > 0 ? coverages : [
+    { name: '일반사망보험금', amount: '1억원', premium: '52,000원' },
+    { name: '재해사망보험금', amount: '1억원', premium: '8,500원' },
+    { name: '암진단비(일반암)', amount: '5,000만원', premium: '15,200원' },
+    { name: '뇌혈관질환진단비', amount: '3,000만원', premium: '7,800원' },
+    { name: '급성심근경색진단비', amount: '3,000만원', premium: '5,500원' }
+  ]
+  
+  const imageData: ImageGenerationData = {
+    companyName,
+    insuranceType,
+    customerAge,
+    customerGender,
+    monthlyPremium,
+    docNumber: finalDocNumber,
+    coverages: finalCoverages,
+    style: style as 'compact-card' | 'full-document' | 'highlight' | 'scan-copy'
+  }
+  
+  console.log('Generating proposal image:', { companyName, insuranceType, style, docNumber: finalDocNumber })
+  
+  const result = await generateInsuranceImage(imageData, geminiKey)
+  
+  if (result.success) {
+    return c.json({
+      success: true,
+      imageUrl: result.imageUrl,
+      docNumber: finalDocNumber,
+      model: 'gemini-2.0-flash-exp-image-generation',
+      style,
+      message: '설계서 이미지가 생성되었습니다.'
+    })
+  } else {
+    return c.json({
+      success: false,
+      error: result.error,
+      docNumber: finalDocNumber
+    }, 500)
+  }
 })
 
 // Blog API

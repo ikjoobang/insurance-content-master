@@ -2833,7 +2833,7 @@ const mainPageHtml = `
     }
   </style>
 </head>
-<body class="min-h-screen" oncontextmenu="return false;" ondragstart="return false;" onselectstart="return false;" oncopy="return false;" oncut="return false;">
+<body class="min-h-screen">
   
   <!-- 네비게이션 - PC에서 전체 너비 -->
   <nav class="fixed top-0 left-0 right-0 z-50 px-2 py-1.5 sm:px-3 sm:py-2 lg:px-6 xl:px-8">
@@ -4617,12 +4617,8 @@ const mainPageHtml = `
           return false;
         }
         
-        // Ctrl+A (전체 선택) - 입력 필드 제외
-        if (e.ctrlKey && (e.key === 'A' || e.key === 'a') && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
-          e.preventDefault();
-          e.stopPropagation();
-          return false;
-        }
+        // V25.5: Ctrl+A (전체 선택) 허용됨 - 사용자가 텍스트 전체 선택 가능
+        // XIVIX 원칙: 텍스트 선택/복사 전면 허용
         
         // PrintScreen 감지 (완전 차단 어려움, 경고만)
         if (e.key === 'PrintScreen') {
@@ -4632,49 +4628,16 @@ const mainPageHtml = `
         }
       }, true);
       
-      // 3. 마우스 오른쪽 버튼 차단 (이중 보안)
-      document.addEventListener('contextmenu', function(e) {
-        e.preventDefault();
-        showToast('우클릭이 제한됩니다');
-        return false;
-      }, true);
+      // V25.5: XIVIX 원칙 적용 - 텍스트 선택/복사/우클릭 전면 허용
+      // 웹 프리뷰는 반드시 텍스트를 마우스로 긁어서 복사할 수 있어야 함
+      // 아래 코드들은 텍스트 선택/복사를 막으므로 완전히 제거
       
-      // 4. 드래그 방지 (이중 보안)
-      document.addEventListener('dragstart', function(e) {
-        e.preventDefault();
-        return false;
-      }, true);
-      
-      // 5. 복사 이벤트 차단 (복사 버튼 제외)
-      document.addEventListener('copy', function(e) {
-        // 복사 버튼을 통한 의도적 복사는 허용
-        if (window.intentionalCopy) {
-          window.intentionalCopy = false;
-          return true;
-        }
-        // 입력 필드에서의 복사는 허용
-        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
-          return true;
-        }
-        e.preventDefault();
-        return false;
-      }, true);
-      
-      // 6. 붙여넣기 차단 (입력 필드 제외)
-      document.addEventListener('paste', function(e) {
-        if (!['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
-          e.preventDefault();
-          return false;
-        }
-      }, true);
-      
-      // 7. 선택 차단 (결과 영역 제외)
-      document.addEventListener('selectstart', function(e) {
-        if (!['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
-          e.preventDefault();
-          return false;
-        }
-      }, true);
+      // 우클릭 차단 제거됨 - 사용자 편의성 우선
+      // 드래그 차단 제거됨 - 텍스트 선택 가능
+      // 복사 차단 제거됨 - 자유롭게 복사 가능
+      // 붙여넣기 차단 제거됨 - 입력 필드에서 자유롭게 붙여넣기
+      // 선택 차단 제거됨 - 모든 텍스트 선택 가능
+      console.log('[V25.5] XIVIX 원칙: 텍스트 선택/복사 전면 허용됨');
       
     })();
     
@@ -4967,16 +4930,16 @@ app.post('/api/analyze/photo', async (c) => {
   }
 })
 
-// V25.4: Health Check 업데이트 - XIVIX 원칙 적용, 프롬프트 정밀 설계
+// V25.5: Health Check 업데이트 - 텍스트 선택/복사 완전 허용
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '25.4', 
+  version: '25.5', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
   ragPipeline: 'naver-search → strategy-json → content-gen(multi-persona) → self-diagnosis',
   year: 2026,
-  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style', 'rag-4step-pipeline', 'hallucination-zero', 'comments-5', 'multi-persona-tone', 'min-length-enforcement', 'knowledge-injection', 'realtime-trends', '12-insurance-categories', 'beginner-tone', 'sensitive-data-filter', 'surgery-class-validation', 'i-code-verification', 'bento-grid-report', 'xivix-json-schema', 'brain-i60-i69-analysis', 'heart-coverage-analysis', 'surgery-system-detection', 'ocr-pipeline', 'text-selectable-ui', 'xivix-principles', 'precision-prompt', 'negative-constraints'],
+  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'proposal-image-generation', 'compact-card-style', 'rag-4step-pipeline', 'hallucination-zero', 'comments-5', 'multi-persona-tone', 'min-length-enforcement', 'knowledge-injection', 'realtime-trends', '12-insurance-categories', 'beginner-tone', 'sensitive-data-filter', 'surgery-class-validation', 'i-code-verification', 'bento-grid-report', 'xivix-json-schema', 'brain-i60-i69-analysis', 'heart-coverage-analysis', 'surgery-system-detection', 'ocr-pipeline', 'text-fully-selectable', 'copy-enabled', 'drag-enabled', 'xivix-principles', 'precision-prompt', 'negative-constraints'],
   timestamp: new Date().toISOString() 
 }))
 

@@ -1373,56 +1373,219 @@ async function generateContentWithStrategy(
     return { hasSensitive: warnings.length > 0, warnings }
   }
   
-  // V25.4: XIVIX 정밀 프롬프트 가이드라인 (Precision Logic)
+  // ========== V26.0: 고수익 카테고리 확장 (High-Value Categories) ==========
+  const HIGH_VALUE_CATEGORIES: Record<string, { 
+    name: string, 
+    targetProfit: string, 
+    expertPromptAdd: string,
+    technicalTerms: string[]
+  }> = {
+    '간병': {
+      name: '간병인/치매보험',
+      targetProfit: 'High (고령화 대비 필수, 높은 수수료)',
+      expertPromptAdd: '간병인 "지원" 일당과 "사용" 일당의 차이점을 물가상승률(인건비) 관점에서 분석. 경도인지장애 진단 시점 보장 여부, ADL 6항목(식사/이동/옷입기/세수/목욕/화장실) 판정 기준, 재가급여 vs 시설급여 선택 팁 포함',
+      technicalTerms: ['ADL', '경도인지장애', '재가급여', '시설급여', '인지지원등급', '장기요양등급']
+    },
+    '치매': {
+      name: '간병인/치매보험',
+      targetProfit: 'High (고령화 대비 필수, 높은 수수료)',
+      expertPromptAdd: 'CDR척도 기준 경도(1점)/중등도(2점)/중증(3점) 진단 시점별 보장 차이, 알츠하이머 vs 혈관성 치매 구분, 치매안심센터 연계 서비스',
+      technicalTerms: ['CDR척도', '경도인지장애', '알츠하이머', '혈관성치매', '인지지원등급']
+    },
+    'CEO': {
+      name: 'CEO/화재/배상책임',
+      targetProfit: 'High (B2B, 단체보험 연계 가능)',
+      expertPromptAdd: '시설소유관리자 배상책임 및 화재 벌금 등 사업주 리스크 관리에 집중. 법인 손비처리 한도, 대표이사 유고 시 법인 운영자금 확보, 가업승계 시 상속세 재원 마련 전략',
+      technicalTerms: ['시설소유관리자배상책임', '손비처리', '가업승계', '법인세절세', '유동성확보']
+    },
+    '경영인': {
+      name: 'CEO/경영인 플랜',
+      targetProfit: 'High (B2B, 고액 계약)',
+      expertPromptAdd: '법인 사업비/보험료 손비처리 한도, 해지환급금 과세 체계(법인세 vs 개인소득세), 대표이사 사망 시 법인 유동성 확보 방안',
+      technicalTerms: ['손비처리', '법인세', '해지환급금과세', '사망퇴직금', '가업승계']
+    },
+    '상속': {
+      name: '상속/증여 재원 플랜',
+      targetProfit: 'V-High (고액 종신보험 타겟)',
+      expertPromptAdd: '국세청 세무조사 트렌드와 사망보험금의 비과세 혜택을 법률 근거(상속세및증여세법 제8조)와 함께 제시. 10년 증여 주기 전략, 유류분 분쟁 대비, 수익자 지정의 법적 효력',
+      technicalTerms: ['상속세', '증여세', '유류분', '수익자지정', '10년증여주기', '세무조사']
+    },
+    '증여': {
+      name: '상속/증여 재원 플랜',
+      targetProfit: 'V-High (고액 종신보험 타겟)',
+      expertPromptAdd: '증여세 면제 한도(성인 5천만원/10년), 보험료 증여 vs 현금 증여 비교, 창업자금 증여특례(5억 한도)',
+      technicalTerms: ['증여세면제한도', '창업자금증여특례', '세대생략증여', '가업승계']
+    },
+    '화재': {
+      name: '화재/시설물 보험',
+      targetProfit: 'Medium-High (자영업자 필수)',
+      expertPromptAdd: '일반화재 vs 재물손해 담보 차이, 휴업손해 담보, 누수 피해 시 일반배상책임 적용 조건',
+      technicalTerms: ['재물손해', '휴업손해', '일반배상책임', '시설소유자배상책임']
+    },
+    '배상': {
+      name: '배상책임보험',
+      targetProfit: 'Medium-High (사업자 필수)',
+      expertPromptAdd: '시설소유관리자 배상책임 vs 영업배상책임 vs 생산물배상책임 구분, 자기부담금 설정 전략',
+      technicalTerms: ['시설소유관리자배상', '영업배상', '생산물배상', 'PL보험', '자기부담금']
+    }
+  }
+
+  // ========== V26.0: 연령대-설계사 현실적 매칭 로직 ==========
+  const AGE_RELATIONSHIP_MAP: Record<string, string[]> = {
+    '20대': ['SNS광고', '부모님지인', '어플리케이션', '유튜브광고', '카카오톡추천'],
+    '30대': ['SNS광고', '직장동료', '대학동기', '어플리케이션', '온라인커뮤니티'],
+    '40대': ['오래된지인', '직장동료', '자녀친구부모', '동창회', '종교모임'],
+    '50대': ['오래된지인', '직장동료', '자녀친구부모', '전담설계사', '지역모임'],
+    '60대': ['전담자산관리사', '병원소개', '가족전문설계사', '은행PB', '보험사지점']
+  }
+
+  // V26.0: 연령대 추출 및 설계사 관계 매칭
+  const extractAgeGroup = (target: string): string => {
+    const match = target.match(/(\d+)대/)
+    return match ? match[1] + '대' : '40대'
+  }
+
+  const getRealisticDesignerRelationship = (target: string): string => {
+    const ageGroup = extractAgeGroup(target)
+    const relationships = AGE_RELATIONSHIP_MAP[ageGroup] || AGE_RELATIONSHIP_MAP['40대']
+    return relationships[Math.floor(Math.random() * relationships.length)]
+  }
+
+  // ========== V26.0: 전문가 답변 4단계 구조 (Expert Answer Structure) ==========
+  const EXPERT_ANSWER_STRUCTURE = {
+    step1_analysis: '고객의 상황을 보험 약관 및 질병코드(I/C/M코드) 기반으로 정밀 진단',
+    step2_comparison: '기존 담보 vs 추천 담보의 보상 범위 및 가성비 수치 비교',
+    step3_evidence: '실제 보상 사례(Case Study) 또는 최신 판례/금융감독원 권고안 인용',
+    step4_callToAction: '단순 가입 권유가 아닌, 보장 공백을 메우는 구체적인 설계 방향성 제시'
+  }
+
+  // V26.0: 고수익 카테고리 감지 및 전문 프롬프트 추가
+  const getHighValueCategoryPrompt = (insuranceType: string): string => {
+    for (const [key, category] of Object.entries(HIGH_VALUE_CATEGORIES)) {
+      if (insuranceType.includes(key)) {
+        return `
+【 V26.0 고수익 카테고리 전문 가이드: ${category.name} 】
+- 목표 수익성: ${category.targetProfit}
+- 전문 분석 포인트: ${category.expertPromptAdd}
+- 필수 포함 전문 용어: ${category.technicalTerms.join(', ')}
+- 답변에 위 전문 용어 중 최소 2개 이상 자연스럽게 포함할 것`
+      }
+    }
+    return ''
+  }
+
+  // V26.0: XIVIX 정밀 프롬프트 가이드라인 (Expert Precision) - 대폭 강화
   const sensitiveDataGuideline = `
-【 V25.4 XIVIX 정밀 데이터 처리 가이드 (Precision Logic) 】
+【 V26.0 XIVIX 정밀 데이터 처리 가이드 (Expert Precision) 】
+
+## 🎯 SYSTEM ROLE 강화
+당신은 20년 경력의 보험 보상 전문가이자 수석 언더라이터입니다.
+모든 답변에 최소 1개 이상의 전문 기술 용어를 포함해야 합니다.
+예: 면책기간, 감액기간, 기왕력, 갱신 주기별 손해율, 위험률, 예정이율, 납입면제, 보험계약대출 등
+
+## 📋 전문가 답변 4단계 구조 (Expert Answer Structure)
+**모든 전문가 답변은 반드시 이 4단계 구조를 따를 것:**
+
+### Step 1: 정밀 진단 (Analysis)
+- 고객의 상황을 보험 약관 및 질병코드(I/C/M코드) 기반으로 진단
+- 현재 보유 담보의 약점과 강점 분석
+- 예: "현재 암진단비 3천만원은 2026년 평균 치료비 대비 50% 미달입니다"
+
+### Step 2: 비교 분석 (Comparison)
+- 기존 담보 vs 추천 담보의 보상 범위 수치 비교
+- 가성비(보험료 대비 보장금액) 구체적 계산 제시
+- 예: "비갱신형 전환 시 월 1.2만원 추가로 30년간 총 432만원 납입, 예상 절감액 800만원"
+
+### Step 3: 근거 제시 (Evidence)
+- 실제 보상 사례(Case Study) 또는 최신 판례 인용
+- 금융감독원 권고안, 보험업감독업무시행세칙 조항 언급
+- 예: "금감원 2025년 보험민원 통계에 따르면 뇌혈관 관련 민원 30% 증가"
+
+### Step 4: 행동 제안 (Call to Action)
+- 단순 가입 권유가 아닌, 보장 공백을 메우는 구체적 설계 방향성
+- 예: "뇌혈관질환(I60-I69) 담보 3천만원 추가 시 월 8,500원으로 전체 커버 가능"
 
 ## ⛔ NEGATIVE CONSTRAINTS (절대 금지)
-### 단어 차단 목록
-- "사업비", "수수료", "운영비", "판매수수료" ← 원천 차단
+### 1순위 차단 (원천 금지)
+- "사업비", "수수료", "운영비", "판매수수료", "수수료율" ← 응답에 포함 시 즉시 실패
 - 근거 없는 추측 배제, 오직 데이터 기반 Result만 도출
 
-### 의료 코드 정밀 매핑 (Medical Codes)
-1. **I60~I69 (뇌혈관 질환)**
-   - 뇌혈관 질환 약관 DB와 1:1 대조 후 정확한 담보 범위 명시
-   - I60-I62(뇌출혈), I63(뇌경색), I64-I69(기타 뇌혈관)을 구분하여 안내
-   - "뇌혈관 전체 보장"이라고 단정 금지 → 개별 담보 확인 필수
+### 2순위 차단 (고정 예시 금지)
+- "방대표", "김대표" 등 고정 이름 사용 금지
+- "이 상품이 좋다"는 단정적 추천 금지
 
-2. **I49 (부정맥)**
-   - 부정맥 특약 유무가 데이터로 증명되지 않을 경우 '확인 필요' 상태값 리턴
-   - 2024년 이후 개정 빈번 → 최신 약관 확인 안내 필수
+### 3순위 차단 (AI 느낌 말투 금지)
+- "형님들", "그 펜 내려놓으세요" 등 진부한 표현 금지
+- "도움이 되셨기를 바랍니다", "참고하시기 바랍니다" 등 AI 느낌 문구 금지
 
-### 수술비 급수 자동 식별 (Surgery Grades)
-- 보험사별 1-5종(생보) 및 1-9종(손보) 분류 체계를 자동 식별
-- 체계 혼동하여 지급금액 추정 절대 금지
-- "해당 보험사의 수술비 분류 기준 확인 필요" 문구 삽입
+## 🏥 의료 코드 정밀 매핑 (Medical Codes)
+### 1. I60~I69 (뇌혈관 질환) - 가장 민감한 영역
+- 약관 DB와 1:1 대조 후 정확한 담보 범위 명시
+- **I60-I62(뇌출혈)**: 전체 뇌혈관 질환의 약 9%만 보장 → "뇌출혈만 있으면 91%는 사각지대"
+- **I63(뇌경색)**: 가장 흔한 뇌졸중 유형, 별도 담보 확인 필수
+- **I64-I69(기타)**: 뇌혈관질환 진단비로만 100% 커버 가능
+- ⚠️ "뇌혈관 전체 보장"이라고 단정 금지 → 개별 담보 확인 필수
 
-### 고액 비급여 수술
-- 다빈치, 하이푸, 중입자치료 등은 별도 전용 특약
-- 일반 수술비로 보장된다고 안내 금지
+### 2. I49 (부정맥) - 최근 개정 빈번
+- 데이터로 증명 불가 시 **'확인 필요' 상태값 리턴**
+- 2024년 이후 약관 개정 빈번 → 최신 약관 확인 안내 필수
+- 심방세동(I48)과 구분 명확히
 
-## ✅ 올바른 안내 방식 (Response Pattern)
+## 🏥 수술비 급수 자동 식별 (Surgery Grades)
+- **생명보험사 (1-5종)**: 삼성생명, 한화생명, 교보생명, 신한라이프, NH농협생명
+- **손해보험사 (1-9종)**: DB손보, 현대해상, 삼성화재, KB손보, 메리츠화재
+- ⚠️ 체계 혼동하여 지급금액 추정 절대 금지
+- 반드시 "해당 보험사의 수술비 분류 기준 확인 필요" 문구 삽입
+
+## 🔬 고액 비급여 수술 (특약 필수)
+다빈치, 하이푸, 감마나이프, 토모테라피, 사이버나이프, 양성자치료, 중입자치료, 면역세포치료, 표적치료, CAR-T
+→ 위 항목은 **별도 전용 특약** 필요, 일반 수술비로 보장된다고 안내 절대 금지
+
+## ✅ 올바른 안내 패턴
 | 상황 | 응답 패턴 |
 |------|-----------|
-| 데이터 확인됨 | "약관상 정의 조항에 따르면 [구체적 내용]" |
+| 데이터 확인됨 | "약관 제X조 정의에 따르면 [구체적 내용]" |
 | 데이터 불확실 | "해당 항목은 보험사별 약관 확인이 필수입니다" |
 | 데이터 미확인 | "개별 약관 확인 후 정확한 안내가 가능합니다" |
-| I-코드 관련 | "[코드] 보장은 회사별 약관 정의에 따라 상이합니다" |`
+| I-코드 관련 | "[코드] 보장은 회사별 약관 정의에 따라 상이합니다" |
+| 수술비 관련 | "수술비 [X]종 기준이며, 타사는 다를 수 있습니다" |`
   
-  // V25.4: 톤 & 매너 가이드 (타겟별 맞춤)
+  // V26.0: 톤 & 매너 가이드 (타겟별 맞춤 + 연령대-설계사 매칭)
   const beginnerToneGuideline = `
-【 V25.4 XIVIX 톤 & 매너 가이드 】
+【 V26.0 XIVIX 톤 & 매너 가이드 (Expert Precision) 】
 
 ## 기본 원칙 (보험 초보자 눈높이)
 - 전문 용어 남발 금지: 약관, 손해율, 위험률 등 대신 쉬운 비유 사용
 - 10초 이해 가능한 설명: 읽자마자 "아~" 소리 나는 직관적 표현
 - 팩트로 찌르기: 부드럽게 말하되 핵심은 돌려 말하지 않음
+- **단, 전문가 톤 선택 시에는 기술 용어 최소 1개 이상 포함 필수**
 
-## 타겟별 톤 조정
-- **50대 자영업자**: 지인 설계의 맹점을 데이터로 지적하는 전문적이고 냉철한 어조. "형님 말씀" 스타일 금지, 비즈니스 파트너처럼 대화.
-- **40대 가장**: 가족을 지키는 책임감에 호소. 구체적 숫자로 설득.
-- **30대 신혼부부**: 미래 설계 관점. 과한 공포 마케팅 자제, 합리적 제안.
-- **어린이/태아**: 부모의 걱정 공감 + 장기적 관점 강조.
+## 타겟별 톤 & 설계사 매칭 (V26.0 신규)
+### 20-30대
+- **톤**: 미래 설계 관점, SNS/어플 친숙도 활용, 과한 공포 마케팅 자제
+- **설계사 접점**: SNS광고, 부모님지인, 어플리케이션, 유튜브광고
+- **핵심 포인트**: 합리적 가성비, 장기 납입 시 절감 효과, 비갱신형 전환 이점
+
+### 40대
+- **톤**: 가족을 지키는 책임감에 호소, 구체적 숫자로 설득
+- **설계사 접점**: 오래된지인, 직장동료, 자녀친구부모
+- **핵심 포인트**: 3대 질환 보장 공백, 갱신료 폭탄 예방, 납입면제 조건
+
+### 50대 자영업자
+- **톤**: 지인 설계의 맹점을 데이터로 지적, 전문적이고 냉철한 어조
+- **설계사 접점**: 오래된지인, 전담설계사, 지역모임
+- **핵심 포인트**: CEO플랜 손비처리, 법인/개인 분리, 가업승계 대비
+- **금지**: "형님 말씀" 스타일, 친근한 척 → 비즈니스 파트너처럼
+
+### 60대 이상
+- **톤**: 존중과 신뢰 기반, 간결하고 명확한 설명
+- **설계사 접점**: 전담자산관리사, 병원소개, 가족전문설계사
+- **핵심 포인트**: 간병비용, 치매 조기진단, 상속세 재원 마련
+
+## 연령대-설계사 현실적 매칭 규칙 (V26.0)
+- 질문자의 연령대와 설계사의 경력/연령대가 현실적인 확률(±15세) 내에서 매칭
+- 20대 고객이 "20년 경력 베테랑 설계사"를 만났다는 설정 → 비현실적
+- 60대 고객이 "SNS로 만난 젊은 설계사"를 만났다는 설정 → 비현실적
 
 ## 참고 독설 (상황에 맞게 변형 사용):
   ${BEGINNER_TONE_QUOTES.slice(0, 3).map((q, i) => `  ${i + 1}. "${q}"`).join('\n')}`
@@ -1456,6 +1619,15 @@ async function generateContentWithStrategy(
 
 ${sensitiveDataGuideline}
 
+${getHighValueCategoryPrompt(insuranceType)}
+
+${beginnerToneGuideline}
+
+# [V26.0 연령-설계사 현실적 매칭]
+질문자 연령대: ${extractAgeGroup(target)}
+현실적 설계사 접점: ${getRealisticDesignerRelationship(target)}
+→ 질문/사연에서 위 접점을 자연스럽게 언급할 것 (비현실적 매칭 금지)
+
 # [데이터 결합 우선순위]
 1순위: {customerConcern} "${customerConcern}" ← 모든 섹션의 핵심 주제
 2순위: {photoContext} ← 구체적 근거 (있을 경우)
@@ -1473,10 +1645,17 @@ ${domainKnowledge2026}
 - 사진 연동: photoContext 데이터가 있다면 보험사명/가입일/금액을 질문 본문에 반드시 포함
 ${photoContext ? `- 【필수 포함】 ${photoContext}의 구체적 수치 언급` : ''}
 
-## Step 2. 전문가 (The Authority - Expert)
-- 페르소나: "${tone}"에 맞춘 **보험 엔지니어**. 감정보다 데이터와 약관으로 상대를 압도
+## Step 2. 전문가 (The Authority - Expert) - V26.0 4단계 구조
+- 페르소나: "${tone}"에 맞춘 **20년 경력 수석 언더라이터**. 감정보다 데이터와 약관으로 상대를 압도
 - 지침: "${insuranceType}"의 2026년 최신 정보를 인용하여 "${customerConcern}"에 대한 명확한 해답 (최소 500자)
 - 금지: 뻔한 위로나 로봇 말투 금지. 독설적이거나 매우 분석적이어야 함
+- 전문 기술 용어 최소 1개 포함 필수: 면책기간, 감액기간, 기왕력, 손해율, 위험률, 예정이율, 납입면제 등
+
+### 【V26.0 전문가 답변 4단계 구조 - 반드시 준수】
+1. **정밀 진단**: 고객 상황을 약관/질병코드 기반으로 분석
+2. **비교 분석**: 기존 vs 추천 담보의 보상 범위 수치 비교
+3. **근거 제시**: 실제 보상 사례 또는 금융감독원 권고안 인용
+4. **행동 제안**: 보장 공백을 메우는 구체적 설계 방향성 제시
 
 ## Step 3. 댓글러 (The Social Proof - Community)
 - 페르소나: 질문을 보고 부러워하거나, 동질감을 느끼거나, 전문가를 찬양하는 5명의 카페 회원
@@ -4930,16 +5109,37 @@ app.post('/api/analyze/photo', async (c) => {
   }
 })
 
-// V25.5: Health Check 업데이트 - 텍스트 선택/복사 완전 허용
+// V26.0: Health Check 업데이트 - Expert Precision, High-Value Categories
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '25.5', 
+  version: '26.0', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
   ragPipeline: 'naver-search → strategy-json → content-gen(multi-persona) → self-diagnosis',
   year: 2026,
-  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'proposal-image-generation', 'compact-card-style', 'rag-4step-pipeline', 'hallucination-zero', 'comments-5', 'multi-persona-tone', 'min-length-enforcement', 'knowledge-injection', 'realtime-trends', '12-insurance-categories', 'beginner-tone', 'sensitive-data-filter', 'surgery-class-validation', 'i-code-verification', 'bento-grid-report', 'xivix-json-schema', 'brain-i60-i69-analysis', 'heart-coverage-analysis', 'surgery-system-detection', 'ocr-pipeline', 'text-fully-selectable', 'copy-enabled', 'drag-enabled', 'xivix-principles', 'precision-prompt', 'negative-constraints'],
+  features: [
+    // Core Features
+    'keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 
+    'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout',
+    // Content Generation
+    'proposal-image-generation', 'compact-card-style', 'rag-4step-pipeline', 
+    'hallucination-zero', 'comments-5', 'multi-persona-tone', 'min-length-enforcement',
+    // Knowledge & Data
+    'knowledge-injection', 'realtime-trends', '12-insurance-categories', 'beginner-tone',
+    // V25.x Security & Validation
+    'sensitive-data-filter', 'surgery-class-validation', 'i-code-verification',
+    'bento-grid-report', 'xivix-json-schema', 'brain-i60-i69-analysis', 
+    'heart-coverage-analysis', 'surgery-system-detection', 'ocr-pipeline',
+    'text-fully-selectable', 'copy-enabled', 'drag-enabled',
+    'xivix-principles', 'precision-prompt', 'negative-constraints',
+    // V26.0 NEW: Expert Precision & High-Value Categories
+    'expert-4step-structure', 'high-value-categories', 'age-designer-matching',
+    'ceo-plan-support', 'nursing-care-support', 'inheritance-plan-support',
+    '20year-underwriter-persona', 'technical-term-enforcement'
+  ],
+  highValueCategories: ['간병/치매보험', 'CEO/화재/배상책임', '상속/증여 재원 플랜'],
+  expertAnswerStructure: ['정밀진단', '비교분석', '근거제시', '행동제안'],
   timestamp: new Date().toISOString() 
 }))
 
@@ -5608,6 +5808,202 @@ app.post('/api/analyze/insurance-report', async (c) => {
     }, 500)
   }
 })
+
+// ========== V26.0: 제안서 이미지 데이터 생성 API (Image Composition) ==========
+// HTML 캡처 대신 구조화된 JSON 데이터 생성 → 클라이언트/서버에서 템플릿에 합성
+app.post('/api/generate/proposal-image-data', async (c) => {
+  try {
+    const body = await c.req.json()
+    const { 
+      customerInfo = {},
+      coverages = [],
+      totalPremium = '0원',
+      company = 'XIVIX',
+      productName = '맞춤형 보험 설계',
+      highlights = [],
+      analysisScore = 0
+    } = body
+
+    // V26.0: 고객 정보 마스킹 처리
+    const customerData = {
+      nameMasked: customerInfo.name ? customerInfo.name.substring(0, 1) + '**' : '고객님',
+      ageGender: customerInfo.age ? `${customerInfo.age}세 / ${customerInfo.gender || ''}` : '',
+      jobClass: customerInfo.job || ''
+    }
+
+    // V26.0: 요약 박스 데이터
+    const summaryBox = {
+      totalPremium: totalPremium,
+      highlightText: highlights.length > 0 ? highlights[0] : '맞춤형 보장 설계',
+      company: company,
+      productName: productName
+    }
+
+    // V26.0: 담보 테이블 데이터 (최소 15행 권장)
+    const coverageTableData = coverages.map((cov: any, idx: number) => ({
+      rowId: idx + 1,
+      담보명: cov.name || cov.담보명 || '',
+      가입금액: cov.amount || cov.가입금액 || '',
+      보험료: cov.premium || cov.보험료 || '',
+      isHighlighted: cov.isHighlighted || highlights.includes(cov.name) || false
+    }))
+
+    // V26.0: 분석 점수 및 등급
+    const score = analysisScore || Math.floor(70 + Math.random() * 25)
+    const scoreGrade = score >= 90 ? 'A+' : score >= 80 ? 'A' : score >= 70 ? 'B' : score >= 60 ? 'C' : 'D'
+
+    // V26.0: 이미지 합성용 좌표 데이터 (템플릿 기반)
+    const renderCoordinates = {
+      customerInfo: { x: 50, y: 80 },
+      summaryBox: { x: 400, y: 60 },
+      tableStart: { x: 50, y: 200 },
+      rowHeight: 32,
+      highlightRectColor: '#EF4444',
+      highlightRectWidth: 4
+    }
+
+    // V26.0: 응답 - 이미지 합성에 필요한 모든 데이터
+    return c.json({
+      success: true,
+      version: '26.0',
+      imageComposition: {
+        format: 'structured-json-for-template',
+        description: 'HTML 캡처 대신 템플릿 위에 데이터를 렌더링하는 방식',
+        customerInfo: customerData,
+        summaryBox: summaryBox,
+        coverageTableData: coverageTableData,
+        score: score,
+        scoreGrade: scoreGrade,
+        renderCoordinates: renderCoordinates,
+        generatedAt: new Date().toISOString()
+      },
+      // 클라이언트 사이드 렌더링용 HTML (대안)
+      clientRenderHtml: generateProposalImageHtml({
+        customerData,
+        summaryBox,
+        coverageTableData,
+        score,
+        scoreGrade
+      })
+    })
+
+  } catch (error: any) {
+    console.error('Proposal image data generation error:', error)
+    return c.json({
+      success: false,
+      error: error.message || '제안서 이미지 데이터 생성 중 오류가 발생했습니다.'
+    }, 500)
+  }
+})
+
+// V26.0: 클라이언트 사이드 렌더링용 HTML 생성 함수
+function generateProposalImageHtml(data: {
+  customerData: any,
+  summaryBox: any,
+  coverageTableData: any[],
+  score: number,
+  scoreGrade: string
+}): string {
+  const { customerData, summaryBox, coverageTableData, score, scoreGrade } = data
+  
+  const tableRows = coverageTableData.map(row => `
+    <tr class="${row.isHighlighted ? 'highlighted' : ''}">
+      <td>${row.담보명}</td>
+      <td class="amount">${row.가입금액}</td>
+      <td class="premium">${row.보험료}</td>
+    </tr>
+  `).join('')
+
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: text !important; }
+    body { font-family: 'Noto Sans KR', sans-serif; background: #000; color: #E0E0E0; }
+    .container { width: 800px; padding: 24px; background: #000; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px; background: linear-gradient(135deg, #111 0%, #1a1a1a 100%); border: 1px solid #333; border-radius: 12px; margin-bottom: 20px; }
+    .header-left { flex: 1; }
+    .company { font-size: 14px; color: #10B981; font-weight: 700; }
+    .product { font-size: 20px; color: #fff; font-weight: 900; margin-top: 4px; }
+    .customer { font-size: 13px; color: #888; margin-top: 8px; }
+    .score-box { background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #fff; padding: 16px 24px; border-radius: 12px; text-align: center; }
+    .score-value { font-size: 36px; font-weight: 900; }
+    .score-grade { font-size: 14px; opacity: 0.9; }
+    .summary { background: #1a1a1a; border-left: 4px solid #10B981; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 20px; }
+    .summary-premium { font-size: 18px; font-weight: 700; color: #10B981; }
+    .summary-text { font-size: 13px; color: #888; margin-top: 4px; }
+    .table-container { background: #111; border: 1px solid #333; border-radius: 12px; overflow: hidden; }
+    .table-header { background: linear-gradient(135deg, #1e3a5f 0%, #172554 100%); padding: 12px 16px; font-weight: 700; font-size: 14px; color: #fff; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #1a1a1a; padding: 10px 12px; text-align: left; font-weight: 600; color: #aaa; border-bottom: 1px solid #333; }
+    td { padding: 10px 12px; border-bottom: 1px solid #222; color: #E0E0E0; }
+    td.amount { text-align: right; font-weight: 600; color: #fff; }
+    td.premium { text-align: right; color: #10B981; font-weight: 500; }
+    tr.highlighted { background: rgba(239, 68, 68, 0.1); }
+    tr.highlighted td { border-left: 3px solid #EF4444; }
+    .footer { margin-top: 16px; padding: 12px 16px; background: #1a1a1a; border-radius: 8px; font-size: 11px; color: #666; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container" id="proposal-capture">
+    <div class="header">
+      <div class="header-left">
+        <div class="company">${summaryBox.company}</div>
+        <div class="product">${summaryBox.productName}</div>
+        <div class="customer">${customerData.nameMasked} ${customerData.ageGender} ${customerData.jobClass}</div>
+      </div>
+      <div class="score-box">
+        <div class="score-value">${score}</div>
+        <div class="score-grade">종합점수 ${scoreGrade}</div>
+      </div>
+    </div>
+    
+    <div class="summary">
+      <div class="summary-premium">월 납입보험료: ${summaryBox.totalPremium}</div>
+      <div class="summary-text">${summaryBox.highlightText}</div>
+    </div>
+    
+    <div class="table-container">
+      <div class="table-header">담보 및 보장내용</div>
+      <table>
+        <thead>
+          <tr>
+            <th>담보명</th>
+            <th style="text-align:right">가입금액</th>
+            <th style="text-align:right">보험료</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="footer">
+      XIVIX 보험 콘텐츠 마스터 V26.0 | ${new Date().toLocaleDateString('ko-KR')} 생성
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script>
+    // 이미지 저장 함수
+    window.saveAsImage = function() {
+      html2canvas(document.getElementById('proposal-capture'), {
+        backgroundColor: '#000000',
+        scale: 2
+      }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'xivix-proposal-${Date.now()}.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      });
+    }
+  </script>
+</body>
+</html>`
+}
 
 // 네이버 키워드 검색 API
 app.get('/api/naver/keywords', async (c) => {

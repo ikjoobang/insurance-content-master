@@ -59,11 +59,11 @@ async function callGeminiAPI(prompt: string, apiKeys: string | string[], retries
     const apiKey = keys[keyIndex % keys.length]
     
     try {
-      // V15.1: gemini-1.5-pro-002로 변경 (Reasoning/Context Window 향상)
-      // - Flash: 빠르지만 복잡한 프롬프트 지시사항 누락
-      // - Pro: 느리지만 검수→재생성 로직 정확 수행, Negative Constraints 준수
+      // V27.4: gemini-pro-latest 사용 (gemini-2.5-pro로 자동 매핑)
+      // - gemini-1.5-pro-002는 더 이상 사용 불가
+      // - 복잡한 프롬프트 지시사항 정확 수행, Negative Constraints 준수
       const response = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-002:generateContent?key=' + apiKey,
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=' + apiKey,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -486,7 +486,15 @@ ${style === 'highlight' ? '- Yellow highlighter marks on key numbers (premium, c
   return prompt
 }
 
+// V27.4: Gemini 이미지 생성 API 비활성화 (작동 안함)
+// 대신 HTML/CSS 렌더링 + html2canvas 캡처 방식 사용 (photo-compositing 모드)
+// 이 함수는 더 이상 호출되지 않음 - 레거시 코드로 유지
 async function generateInsuranceImage(data: ImageGenerationData, apiKey: string, allKeys?: string[]): Promise<{ success: boolean, imageUrl?: string, error?: string, model?: string }> {
+  // V27.4: 이미지 생성 API 비활성화 - HTML/CSS 렌더링으로 대체됨
+  console.log('[V27.4] generateInsuranceImage 호출됨 - photo-compositing 모드 사용 권장')
+  return { success: false, error: 'Gemini 이미지 생성 API 비활성화됨. photo-compositing 모드를 사용하세요.' }
+  
+  /* 레거시 코드 (비활성화)
   const prompt = buildCompactCardPrompt(data)
   
   // 모델 우선순위: gemini-2.5-flash-image > gemini-2.0-flash-preview-image-generation
@@ -557,6 +565,7 @@ async function generateInsuranceImage(data: ImageGenerationData, apiKey: string,
   }
   
   return { success: false, error: 'All image generation models and keys failed' }
+  레거시 코드 끝 */
 }
 
 // ========== SEO 점수 계산 함수 (C-Rank/D.I.A./Agent N) ==========
@@ -5736,10 +5745,10 @@ interface ProposalImageDataV2 {
 // V26.1: Health Check 업데이트 - Expert Precision, High-Value Categories + Negative Constraints
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '27.3', 
-  ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
-  textModel: 'gemini-1.5-pro-002',
-  imageModel: 'gemini-2.5-flash-image',
+  version: '27.4', 
+  ai: 'gemini-pro-latest + naver-rag + html2canvas', 
+  textModel: 'gemini-pro-latest (gemini-2.5-pro)',
+  imageModel: 'html2canvas (CSS rendering)',
   ragPipeline: 'naver-search → strategy-json → content-gen(multi-persona) → self-diagnosis',
   year: 2026,
   features: [
@@ -6340,9 +6349,9 @@ app.post('/api/analyze/insurance-report', async (c) => {
 
 주의: 불확실한 정보는 추측하지 말고 "확인필요"로 표기하세요.`
 
-          // Gemini 1.5 Pro Vision 호출
+          // Gemini Pro Vision 호출 (V27.4: gemini-pro-latest 사용)
           const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-002:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=${apiKey}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

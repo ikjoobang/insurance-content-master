@@ -5109,10 +5109,292 @@ app.post('/api/analyze/photo', async (c) => {
   }
 })
 
-// V26.0: Health Check 업데이트 - Expert Precision, High-Value Categories
+// ========== V26.1: NEGATIVE CONSTRAINTS - 금지어 필터 시스템 ==========
+// 절대 금지 키워드 목록 (AI 생성 콘텐츠에서 원천 차단)
+const FORBIDDEN_KEYWORDS = {
+  // 사업비 관련 (절대 금지)
+  business_expense: ['사업비', '사업비율', '운영비', '판매수수료', '수수료율', '수수료 비율', '설계사 수수료', '모집수수료', '판매비용'],
+  // 대체 용어 (이것으로 치환)
+  replacement_terms: {
+    '사업비': '보험운영비',
+    '수수료': '계약관리비용',
+    '운영비': '위험관리자산',
+    '판매수수료': '계약체결비용',
+    '사업비율': '보험료 구성비'
+  },
+  // 비현실적 페르소나 (차단)
+  unrealistic_personas: ['이모', '엄마 친구', '아버지 친구', '삼촌', '고모', '이모부', '형수', '올케'],
+  // AI 느낌 말투 (차단)
+  ai_style_phrases: ['안녕하세요!', '물론이죠!', '정말 좋은 질문이에요!', '기꺼이 도와드릴게요!']
+}
+
+// 금지어 필터링 함수 - 생성된 콘텐츠에서 금지어 치환/제거
+function filterForbiddenKeywords(content: string): { filtered: string, violations: string[] } {
+  let filtered = content
+  const violations: string[] = []
+  
+  // 사업비 관련 키워드 치환
+  for (const keyword of FORBIDDEN_KEYWORDS.business_expense) {
+    if (filtered.includes(keyword)) {
+      violations.push(keyword)
+      // 대체 용어로 치환
+      const replacement = FORBIDDEN_KEYWORDS.replacement_terms[keyword as keyof typeof FORBIDDEN_KEYWORDS.replacement_terms] || '보험운영비'
+      filtered = filtered.replace(new RegExp(keyword, 'g'), replacement)
+    }
+  }
+  
+  // 비현실적 페르소나 제거 (설계사 지칭 관련)
+  for (const persona of FORBIDDEN_KEYWORDS.unrealistic_personas) {
+    if (filtered.includes(persona + ' 설계사') || filtered.includes(persona + '가 권유') || filtered.includes(persona + '한테')) {
+      violations.push(`비현실적 페르소나: ${persona}`)
+      filtered = filtered.replace(new RegExp(persona + ' 설계사', 'g'), '담당 설계사')
+      filtered = filtered.replace(new RegExp(persona + '가 권유', 'g'), '지인이 권유')
+      filtered = filtered.replace(new RegExp(persona + '한테', 'g'), '지인한테')
+    }
+  }
+  
+  return { filtered, violations }
+}
+
+// ========== V26.1: CEO/법인 보험 카테고리 정밀 프롬프트 ==========
+interface CEOInsurancePromptConfig {
+  category_id: string
+  category_name: string
+  expert_persona: {
+    role: string
+    experience: string
+    tone: string
+    forbidden_words: string[]
+    mandatory_terms: string[]
+  }
+  precision_prompt_logic: {
+    problem_scenarios: string[]
+    solution_structure: string[]
+    term_pool: string[]
+  }
+  visual_template_match: {
+    template_type: string
+    layout_elements: string[]
+  }
+}
+
+const CEO_INSURANCE_PROMPT_CONFIG: CEOInsurancePromptConfig = {
+  category_id: 'ceo-corporate-liability',
+  category_name: 'CEO/법인/화재/배상책임보험',
+  expert_persona: {
+    role: '20년 경력 법인영업 전문 보험설계사 + 세무사 자격 보유',
+    experience: '중소기업 CEO 500+ 상담, 연매출 50억 이상 법인 전담',
+    tone: '신뢰감 있는 컨설턴트 어조, 숫자와 사례 중심',
+    forbidden_words: ['사업비', '수수료', '운영비', '개인보험처럼', '저렴한'],
+    mandatory_terms: ['시설소유관리자배상', '임원배상책임', '손비처리', '가업승계', '법인세절세', '퇴직급여충당금', '비과세한도', '연봉3천이상']
+  },
+  precision_prompt_logic: {
+    problem_scenarios: [
+      '직원 산재사고 발생 시 법인 책임 → 배상책임보험 미가입 시 대표 개인재산 위험',
+      '화재/누수로 건물 피해 → 시설소유관리자배상으로 제3자 피해 보상',
+      'CEO 유고 시 법인 연속성 → 키맨보험(핵심인물보험) 필요',
+      '퇴직연금/퇴직급여 충당 → 손비처리 가능한 보험 활용',
+      '가업승계 시 증여세 재원 → 종신보험 활용 절세 플랜'
+    ],
+    solution_structure: [
+      '1단계: 법인 리스크 진단 (사고/배상/핵심인물)',
+      '2단계: 현금흐름 분석 (손비처리 가능 금액)',
+      '3단계: 맞춤 설계 (배상책임+화재+키맨 패키지)',
+      '4단계: 세무 검토 (손비처리 한도, 비과세 요건)'
+    ],
+    term_pool: [
+      '시설소유관리자배상책임', '임원배상책임보험(D&O)', '생산물배상책임(PL)',
+      '손비처리', '비과세 한도', '퇴직급여충당금', '법인세 절세',
+      '키맨보험(핵심인물보험)', '가업승계 재원', '상속세 납부재원',
+      '대표자 유고 리스크', '법인 연속성', '주주배상책임'
+    ]
+  },
+  visual_template_match: {
+    template_type: 'corporate-proposal-premium',
+    layout_elements: ['법인 리스크 분석표', '손비처리 금액 계산', '패키지 견적', '세금 절감 효과']
+  }
+}
+
+// ========== V26.1: 고가치 카테고리 정밀 프롬프트 ==========
+const HIGH_VALUE_CATEGORY_PROMPTS: Record<string, string> = {
+  'CEO/법인/화재/배상책임': `
+【 V26.1 CEO/법인 보험 정밀 프롬프트 】
+
+■ 전문가 페르소나:
+역할: ${CEO_INSURANCE_PROMPT_CONFIG.expert_persona.role}
+경험: ${CEO_INSURANCE_PROMPT_CONFIG.expert_persona.experience}
+어조: ${CEO_INSURANCE_PROMPT_CONFIG.expert_persona.tone}
+
+■ 절대 금지 키워드: ${CEO_INSURANCE_PROMPT_CONFIG.expert_persona.forbidden_words.join(', ')}
+■ 필수 전문용어 (최소 3개 포함): ${CEO_INSURANCE_PROMPT_CONFIG.expert_persona.mandatory_terms.join(', ')}
+
+■ 문제 시나리오 (하나 선택해서 구체적으로):
+${CEO_INSURANCE_PROMPT_CONFIG.precision_prompt_logic.problem_scenarios.map((s, i) => `${i+1}. ${s}`).join('\n')}
+
+■ 해결 구조 (4단계):
+${CEO_INSURANCE_PROMPT_CONFIG.precision_prompt_logic.solution_structure.join('\n')}
+
+■ 전문 용어 풀 (자연스럽게 활용):
+${CEO_INSURANCE_PROMPT_CONFIG.precision_prompt_logic.term_pool.join(', ')}
+
+⚠️ 주의: "개인보험"처럼 설명하지 말 것. 법인의 리스크 관리 관점에서 설명!
+`,
+
+  '간병/치매보험': `
+【 V26.1 간병/치매 보험 정밀 프롬프트 】
+
+■ 전문가 페르소나:
+역할: 15년 경력 실버케어 전문 설계사 + 요양보호사 자격 보유
+경험: 60대 이상 노부모 케어 상담 1,000+ 건
+어조: 따뜻하면서도 현실적인 조언, 구체적 비용 제시
+
+■ 절대 금지: 사업비, 수수료, 운영비, 너무 걱정하지 마세요(현실 직시 필요)
+■ 필수 전문용어: ADL(일상생활동작), CDR척도, 경도인지장애(MCI), 재가급여, 장기요양등급(1-5등급), 치매안심센터, 체증형 일당
+
+■ 핵심 문제 시나리오:
+1. 부모님 치매 초기 증상 → 요양등급 신청 타이밍
+2. 요양병원 비용 폭등 → 체증형 간병일당 필요성
+3. 자녀 간병 부담 → 재가급여 vs 시설급여 선택
+4. 치매 진단 후 가입 불가 → 40-50대 사전 준비 중요
+
+■ 필수 수치 (2026년 기준):
+- 요양병원 월 평균: 150-250만원 (급식+요양+간병)
+- 재가급여 한도: 등급별 월 50-180만원
+- 간병인 일당: 12-18만원 (서울 기준, 연 5-10% 상승 중)
+- 치매 국가책임제: 치매안심센터 무료, 장기요양보험 90% 지원
+
+⚠️ "나중에 해도 돼요" 금지. 조기 가입의 중요성 강조!
+`,
+
+  '상속/증여 플랜': `
+【 V26.1 상속/증여 재원 플랜 정밀 프롬프트 】
+
+■ 전문가 페르소나:
+역할: 25년 경력 자산관리 전문 설계사 + 세무 컨설턴트
+경험: 순자산 10억 이상 고액자산가 500+ 상담
+어조: 격조 있고 신중한 컨설턴트 어조, 절세 전략 중심
+
+■ 절대 금지: 사업비, 수수료, 비용 부담, 단순 저축, 투자 추천
+■ 필수 전문용어: 상속세율(10-50%), 유류분, 10년 증여주기, 세무조사, 사전증여, 종신보험 상속재원, 비과세 요건, 연간 증여세 면제
+
+■ 핵심 문제 시나리오:
+1. 부동산 자산 → 상속세 납부 재원 부족 (현금화 어려움)
+2. 자녀 3명 균등 상속 → 유류분 분쟁 예방
+3. 사업체 가업승계 → 증여세+상속세 이중 과세
+4. 세무조사 리스크 → 정당한 절세 vs 탈세 구분
+
+■ 필수 수치 (2026년 기준):
+- 상속세율: 1억 이하 10%, 30억 초과 50%
+- 연간 증여세 면제: 성인 자녀 5천만원(10년간), 미성년 2천만원
+- 종신보험 상속재원: 사망보험금 상속세 과세 대상이나 납부재원으로 활용
+- 10년 증여주기: 10년마다 증여세 공제 리셋
+
+■ 플랜 설계 구조:
+1단계: 자산 현황 파악 (부동산/금융/사업체 비중)
+2단계: 상속세 추정 (예상 세율 구간 계산)
+3단계: 재원 마련 방안 (종신보험/저축보험 조합)
+4단계: 증여 시기 조절 (10년 단위 분산 증여)
+
+⚠️ "투자"나 "수익률" 관점으로 접근 금지. 철저히 "세금 대비 재원 마련" 관점!
+`
+}
+
+// ========== V26.1: 연령-설계사 매칭 현실화 (비현실적 시나리오 차단) ==========
+const REALISTIC_DESIGNER_MATCHING: Record<string, { channels: string[], avoid: string[], realistic_scenarios: string[] }> = {
+  '20대': {
+    channels: ['SNS 광고', '유튜브 후기', '앱(토스/카카오)', '부모님 소개', '직장 단체보험'],
+    avoid: ['이모', '엄마 친구', '아버지 지인'],
+    realistic_scenarios: [
+      '인스타그램 광고 보고 상담 신청',
+      '유튜브에서 보험 영상 보고 DM으로 연락',
+      '회사 입사하면서 단체보험 가입하라고 해서',
+      '토스/카카오에서 보험 추천받아서',
+      '부모님이 아는 설계사 소개시켜줘서'
+    ]
+  },
+  '30대': {
+    channels: ['결혼/출산 시 지인 소개', '직장 동료 추천', '온라인 비교 사이트', '보험다모아', '프리랜서는 앱'],
+    avoid: ['이모', '삼촌', '형수'],
+    realistic_scenarios: [
+      '결혼 준비하면서 와이프 친구가 설계사라',
+      '아이 낳고 육아카페에서 설계사 추천받아서',
+      '직장 동료가 본인 담당 설계사 소개시켜줬어요',
+      '보험다모아에서 비교하고 가장 싼 데로',
+      '프리랜서라 온라인으로 가입했어요'
+    ]
+  },
+  '40대': {
+    channels: ['오래된 담당 설계사', '직장 동료', '자녀 학부모 모임', '투잡/창업 관련 모임', '재테크 카페'],
+    avoid: ['엄마 친구', '이모부'],
+    realistic_scenarios: [
+      '10년 넘게 담당해주신 설계사님이',
+      '아이 학원에서 알게 된 학부모가 설계사라',
+      '직장 선배가 본인 설계사 추천해줬는데',
+      '재테크 카페에서 상담사 추천받아서',
+      '창업 모임에서 만난 사람이 보험도 한다고'
+    ]
+  },
+  '50대': {
+    channels: ['은퇴 설명회', 'VIP 자산관리사', '병원/건강검진 센터 연계', '동창회 모임', 'TV 광고'],
+    avoid: ['이모', '엄마 친구', '조카'],
+    realistic_scenarios: [
+      '회사 은퇴 설명회에서 만난 설계사가',
+      '건강검진 센터에서 연계해준 설계사',
+      '은행 VIP 담당자가 보험도 같이 봐준다고',
+      '동창 모임에서 보험하는 친구가 있어서',
+      'TV에서 광고 보고 전화 상담 받았어요'
+    ]
+  },
+  '60대': {
+    channels: ['전담 자산관리사', '병원 소개', '가족(자녀) 소개', '시니어 센터 설명회', '교회/종교 모임'],
+    avoid: ['이모', '엄마 친구', '아버지 지인'],
+    realistic_scenarios: [
+      '은행에서 20년 담당해주신 분이 보험도',
+      '아들이 본인 설계사 연결해줬어요',
+      '병원에서 간병보험 상담 받으라고 해서',
+      '시니어 센터에서 보험 설명회 들었는데',
+      '교회에서 권사님이 설계사 소개시켜줘서'
+    ]
+  }
+}
+
+// 페르소나 현실화 함수
+function getRealisticDesignerScenario(ageGroup: string): string {
+  const config = REALISTIC_DESIGNER_MATCHING[ageGroup] || REALISTIC_DESIGNER_MATCHING['30대']
+  const scenarios = config.realistic_scenarios
+  return scenarios[Math.floor(Math.random() * scenarios.length)]
+}
+
+// ========== V26.1: 제안서 이미지 합성 v2 - 고밀도 템플릿 기반 ==========
+interface ProposalImageDataV2 {
+  customer_info: {
+    name_masked: string  // 홍*동 형식
+    age_gender: string   // 45세 남성
+    job_class: string    // 1종(사무직)
+  }
+  summary_box: {
+    total_premium: string  // 월 납입보험료
+    highlight_text: string // 핵심 보장 요약
+  }
+  coverage_table_data: Array<{
+    row_id: number
+    coverage_name: string  // 담보명
+    coverage_amount: string  // 가입금액
+    premium: string  // 보험료
+    is_highlighted: boolean  // 빨간 테두리 강조 여부
+  }>
+  render_config: {
+    font_family: string
+    font_size_base: number
+    highlight_color: string
+    template_style: 'standard' | 'premium' | 'corporate'
+  }
+}
+
+// V26.1: Health Check 업데이트 - Expert Precision, High-Value Categories + Negative Constraints
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '26.0', 
+  version: '26.1', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
@@ -5136,10 +5418,19 @@ app.get('/api/health', (c) => c.json({
     // V26.0 NEW: Expert Precision & High-Value Categories
     'expert-4step-structure', 'high-value-categories', 'age-designer-matching',
     'ceo-plan-support', 'nursing-care-support', 'inheritance-plan-support',
-    '20year-underwriter-persona', 'technical-term-enforcement'
+    '20year-underwriter-persona', 'technical-term-enforcement',
+    // V26.1 NEW: Negative Constraints & Precision Prompts
+    'forbidden-keyword-filter', 'business-expense-ban', 'realistic-persona-matching',
+    'ceo-corporate-precision-prompt', 'nursing-care-precision-prompt', 
+    'inheritance-precision-prompt', 'proposal-image-v2-pipeline'
   ],
   highValueCategories: ['간병/치매보험', 'CEO/화재/배상책임', '상속/증여 재원 플랜'],
   expertAnswerStructure: ['정밀진단', '비교분석', '근거제시', '행동제안'],
+  negativeConstraints: {
+    forbiddenKeywords: ['사업비', '수수료', '운영비', '판매수수료', '수수료율'],
+    replacementTerms: { '사업비': '보험운영비', '수수료': '계약관리비용' },
+    unrealisticPersonas: ['이모', '엄마 친구', '아버지 친구']
+  },
   timestamp: new Date().toISOString() 
 }))
 
@@ -6750,12 +7041,47 @@ ${newAgeGroup}에 어울리는 현실적인 직업, 2-4글자로만, 설명없�
   }
 
   const domainKnowledge = get2026DomainKnowledge(insuranceType)
+  
+  // V26.1: 현실적 설계사 매칭 시나리오 가져오기
+  const realisticScenario = getRealisticDesignerScenario(ageGroup)
+  
+  // V26.1: 고가치 카테고리 정밀 프롬프트 (해당하는 경우)
+  let highValueCategoryPrompt = ''
+  if (insuranceType.includes('CEO') || insuranceType.includes('법인') || insuranceType.includes('화재') || insuranceType.includes('배상책임')) {
+    highValueCategoryPrompt = HIGH_VALUE_CATEGORY_PROMPTS['CEO/법인/화재/배상책임']
+  } else if (insuranceType.includes('간병') || insuranceType.includes('치매') || insuranceType.includes('요양') || insuranceType.includes('실버')) {
+    highValueCategoryPrompt = HIGH_VALUE_CATEGORY_PROMPTS['간병/치매보험']
+  } else if (insuranceType.includes('상속') || insuranceType.includes('증여') || insuranceType.includes('가업승계')) {
+    highValueCategoryPrompt = HIGH_VALUE_CATEGORY_PROMPTS['상속/증여 플랜']
+  }
 
   // ============================================================
   // V14.0 - 할루시네이션 방지: Context 강제 주입 프롬프트
+  // V26.1 - Negative Constraints 추가
   // ============================================================
   
   const qnaPrompt = `########################################################################
+#  🔴🔴🔴 V26.1 NEGATIVE CONSTRAINTS (절대 금지 규칙) 🔴🔴🔴  #
+########################################################################
+
+🚫 절대 금지 키워드 (이 단어들은 절대 사용하지 마세요!):
+- "사업비", "사업비율" → 대신 "보험운영비" 사용
+- "수수료", "수수료율", "판매수수료" → 대신 "계약관리비용" 사용  
+- "운영비" → 대신 "위험관리자산" 사용
+- "모집수수료", "설계사 수수료" → 언급 자체 금지
+
+🚫 비현실적 페르소나 금지 (이런 설계사 경로 사용 금지!):
+- "이모 설계사", "엄마 친구 설계사", "아버지 친구" → 대신 "담당 설계사", "지인 소개" 사용
+- "삼촌", "고모", "이모부" 등 친척 설계사 경로 → 대신 현실적 경로 사용
+
+✅ 현실적 설계사 접점 예시 (이것을 사용하세요!):
+"${realisticScenario}"
+
+🚫 AI 느낌 말투 금지:
+- "안녕하세요!" (느낌표 남발)
+- "물론이죠!", "기꺼이 도와드릴게요!" → 자연스러운 전문가 어조로
+
+########################################################################
 #  🔴🔴🔴 절대 규칙: 아래 핵심 고민이 모든 콘텐츠에 반드시 포함! 🔴🔴🔴  #
 ########################################################################
 
@@ -6774,7 +7100,10 @@ ${newAgeGroup}에 어울리는 현실적인 직업, 2-4글자로만, 설명없�
 ⚠️ 엉뚱한 내용 생성 시 실패로 간주됩니다!
 
 ########################################################################
-
+${highValueCategoryPrompt ? `
+${highValueCategoryPrompt}
+########################################################################
+` : ''}
 ${domainKnowledge}
 
 # System Context: 2026 보험 전문가
@@ -7365,7 +7694,7 @@ ${insuranceType}은 복잡해 보이지만 몇 가지만 확인하면 됩니다.
 [답변2]
 ${targetNickname}, ${customerConcern} 상황이시군요.
 비슷한 고민으로 상담 오시는 분들 정말 많아요. 혼자가 아니세요!
-${insuranceType}은 사업비가 25~35% 빠지는 구조예요.
+${insuranceType}은 보험운영비가 반영되어 있어서요.
 그래서 초기 몇 년은 해지환급금이 납입액보다 적을 수 있어요.
 하지만 7~10년 유지하면 원금 회복이 가능해요.
 감액완납이라는 옵션도 있으니 해지 전에 꼭 확인해보세요!
@@ -7404,7 +7733,7 @@ ${effectiveTarget} ${insuranceType} 고민 해결법, 쉽게 알려드려요
 ${insuranceType} 초보자 가이드, 이것만 알면 끝!
 
 [강조포인트]
-- ${insuranceType} 사업비 25-35% 함정 주의
+- ${insuranceType} 보험운영비 구조 이해하기
 - 2026년 기준 비갱신형 특약 확인 필수
 - 감액완납 옵션 활용법
 
@@ -7901,8 +8230,22 @@ ${insuranceType} 초보자 가이드, 이것만 알면 끝!
         expertStrategies: strategy?.expertStrategies ?? {}
       }
     },
+    // V26.1: Negative Constraints 적용 결과
+    negativeConstraints: {
+      applied: true,
+      filteredKeywords: (() => {
+        // 모든 콘텐츠에서 금지어 검사
+        const allContent = [
+          generatedTitle1, generatedTitle2,
+          ...questions, ...answers, ...comments
+        ].join(' ')
+        const { violations } = filterForbiddenKeywords(allContent)
+        return violations
+      })(),
+      realisticScenario: realisticScenario
+    },
     // 버전 정보
-    version: 'V18.4-GeminiRandomOccupation'
+    version: 'V26.1-NegativeConstraints'
   })
 })
 
@@ -7968,6 +8311,182 @@ app.post('/api/generate/proposal-image', async (c) => {
       success: false,
       error: result.error,
       docNumber: finalDocNumber
+    }, 500)
+  }
+})
+
+// ========== V26.1: 제안서 이미지 데이터 v2 API (고밀도 템플릿 기반) ==========
+app.post('/api/generate/proposal-image-data-v2', async (c) => {
+  const body = await c.req.json()
+  const {
+    companyName = '삼성생명',
+    insuranceType = '종신보험',
+    customerName = '홍길동',
+    customerAge = 45,
+    customerGender = '남성',
+    customerJob = '직장인',
+    monthlyPremium = '89,000원',
+    coverages = [],
+    highlightRows = [],  // 강조할 행 번호 배열
+    templateStyle = 'standard'  // standard, premium, corporate
+  } = body
+
+  const geminiKeys = getGeminiKeys(c.env)
+  if (geminiKeys.length === 0) {
+    return c.json({ success: false, error: 'API key not configured' }, 500)
+  }
+
+  // 이름 마스킹 (홍길동 → 홍*동)
+  const maskName = (name: string) => {
+    if (name.length <= 2) return name[0] + '*'
+    return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1]
+  }
+
+  // 직업 등급 분류
+  const getJobClass = (job: string) => {
+    const class1Jobs = ['사무직', '공무원', '교사', '의사', '변호사', '회계사', '은행원', 'IT개발자', '연구원']
+    const class2Jobs = ['영업직', '자영업', '프리랜서', '요리사', '미용사', '간호사', '약사']
+    const class3Jobs = ['건설업', '제조업', '운전기사', '배달원', '택배기사', '경비원']
+    
+    for (const j of class1Jobs) if (job.includes(j)) return '1종(사무직)'
+    for (const j of class2Jobs) if (job.includes(j)) return '2종(현장직)'
+    for (const j of class3Jobs) if (job.includes(j)) return '3종(위험직)'
+    return '1종(사무직)'  // 기본값
+  }
+
+  // AI로 고밀도 담보 테이블 생성 (최소 15개 행)
+  const generateCoveragePrompt = `당신은 ${insuranceType} 보험 설계 전문가입니다.
+${customerAge}세 ${customerGender} ${customerJob}을 위한 맞춤형 ${insuranceType} 보장 내역을 생성해주세요.
+
+【 절대 규칙 - V26.1 Negative Constraints 】
+- "사업비", "수수료", "운영비" 키워드 절대 사용 금지!
+- 담보명에 전문 용어 정확히 사용 (약관 기준)
+
+【 생성 조건 】
+- 최소 15개 이상의 담보 항목 생성
+- 각 담보별 가입금액과 월 보험료 포함
+- 2026년 기준 현실적인 보험료 산출
+- ${highlightRows.length > 0 ? `중요 담보 강조: ${highlightRows.join(', ')}번째 항목` : '핵심 담보 3-5개 자동 선별'}
+
+【 필수 포함 담보 (${insuranceType} 기준) 】
+${insuranceType === '종신보험' || insuranceType === '달러종신보험' ? `
+- 일반사망보험금
+- 재해사망보험금
+- 교통재해사망보험금
+- 암진단비(일반암)
+- 유사암진단비
+- 뇌혈관질환진단비
+- 급성심근경색진단비
+- 수술비(1-5종)
+- 입원일당
+- 통원치료비
+- 납입면제
+` : ''}
+${insuranceType === '암보험' ? `
+- 일반암진단비
+- 유사암진단비
+- 고액암진단비(췌장암, 뇌종양 등)
+- 소액암진단비
+- 암수술비
+- 암입원일당
+- 항암방사선치료비
+- 표적항암치료비
+- 암직접치료입원일당
+- 암통원치료비
+- 중입자치료비(특약)
+` : ''}
+${insuranceType === '간병보험' || insuranceType === '치매보험' ? `
+- 치매진단비
+- 경도인지장애진단비
+- 장기요양등급판정(1-2등급)
+- 장기요양등급판정(3-4등급)
+- 간병인일당(입원)
+- 간병인일당(재가급여)
+- ADL장애진단비
+- 치매간병비(체증형)
+- 치매치료비
+- 요양병원입원일당
+` : ''}
+
+【 출력 형식 (JSON) 】
+{
+  "coverages": [
+    { "row_id": 1, "coverage_name": "담보명", "coverage_amount": "가입금액", "premium": "월보험료", "is_highlighted": true/false },
+    ...
+  ],
+  "summary": {
+    "total_premium": "총 월납입보험료",
+    "highlight_text": "핵심 보장 요약 (1줄)"
+  }
+}`
+
+  try {
+    const aiResult = await callGeminiAPI(generateCoveragePrompt, geminiKeys)
+    
+    // JSON 파싱 시도
+    let parsedData: any = null
+    try {
+      const jsonMatch = aiResult.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        parsedData = JSON.parse(jsonMatch[0])
+      }
+    } catch (e) {
+      console.error('JSON 파싱 실패:', e)
+    }
+
+    // 기본값 또는 파싱된 데이터 사용
+    const finalCoverages = parsedData?.coverages || coverages.length > 0 ? coverages : [
+      { row_id: 1, coverage_name: '일반사망보험금', coverage_amount: '1억원', premium: '52,000원', is_highlighted: true },
+      { row_id: 2, coverage_name: '재해사망보험금', coverage_amount: '1억원', premium: '8,500원', is_highlighted: false },
+      { row_id: 3, coverage_name: '암진단비(일반암)', coverage_amount: '5,000만원', premium: '15,200원', is_highlighted: true },
+      { row_id: 4, coverage_name: '유사암진단비', coverage_amount: '1,000만원', premium: '3,200원', is_highlighted: false },
+      { row_id: 5, coverage_name: '고액암진단비', coverage_amount: '5,000만원', premium: '2,800원', is_highlighted: true },
+      { row_id: 6, coverage_name: '뇌혈관질환진단비', coverage_amount: '3,000만원', premium: '7,800원', is_highlighted: true },
+      { row_id: 7, coverage_name: '급성심근경색진단비', coverage_amount: '3,000만원', premium: '5,500원', is_highlighted: true },
+      { row_id: 8, coverage_name: '수술비(1종)', coverage_amount: '100만원', premium: '4,200원', is_highlighted: false },
+      { row_id: 9, coverage_name: '수술비(2종)', coverage_amount: '50만원', premium: '3,100원', is_highlighted: false },
+      { row_id: 10, coverage_name: '수술비(3종)', coverage_amount: '30만원', premium: '2,400원', is_highlighted: false },
+      { row_id: 11, coverage_name: '수술비(4종)', coverage_amount: '20만원', premium: '1,800원', is_highlighted: false },
+      { row_id: 12, coverage_name: '수술비(5종)', coverage_amount: '10만원', premium: '1,200원', is_highlighted: false },
+      { row_id: 13, coverage_name: '입원일당', coverage_amount: '5만원', premium: '6,500원', is_highlighted: false },
+      { row_id: 14, coverage_name: '통원치료비', coverage_amount: '3만원', premium: '4,800원', is_highlighted: false },
+      { row_id: 15, coverage_name: '납입면제', coverage_amount: '-', premium: '2,000원', is_highlighted: true }
+    ]
+
+    // V26.1 ProposalImageDataV2 형식으로 반환
+    const responseData: ProposalImageDataV2 = {
+      customer_info: {
+        name_masked: maskName(customerName),
+        age_gender: `${customerAge}세 ${customerGender}`,
+        job_class: getJobClass(customerJob)
+      },
+      summary_box: {
+        total_premium: parsedData?.summary?.total_premium || monthlyPremium,
+        highlight_text: parsedData?.summary?.highlight_text || `${insuranceType} 핵심 보장 ${finalCoverages.filter((c: any) => c.is_highlighted).length}개 포함`
+      },
+      coverage_table_data: finalCoverages,
+      render_config: {
+        font_family: 'Noto Sans KR',
+        font_size_base: 10,
+        highlight_color: '#FF0000',
+        template_style: templateStyle as 'standard' | 'premium' | 'corporate'
+      }
+    }
+
+    return c.json({
+      success: true,
+      data: responseData,
+      coverageCount: finalCoverages.length,
+      highlightedCount: finalCoverages.filter((c: any) => c.is_highlighted).length,
+      clientHtmlGeneration: true,  // 클라이언트에서 html2canvas로 렌더링하도록 안내
+      version: 'V26.1-ProposalImageDataV2'
+    })
+
+  } catch (error: any) {
+    console.error('Proposal image data v2 generation error:', error)
+    return c.json({
+      success: false,
+      error: error?.message || '제안서 데이터 생성 중 오류가 발생했습니다'
     }, 500)
   }
 })

@@ -1137,12 +1137,13 @@ ${factContext}
 ⚠️ 중요: 반드시 위 JSON 구조로만 응답하세요. 설명 텍스트 금지!`
 
   try {
-    const result = await callGeminiAPI(strategyPrompt, geminiKeys)
+    // V28.1: Flash 모델 사용 (전략 수립은 빠른 모델로)
+    const result = await callGeminiFlash(strategyPrompt, geminiKeys)
     const jsonMatch = result.match(/\{[\s\S]*\}/)
     
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]) as StrategyJSON
-      console.log('[RAG Step 2] 전략 수립 완료:', JSON.stringify(parsed.seoKeywords))
+      console.log('[RAG Step 2] 전략 수립 완료 (Flash):', JSON.stringify(parsed.seoKeywords))
       return parsed
     }
   } catch (error) {
@@ -4138,6 +4139,20 @@ const mainPageHtml = `
       div.textContent = text;
       return div.innerHTML;
     }
+    
+    // ========== V28.1: 텍스트 정제 함수 ==========
+    function cleanText(rawText) {
+      if (!rawText) return '';
+      return rawText
+        .replace(/\\\\n/g, '<br>')
+        .replace(/\\n/g, '<br>')
+        .replace(/\\(Analysis\\)|\\(Comparison\\)|\\(Evidence\\)|\\(Action\\)|\\(Conclusion\\)/gi, '')
+        .replace(/\\(분석\\)|\\(비교\\)|\\(근거\\)|\\(행동\\)|\\(결론\\)/g, '')
+        .replace(/Step \\d+:/g, function(match) { return '<br><b>' + match + '</b>'; })
+        .replace(/^\\s*[-•]\\s*/gm, '• ')
+        .replace(/<br><br><br>/g, '<br><br>')
+        .trim();
+    }
     // ========== V25.0: 실시간 트렌드 모듈 끝 ==========
     
     // 핵심고민에 '종신' 입력 시 보험종류에서 '운전자' 클릭하면 알람 표시
@@ -4591,8 +4606,45 @@ const mainPageHtml = `
         }
         
         // V27.1: 실사 합성 모드 (Photo Compositing) - CSS로 실사 효과 구현
-        if (data.success && (data.mode === 'html-capture' || data.mode === 'photo-compositing')) {
-          const d = data.data;
+        // V28.1: Fallback 데이터 추가 - AI 응답이 불완전해도 화면이 비지 않도록
+        if (data.success && (data.mode === 'html-capture' || data.mode === 'photo-compositing' || data.mode === 'savings-compositing')) {
+          
+          // Fallback 기본 데이터
+          const fallbackData = {
+            company: companyName || '삼성생명',
+            productFull: insuranceType + ' 맞춤 플랜',
+            user: customerAge + ' / ' + customerGender,
+            premium: currentDesignData?.monthlyPremium || '89,000원',
+            totalItems: 15,
+            highlightCount: 3,
+            brandColor: { main: '#0066B3', sub: '#004A8F' },
+            items: [
+              { name: '사망보장', amount: '1억원', premium: '32,000원', isHighlight: true },
+              { name: '암진단비(일반암)', amount: '5,000만원', premium: '18,500원', isHighlight: true },
+              { name: '뇌출혈진단비', amount: '3,000만원', premium: '8,200원', isHighlight: true },
+              { name: '급성심근경색진단비', amount: '3,000만원', premium: '5,800원', isHighlight: false },
+              { name: '재해사망', amount: '5,000만원', premium: '4,200원', isHighlight: false },
+              { name: '재해장해(3~100%)', amount: '5,000만원', premium: '3,500원', isHighlight: false },
+              { name: '입원일당(1일이상)', amount: '3만원', premium: '2,800원', isHighlight: false },
+              { name: '수술비(1~5종)', amount: '50~300만원', premium: '4,100원', isHighlight: false },
+              { name: '골절진단비', amount: '30만원', premium: '1,200원', isHighlight: false },
+              { name: '화상진단비', amount: '30만원', premium: '800원', isHighlight: false }
+            ]
+          };
+          
+          // data.data가 없거나 불완전하면 Fallback 사용
+          const rawD = data.data || {};
+          const d = {
+            company: rawD.company || fallbackData.company,
+            productFull: rawD.productFull || rawD.product_name || fallbackData.productFull,
+            user: rawD.user || rawD.customer_info || fallbackData.user,
+            premium: rawD.premium || fallbackData.premium,
+            totalItems: rawD.totalItems || rawD.items?.length || fallbackData.totalItems,
+            highlightCount: rawD.highlightCount || fallbackData.highlightCount,
+            brandColor: rawD.brandColor || fallbackData.brandColor,
+            items: (rawD.items && rawD.items.length > 0) ? rawD.items : fallbackData.items
+          };
+          
           const style = selectedImageStyle || 'phone-shot';
           
           // ============================================================
@@ -4839,6 +4891,15 @@ const mainPageHtml = `
           
           document.body.appendChild(renderArea);
           
+          // V28.1: 렌더링 완료 대기 - DOM이 완전히 그려진 후 캡처
+          await new Promise(resolve => {
+            requestAnimationFrame(() => {
+              requestAnimationFrame(resolve);
+            });
+          });
+          // 추가 안정성을 위한 짧은 대기
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
           // html2canvas로 캡처
           try {
             const canvas = await html2canvas(renderArea, {
@@ -5083,16 +5144,16 @@ const mainPageHtml = `
           document.getElementById('qna-title-section').classList.add('hidden');
         }
         
-        // V9.5: 질문 2개 업데이트
+        // V9.5: 질문 2개 업데이트 (V28.1: cleanText 적용)
         const questions = data.questions || [data.question];
-        document.getElementById('qna-q1').textContent = questions[0] || '';
-        document.getElementById('qna-q2').textContent = questions[1] || '(두 번째 질문이 생성되지 않았습니다)';
+        document.getElementById('qna-q1').innerHTML = cleanText(questions[0] || '');
+        document.getElementById('qna-q2').innerHTML = cleanText(questions[1] || '(두 번째 질문이 생성되지 않았습니다)');
         
-        // V9.5: 답변 3개 업데이트
+        // V9.5: 답변 3개 업데이트 (V28.1: cleanText 적용)
         const answers = data.answers || [data.answer];
-        document.getElementById('qna-a1').textContent = answers[0] || '';
-        document.getElementById('qna-a2').textContent = answers[1] || '(두 번째 답변이 생성되지 않았습니다)';
-        document.getElementById('qna-a3').textContent = answers[2] || '(세 번째 답변이 생성되지 않았습니다)';
+        document.getElementById('qna-a1').innerHTML = cleanText(answers[0] || '');
+        document.getElementById('qna-a2').innerHTML = cleanText(answers[1] || '(두 번째 답변이 생성되지 않았습니다)');
+        document.getElementById('qna-a3').innerHTML = cleanText(answers[2] || '(세 번째 답변이 생성되지 않았습니다)');
         document.getElementById('qna-char').textContent = (answers[0] || '').length + '자';
         
         // V9.5: 댓글 5개 업데이트 (각각 복사 가능)
@@ -5110,7 +5171,7 @@ const mainPageHtml = `
                 '<i class="fas fa-copy"></i>' +
               '</button>' +
             '</div>' +
-            '<div id="qna-c' + (i+1) + '" class="text-gray-200 text-xs leading-relaxed">' + c + '</div>' +
+            '<div id="qna-c' + (i+1) + '" class="text-gray-200 text-xs leading-relaxed">' + cleanText(c) + '</div>' +
           '</div>';
         }).join('');
         
@@ -7234,7 +7295,8 @@ app.post('/api/generate/qna-full', async (c) => {
 
 출력:`
 
-      const generatedOccupation = await callGeminiAPI(occupationPrompt, geminiKeys)
+      // V28.1: Flash 모델 사용 (짧은 텍스트 생성은 빠른 모델로)
+      const generatedOccupation = await callGeminiFlash(occupationPrompt, geminiKeys)
       const cleanOccupation = generatedOccupation.replace(/["\n\r:]/g, '').trim().slice(0, 10)
       target = `${ageGroup} ${cleanOccupation}`
       console.log(`[V23.1] Gemini 생성 직업: ${target}`)
@@ -7335,7 +7397,8 @@ app.post('/api/generate/qna-full', async (c) => {
 ${newAgeGroup}에 어울리는 현실적인 직업, 2-4글자로만, 설명없이.
 출력 예시: 자영업자`
 
-          const newOccupation = await callGeminiAPI(newOccupationPrompt, geminiKeys)
+          // V28.1: Flash 모델 사용 (짧은 텍스트 생성)
+          const newOccupation = await callGeminiFlash(newOccupationPrompt, geminiKeys)
           const cleanNewOccupation = newOccupation.replace(/["\n\r]/g, '').trim().slice(0, 10)
           adjustedTarget = `${newAgeGroup} ${cleanNewOccupation}`
           console.log(`[V18.4] 사진 기준 타깃 + Gemini 직업: ${target} → ${adjustedTarget}`)
@@ -7355,7 +7418,8 @@ ${newAgeGroup}에 어울리는 현실적인 직업, 2-4글자로만, 설명없�
 현실적이고 구체적인 고민을 50자 이내로 작성해주세요.
 이모티콘이나 특수문자 없이 순수 텍스트만 작성하세요.
 반드시 한 문장으로 작성하세요.`
-      customerConcern = await callGeminiAPI(concernPrompt, geminiKeys)
+      // V28.1: Flash 모델 사용 (짧은 고민 텍스트 생성)
+      customerConcern = await callGeminiFlash(concernPrompt, geminiKeys)
       customerConcern = cleanText(customerConcern.replace(/["\n]/g, '').trim())
     } catch (e) {
       // API 실패 시 보험종류별 기본 고민 제공
@@ -8650,7 +8714,8 @@ ${insuranceType} 초보자 가이드, 이것만 알면 끝!
 }`
 
     try {
-      const designData = await callGeminiAPI(designPrompt, geminiKeys)
+      // V28.1: Flash 모델 사용 (설계 데이터 JSON은 빠른 모델로)
+      const designData = await callGeminiFlash(designPrompt, geminiKeys)
       const jsonMatch = designData.match(/\{[\s\S]*\}/)
       
       if (jsonMatch) {
@@ -9220,10 +9285,10 @@ ${detectedInsuranceType === '달러종신보험' ? `
 위 형식을 정확히 따라 JSON만 출력하세요. 다른 설명 없이 { 로 시작해서 } 로 끝나야 합니다.
 담보는 반드시 15~18개, 보험료 합계는 ${calculatedPremium.toLocaleString()}원 ±10% 내로 맞추세요.`
 
-      console.log('[V27.3] Gemini API 호출 시작 - 정밀 프롬프트 + 2026년 실데이터 - 키 개수:', geminiKeys.length)
+      console.log('[V27.3] Gemini Flash 호출 시작 - 정밀 프롬프트 + 2026년 실데이터 - 키 개수:', geminiKeys.length)
       
-      // 기존 callGeminiAPI 함수 사용 (검증된 방식)
-      const text = await callGeminiAPI(dataPrompt, geminiKeys)
+      // V28.1: Flash 모델 사용 (설계서 JSON 데이터는 빠른 모델로)
+      const text = await callGeminiFlash(dataPrompt, geminiKeys)
       
       console.log('[V27.3] Gemini 응답 텍스트 길이:', text.length)
       
@@ -9458,7 +9523,8 @@ ${insuranceType === '간병보험' || insuranceType === '치매보험' ? `
 }`
 
   try {
-    const aiResult = await callGeminiAPI(generateCoveragePrompt, geminiKeys)
+    // V28.1: Flash 모델 사용 (담보 JSON 데이터는 빠른 모델로)
+    const aiResult = await callGeminiFlash(generateCoveragePrompt, geminiKeys)
     
     // JSON 파싱 시도
     let parsedData: any = null
@@ -9629,7 +9695,8 @@ GEO: (숫자)
 (개선안)`
 
   try {
-    const result = await callGeminiAPI(prompt, geminiKeys)
+    // V28.1: Flash 모델 사용 (분석/점수 생성은 빠른 모델로)
+    const result = await callGeminiFlash(prompt, geminiKeys)
     
     const seoMatch = result.match(/SEO:\s*(\d+)/i)
     const crankMatch = result.match(/C-RANK:\s*(\d+)/i)

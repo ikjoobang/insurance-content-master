@@ -1248,10 +1248,20 @@ async function generateContentWithStrategy(
   const contentPrompt = `# [Role]
 당신은 2026년 보험 시장을 분석하는 고지능 보험 마케팅 전문가입니다.
 
-# [CRITICAL: 변수 절대 준수 규칙]
-1. **예시 출력 금지:** 시스템에 저장된 그 어떤 예시 문장(육아맘, 직장인, 프리랜서 등)도 출력하지 마십시오.
-2. **타겟 일치:** 사용자가 '${target}'을 선택했다면, 질문자와 답변자는 반드시 '${target}'의 언어로 말해야 합니다.
-3. **종류 일치:** 사용자가 '${insuranceType}'을 선택했다면, 다른 보험(종합보험, 암보험 등)은 절대 언급하지 마십시오.
+# [CRITICAL: V24.0 절대 준수 규칙]
+## ⚠️ 금지어 (출력 시 즉시 재생성됨)
+- "방대표", "김대표", "이대표", "박대표", "최대표", "정대표" ← 절대 사용 금지!
+- 사용자가 선택하지 않은 타겟(예: 신혼부부 선택 시 "육아맘" 언급 금지)
+
+## 변수 절대 준수
+1. **예시 베끼기 금지:** 프롬프트 외부의 어떤 예시도 베끼지 마십시오.
+2. **타겟 일치:** "${target}"만 사용. 다른 타겟 언급 시 실패 처리.
+3. **종류 일치:** "${insuranceType}"만 사용. 다른 보험 섞기 금지.
+
+# [데이터 결합 우선순위 - V24.0]
+1순위: {customerConcern} ← 모든 섹션의 핵심 주제
+2순위: {photoContext} ← 구체적 근거 (있을 경우)
+3순위: {target}, {insuranceType}, {tone} ← 스타일 결정
 
 # [입력 데이터 - 최우선 적용!]
 ┌─────────────────────────────────────────────────────┐
@@ -1822,10 +1832,19 @@ async function selfDiagnoseContent(
   geminiKeys: string[],
   target: string = ''  // V23.0: target 검증 추가
 ): Promise<SelfDiagnosisResult> {
+  // V24.0: 금지어 검수 (방대표, 육아맘 등 할루시네이션 차단)
+  const FORBIDDEN_WORDS = ['방대표', '김대표', '이대표', '박대표', '최대표', '정대표']
+  const contentLower = generatedContent.toLowerCase()
+  
+  // 금지어 포함 여부 검사
+  const foundForbiddenWords = FORBIDDEN_WORDS.filter(word => contentLower.includes(word.toLowerCase()))
+  if (foundForbiddenWords.length > 0) {
+    console.log(`[V24.0 금지어 감지!] 발견된 금지어: ${foundForbiddenWords.join(', ')} - 자동 재생성 필요`)
+  }
+  
   // 먼저 로컬 검증 (빠른 체크)
   const concernKeywords = customerConcern.split(/[\s,]+/).filter(w => w.length > 1)
   const concernSubstring = customerConcern.substring(0, 15).toLowerCase()
-  const contentLower = generatedContent.toLowerCase()
   
   // 질문 섹션 추출
   const questionsSection = generatedContent.match(/\[질문1\][\s\S]*?(?=\[답변1\])/i)?.[0] || ''
@@ -1872,14 +1891,19 @@ async function selfDiagnoseContent(
   })
   
   const failReasons: string[] = []
+  
+  // V24.0: 금지어 검수 결과 추가 (최우선)
+  const hasForbiddenWords = foundForbiddenWords.length > 0
+  if (hasForbiddenWords) failReasons.push(`금지어 발견: ${foundForbiddenWords.join(', ')} - 할루시네이션`)
+  
   if (!hasConcernInQuestions) failReasons.push('질문에 핵심고민이 충분히 반영되지 않음')
   if (!hasConcernInAnswers) failReasons.push('답변에 핵심고민이 반영되지 않음')
   if (!hasInsuranceTypeInAnswers) failReasons.push(`답변에 "${insuranceType}"가 2회 이상 언급되지 않음`)
   if (!has2026Facts) failReasons.push('2026년 최신 트렌드가 답변에 반영되지 않음')
   if (!hasTargetMatch) failReasons.push(`TARGET 불일치: "${target}"가 출력에 반영되지 않음`)
   
-  // V23.0: target 일치 여부도 필수 조건에 추가
-  const overallPass = hasConcernInQuestions && hasConcernInAnswers && hasInsuranceTypeInAnswers && hasTargetMatch
+  // V24.0: 금지어 포함 시 무조건 실패 (할루시네이션 원천 차단)
+  const overallPass = !hasForbiddenWords && hasConcernInQuestions && hasConcernInAnswers && hasInsuranceTypeInAnswers && hasTargetMatch
   
   console.log(`[RAG Step 4] 자가 진단 - 통과: ${overallPass}, 실패 사유: ${failReasons.length}개`)
   if (!hasTargetMatch) console.log(`[V23.0 TARGET 실패] 입력: "${target}"`)

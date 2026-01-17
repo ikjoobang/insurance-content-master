@@ -8724,61 +8724,184 @@ app.post('/api/generate/proposal-image', async (c) => {
   
   if (geminiKeys.length > 0) {
     try {
-      // V27.1: 타사 설계서 데이터 생성 프롬프트 (이미지 생성 금지!)
-      const dataPrompt = `당신은 보험 설계 전문가입니다. 
-【 절대 규칙 】
-- 이미지를 생성하지 마세요! 데이터만 JSON 형식으로 출력하세요.
-- "사업비", "수수료", "운영비" 키워드 절대 사용 금지!
-- 담보명에 전문 용어 정확히 사용 (보험 약관 기준)
+      // ============================================================
+      // V27.2: 정밀 프롬프트 - 타사 설계서 데이터 생성
+      // ============================================================
+      
+      // 연령 숫자 추출
+      const ageNum = parseInt(customerAge.replace(/[^0-9]/g, '')) || 35
+      
+      // 보험사별 상품명 패턴
+      const productNamePatterns: Record<string, Record<string, string>> = {
+        '메트라이프생명': {
+          '달러종신보험': '(무)메트라이프 달러 유니버셜 종신보험',
+          '종신보험': '(무)메트라이프 프리미어 종신보험'
+        },
+        'AIA생명': {
+          '달러종신보험': '(무)AIA 달러 평생보장 종신보험',
+          '종신보험': '(무)AIA 프리미어 종신보험'
+        },
+        '푸르덴셜생명': {
+          '달러종신보험': '(무)푸르덴셜 달러 종신보험 II',
+          '종신보험': '(무)푸르덴셜 종신보험'
+        },
+        '삼성생명': {
+          '종신보험': '(무)삼성생명 New종신보험',
+          '암보험': '(무)삼성 다이렉트 암보험',
+          '실손보험': '삼성 실손의료보험(갱신형)'
+        },
+        '한화생명': {
+          '종신보험': '(무)한화생명 e종신보험',
+          '암보험': '(무)한화생명 NEW 암보험'
+        }
+      }
+      
+      // 연령/성별에 따른 기준 보험료 (월납 기준)
+      const basePremiumByAge: Record<string, Record<string, number>> = {
+        '달러종신보험': { '30': 380000, '35': 420000, '40': 480000, '45': 550000, '50': 650000 },
+        '종신보험': { '30': 85000, '35': 95000, '40': 115000, '45': 140000, '50': 175000 },
+        '암보험': { '30': 35000, '35': 45000, '40': 58000, '45': 75000, '50': 98000 },
+        '실손보험': { '30': 25000, '35': 32000, '40': 42000, '45': 55000, '50': 72000 },
+        '운전자보험': { '30': 28000, '35': 32000, '40': 38000, '45': 45000, '50': 55000 }
+      }
+      
+      // 기준 보험료 계산
+      const ageKey = String(Math.floor(ageNum / 5) * 5)
+      const premiumTable = basePremiumByAge[detectedInsuranceType] || basePremiumByAge['종신보험']
+      const basePremium = premiumTable[ageKey] || premiumTable['35']
+      const genderMultiplier = customerGender === '여성' ? 0.92 : 1.0
+      const calculatedPremium = Math.round(basePremium * genderMultiplier / 1000) * 1000
+      
+      // 상품명 결정
+      const companyProducts = productNamePatterns[detectedCompany] || productNamePatterns['삼성생명']
+      const suggestedProductName = companyProducts?.[detectedInsuranceType] || `(무)${detectedCompany} ${detectedInsuranceType}`
+      
+      // V27.2: 정밀 프롬프트 (Few-shot 예시 포함)
+      const dataPrompt = `당신은 15년 경력의 보험 설계 전문가입니다. 타사 보험 설계서를 분석하고 문제점을 찾아내는 역할입니다.
 
-【 생성 요청 】
-"${detectedCompany || companyName}"에서 판매하는 "${detectedInsuranceType}" 상품의 설계서 데이터를 가상으로 생성해주세요.
-고객 정보: ${customerAge} / ${customerGender}
-${customerConcern ? `고객 고민: ${customerConcern}` : ''}
+【 절대 규칙 - 위반 시 응답 무효 】
+1. 이미지 생성 금지 - 오직 JSON 데이터만 출력
+2. 금지 키워드: "사업비", "수수료", "운영비", "판매수수료", "수수료율" - 절대 사용 금지
+3. 대체 표현 사용: "초기 적립률 낮음", "위험관리자산 비중", "보장 유지 비용"
 
-【 출력 형식 - JSON 】
+【 고객 정보 】
+- 연령/성별: ${customerAge} / ${customerGender}
+- 보험 종류: ${detectedInsuranceType}
+- 보험사: ${detectedCompany}
+- 고객 고민: ${customerConcern || '해당 보험 가입 검토 중'}
+
+【 생성할 설계서 정보 】
+- 상품명 형식: ${suggestedProductName}
+- 기준 월보험료: 약 ${calculatedPremium.toLocaleString()}원 (±15% 범위)
+${detectedInsuranceType === '달러종신보험' ? `- USD 환산: 약 $${Math.round(calculatedPremium / 1350)} (환율 1,350원 기준)` : ''}
+
+【 출력 JSON 스키마 (정확히 따를 것) 】
 {
-  "company": "가상의 보험회사명",
-  "product_name": "가상의 상품명 (정식 상품명 형태로)",
+  "company": "${detectedCompany}",
+  "product_name": "정식 상품명 (무) 포함",
   "customer_info": "${customerAge} / ${customerGender}",
-  "premium": "월 납입보험료 (원화 또는 달러)",
-  "premium_usd": "(달러보험인 경우) USD 금액",
+  "premium": "${calculatedPremium.toLocaleString()}원",
+  ${detectedInsuranceType === '달러종신보험' ? `"premium_usd": "USD ${Math.round(calculatedPremium / 1350)}.00",` : ''}
+  "contract_period": "종신 또는 XX세 만기",
+  "payment_period": "20년납 또는 전기납",
   "table_rows": [
-    {"name": "담보명1", "amount": "가입금액", "premium": "월보험료", "isHighlight": true/false},
-    ... (최소 15개 이상)
+    {"name": "정확한 담보명", "amount": "가입금액", "premium": "개별 보험료", "isHighlight": true/false}
   ],
-  "bad_points": [
-    "이 설계의 문제점 1 (전문가 관점)",
-    "이 설계의 문제점 2",
-    "이 설계의 문제점 3"
-  ],
-  "expert_advice": "전문가 한줄 조언"
+  "bad_points": ["전문가 관점 문제점 1", "문제점 2", "문제점 3"],
+  "expert_advice": "핵심 조언 1문장"
 }
 
-【 담보 생성 규칙 】
+【 담보 테이블 작성 규칙 - 반드시 15~18행 】
 ${detectedInsuranceType === '달러종신보험' ? `
-- 달러 상품이므로 주요 담보 금액을 USD로 표기 (예: USD 100,000)
-- 일부 원화 특약도 포함 (예: 암진단비 5,000만원)
-- 환율 리스크 관련 문제점 포함
-- 예상 회사: 메트라이프, AIA, 푸르덴셜 스타일
+■ 달러종신보험 필수 담보 (USD 표기):
+1. 사망보험금(주계약) - USD 100,000 ~ 200,000
+2. 재해사망보험금 - USD 50,000 ~ 100,000
+3. 암진단비(원화) - 3,000만원 ~ 5,000만원 (isHighlight: true)
+4. 뇌혈관질환진단비(원화) - 2,000만원 ~ 3,000만원 (isHighlight: true)
+5. 급성심근경색진단비(원화) - 2,000만원 ~ 3,000만원 (isHighlight: true)
+6. 수술비(1~5종) - 10만원 ~ 500만원
+7. 입원일당 - 3만원 ~ 5만원
+8. 납입면제특약 - 해당 시 면제 (isHighlight: true)
+9. 정기특약 - USD 30,000 ~ 50,000
+10. CI진단특약 - 1,000만원 ~ 3,000만원
+11~15. 추가 담보 (갱신형/비갱신형 혼합)
+
+■ 개별 보험료 규칙:
+- 주계약(사망): 전체의 50~60%
+- CI/암/뇌/심장: 각 5~10%
+- 기타 특약: 각 2~5%
+- 합계가 ${calculatedPremium.toLocaleString()}원 근처가 되도록
 ` : detectedInsuranceType === '암보험' ? `
-- 암진단비(일반암/유사암/소액암) 필수
-- 표적항암치료비, 면역항암치료비 포함
-- 2026년 개정 약관 기준 담보명
+■ 암보험 필수 담보:
+1. 암진단비(일반암) - 3,000만원 ~ 5,000만원 (isHighlight: true)
+2. 암진단비(유사암) - 500만원 ~ 1,000만원
+3. 암진단비(소액암) - 500만원 ~ 1,000만원
+4. 표적항암약물허가치료비 - 1,000만원 ~ 3,000만원 (isHighlight: true)
+5. 면역항암약물허가치료비 - 1,000만원 ~ 3,000만원
+6. 항암방사선약물치료비 - 500만원 ~ 1,000만원
+7. 암수술비 - 300만원 ~ 500만원
+8. 암입원일당 - 5만원 ~ 10만원
+9. 암통원치료비 - 3만원 ~ 5만원
+10. 뇌혈관질환진단비 - 2,000만원 (isHighlight: true)
+11. 급성심근경색진단비 - 2,000만원
+12. 납입면제특약 - 해당 시 면제
+13~15. 갱신형 특약 (문제점으로 지적)
 ` : detectedInsuranceType === '종신보험' ? `
-- 일반사망/재해사망 기본 담보
-- CI특약, 납입면제 등 종신보험 특성 반영
+■ 종신보험 필수 담보:
+1. 사망보험금(주계약) - 1억원 ~ 2억원
+2. 재해사망보험금 - 1억원
+3. 암진단비 - 3,000만원 ~ 5,000만원 (isHighlight: true)
+4. 뇌혈관질환진단비 - 2,000만원 ~ 3,000만원 (isHighlight: true)
+5. 급성심근경색진단비 - 2,000만원 ~ 3,000만원 (isHighlight: true)
+6. CI진단특약 - 3,000만원
+7. 수술비(1~5종) - 10만원 ~ 500만원
+8. 입원일당 - 3만원 ~ 5만원
+9. 상해후유장해(3~100%) - 1억원
+10. 질병후유장해(80~100%) - 5,000만원
+11. 납입면제특약 - 해당 시 면제
+12~15. 정기특약, 가족생활자금 등
 ` : `
-- ${detectedInsuranceType} 특성에 맞는 담보 구성
-- 실제 보험사 설계서 스타일로 생성
+■ ${detectedInsuranceType} 담보 구성:
+- 해당 보험 종류의 핵심 담보 중심
+- 총 15~18개 담보
+- 핵심 담보 3~5개에 isHighlight: true
 `}
 
-【 bad_points 생성 규칙 - 전문가 분석 】
-- 갱신형 특약이 많은지, 보장 공백이 있는지, 보험료가 높은지 분석
-- "사업비", "수수료" 단어 대신 "초기 적립률", "위험관리자산" 표현 사용
-- 실제 전문가가 지적할 만한 포인트 3-5개
+【 bad_points 작성 규칙 - 전문가 시각 】
+반드시 3~5개의 구체적 문제점 작성:
+1. 갱신형 비중 문제: "갱신형 특약이 X개로 10년 후 보험료 상승 예상"
+2. 보장 공백: "XX 담보 미가입으로 보장 공백 발생"
+3. 보험료 효율: "동일 보장 대비 월 X만원 높은 수준"
+4. 납입기간: "전기납 구조로 총 납입액 증가"
+5. 해지환급금: "3년차 해지환급률 약 40~50% 수준으로 초기 적립률 낮음"
+※ "사업비", "수수료" 대신 "초기 적립률", "보장 유지 비용" 표현 사용
 
-JSON만 출력하세요. 다른 설명은 불필요합니다.`
+【 Few-shot 예시 (출력 형식 참고) 】
+{
+  "company": "메트라이프생명",
+  "product_name": "(무)메트라이프 달러 유니버셜 종신보험",
+  "customer_info": "35세 / 남성",
+  "premium": "420,000원",
+  "premium_usd": "USD 311.00",
+  "contract_period": "종신",
+  "payment_period": "20년납",
+  "table_rows": [
+    {"name": "사망보험금(주계약)", "amount": "USD 100,000", "premium": "231,000원", "isHighlight": false},
+    {"name": "재해사망보험금", "amount": "USD 50,000", "premium": "12,500원", "isHighlight": false},
+    {"name": "암진단비(일반암)", "amount": "5,000만원", "premium": "38,200원", "isHighlight": true},
+    {"name": "뇌혈관질환진단비", "amount": "3,000만원", "premium": "28,500원", "isHighlight": true},
+    {"name": "급성심근경색진단비", "amount": "3,000만원", "premium": "21,300원", "isHighlight": true}
+  ],
+  "bad_points": [
+    "갱신형 특약 4개로 10년 후 보험료 약 35% 상승 예상",
+    "뇌출혈/뇌경색 세부 담보 미가입으로 뇌혈관 보장 공백",
+    "환율 1,350원 기준 설계로 환율 상승 시 실질 보험료 증가",
+    "해지환급금 3년차 기준 납입액의 약 45% 수준으로 초기 적립률 낮음"
+  ],
+  "expert_advice": "갱신형 특약을 비갱신형으로 전환하고, 뇌출혈 담보 추가를 권장드립니다."
+}
+
+위 형식을 정확히 따라 JSON만 출력하세요. 다른 설명 없이 { 로 시작해서 } 로 끝나야 합니다.`
 
       const geminiKey = geminiKeys[Math.floor(Math.random() * geminiKeys.length)]
       const response = await fetch(

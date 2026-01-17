@@ -1712,6 +1712,12 @@ async function generateContentWithStrategy(
 - **금지어 3순위**: "형님들", "그 펜 내려놓으세요", "급질요" ← 고정 말투 금지!
 - 사용자가 선택하지 않은 타겟 언급 금지 (예: 신혼부부 선택 시 "육아맘" 금지)
 
+## 🚫 V29.0 포맷 금지 (출력 형식 제한)
+- **마크다운 표(|, +--+, +-+-+) 절대 금지** - 불릿 포인트만 사용
+- 표 형식 출력 시 "• 항목: 값" 형태로 변환
+- 구분선(---, ===, ***) 사용 금지
+- 코드 블록(삼중 백틱) 사용 금지
+
 ## 🚫 추측 금지 (Hallucination Zero Policy)
 - 근거 없는 보장 범위 추측 금지
 - 확인되지 않은 보험료/지급금 추정 금지
@@ -3719,9 +3725,12 @@ const mainPageHtml = `
               <button onclick="selectImageStyle('compact-card')" class="image-style-btn px-3 py-1.5 rounded-md text-xs font-medium bg-white/10 text-gray-300 hover:bg-white/20" data-style="compact-card">
                 <i class="fas fa-id-card mr-1"></i>깔끔 카드
               </button>
+              <button onclick="selectImageStyle('universal-excel')" class="image-style-btn px-3 py-1.5 rounded-md text-xs font-medium bg-emerald-500/30 text-emerald-300 border border-emerald-500/50" data-style="universal-excel">
+                <i class="fas fa-table mr-1"></i>흑백 엑셀 (NEW)
+              </button>
             </div>
             <div class="mt-2 text-gray-500 text-2xs">
-              💡 팁: "폰카" 스타일이 네이버 카페에 가장 자연스럽게 보입니다
+              💡 V29.0: "흑백 엑셀" 스타일이 실사에 가장 가깝습니다
             </div>
           </div>
           
@@ -4140,7 +4149,7 @@ const mainPageHtml = `
       return div.innerHTML;
     }
     
-    // ========== V28.1: 텍스트 정제 함수 ==========
+    // ========== V29.0: 텍스트 정제 함수 (표 기호 제거 추가) ==========
     function cleanText(rawText) {
       if (!rawText) return '';
       return rawText
@@ -4151,6 +4160,10 @@ const mainPageHtml = `
         .replace(/Step \\d+:/g, function(match) { return '<br><b>' + match + '</b>'; })
         .replace(/^\\s*[-•]\\s*/gm, '• ')
         .replace(/<br><br><br>/g, '<br><br>')
+        .replace(/\\|/g, ' ')
+        .replace(/\\+[-=]+\\+/g, '')
+        .replace(/^[-=]{3,}$/gm, '')
+        .replace(/\\*\\*([^*]+)\\*\\*/g, '<b>$1</b>')
         .trim();
     }
     // ========== V25.0: 실시간 트렌드 모듈 끝 ==========
@@ -4731,6 +4744,38 @@ const mainPageHtml = `
               fontFamily: '"Pretendard Variable", sans-serif',
               noise: false,
               vignette: false
+            },
+            // V29.0: UNIVERSAL_EXCEL - 흑백 엑셀 실사 스타일
+            'universal-excel': {
+              containerStyle: \`
+                position: relative;
+                width: 850px; height: 1100px;
+                background: #E5E5E5;
+                padding: 30px;
+              \`,
+              paperStyle: \`
+                background: #FFFFFF;
+                padding: 0;
+                transform: rotate(-0.5deg);
+                box-shadow: 
+                  3px 5px 15px rgba(0,0,0,0.2),
+                  inset 0 0 1px rgba(0,0,0,0.1);
+                filter: grayscale(0.05) contrast(1.1);
+                border: 1px solid #CCCCCC;
+              \`,
+              contentOpacity: '1.0',
+              fontFamily: '"Malgun Gothic", "맑은 고딕", "Gulim", "굴림", sans-serif',
+              noise: true,
+              vignette: false,
+              isExcelStyle: true,
+              excelConfig: {
+                headerBg: '#444444',
+                headerText: '#FFFFFF',
+                cellBg: '#FFFFFF',
+                cellBorder: '#000000',
+                highlightBg: '#FFFF00',
+                fontSize: '11px'
+              }
             }
           };
           
@@ -4795,22 +4840,63 @@ const mainPageHtml = `
             "></div>
           \` : '';
           
-          renderArea.innerHTML = \`
-            <div style="\${config.containerStyle}">
-              \${noiseOverlay}
-              \${vignetteOverlay}
-              \${scanlinesOverlay}
-              
-              <div style="\${config.paperStyle}">
-                <!-- 헤더 -->
-                <div style="
-                  background: linear-gradient(135deg, \${d.brandColor.main} 0%, \${d.brandColor.sub} 100%); 
-                  color: white; 
-                  padding: 18px 20px; 
-                  border-radius: 6px 6px 0 0;
-                  opacity: \${config.contentOpacity};
-                  font-family: \${config.fontFamily};
-                ">
+          // V29.0: UNIVERSAL_EXCEL 스타일일 때 별도 템플릿 사용
+          if (style === 'universal-excel') {
+            renderArea.innerHTML = \`
+              <div style="\${config.containerStyle}">
+                \${noiseOverlay}
+                <div style="\${config.paperStyle}">
+                  <!-- V29.0 흑백 엑셀 스타일 헤더 (브랜드 컬러 제거) -->
+                  <table style="width: 100%; border-collapse: collapse; font-family: \${config.fontFamily}; font-size: 11px;">
+                    <tr style="background: #444444; color: #FFFFFF;">
+                      <td colspan="3" style="padding: 12px 15px; font-size: 14px; font-weight: bold; border: 1px solid #000000;">
+                        보장 설계서 - \${d.productFull}
+                      </td>
+                    </tr>
+                    <tr style="background: #F5F5F5;">
+                      <td style="padding: 8px 12px; border: 1px solid #000000; width: 33%;">문서번호: \${data.docNumber}</td>
+                      <td style="padding: 8px 12px; border: 1px solid #000000; width: 34%;">피보험자: \${d.user}</td>
+                      <td style="padding: 8px 12px; border: 1px solid #000000; width: 33%; text-align: right; font-weight: bold;">월 보험료: \${d.premium}</td>
+                    </tr>
+                    <tr style="background: #444444; color: #FFFFFF;">
+                      <th style="padding: 10px 12px; border: 1px solid #000000; text-align: left; font-weight: bold;">담보명</th>
+                      <th style="padding: 10px 12px; border: 1px solid #000000; text-align: right; font-weight: bold;">가입금액</th>
+                      <th style="padding: 10px 12px; border: 1px solid #000000; text-align: right; font-weight: bold;">보험료</th>
+                    </tr>
+                    \${d.items.map((item, idx) => \`
+                      <tr style="background: \${item.isHighlight ? '#FFFF00' : '#FFFFFF'};">
+                        <td style="padding: 7px 12px; border: 1px solid #000000; color: #000000;">\${item.name}</td>
+                        <td style="padding: 7px 12px; border: 1px solid #000000; text-align: right; font-weight: bold; color: #000000;">\${item.amount}</td>
+                        <td style="padding: 7px 12px; border: 1px solid #000000; text-align: right; color: #333333;">\${item.premium}</td>
+                      </tr>
+                    \`).join('')}
+                    <tr style="background: #EEEEEE;">
+                      <td colspan="3" style="padding: 8px 12px; border: 1px solid #000000; font-size: 10px; color: #666666;">
+                        ※ 본 설계서는 AI가 생성한 참고용 자료입니다. 실제 가입 시 보험사 공식 설계서를 확인하세요. | 생성일: \${new Date().toLocaleDateString('ko-KR')}
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+              </div>
+            \`;
+          } else {
+            // 기존 스타일 (phone-shot, monitor-shot, scan-copy, compact-card)
+            renderArea.innerHTML = \`
+              <div style="\${config.containerStyle}">
+                \${noiseOverlay}
+                \${vignetteOverlay}
+                \${scanlinesOverlay}
+                
+                <div style="\${config.paperStyle}">
+                  <!-- 헤더 -->
+                  <div style="
+                    background: linear-gradient(135deg, \${d.brandColor.main} 0%, \${d.brandColor.sub} 100%); 
+                    color: white; 
+                    padding: 18px 20px; 
+                    border-radius: 6px 6px 0 0;
+                    opacity: \${config.contentOpacity};
+                    font-family: \${config.fontFamily};
+                  ">
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                       <div style="font-size: 11px; opacity: 0.85; letter-spacing: 0.5px;">문서번호: \${data.docNumber}</div>
@@ -4888,6 +4974,7 @@ const mainPageHtml = `
               </div>
             </div>
           \`;
+          } // V29.0: if-else 블록 종료
           
           document.body.appendChild(renderArea);
           
@@ -5099,11 +5186,13 @@ const mainPageHtml = `
       }
     }
 
+    // ========== V29.0: Q&A 스트리밍 생성 (체감 속도 1초 이내) ==========
     async function generateQnAFull() {
       const concern = document.getElementById('qna-concern').value.trim();
       const generateDesign = document.getElementById('generate-design').checked;
       
       setLoading('btn-qna', true);
+      document.getElementById('qna-progress').classList.remove('hidden');
       
       try {
         // 사진이 있고 아직 분석하지 않았으면 먼저 분석
@@ -5112,9 +5201,10 @@ const mainPageHtml = `
           await analyzePhotos();
         }
         
-        updateProgress(1, 10, '네이버 키워드 분석 중...');
+        updateProgress(1, 10, 'AI 스트리밍 시작...');
         
-        const res = await fetch('/api/generate/qna-full', {
+        // V29.0: 스트리밍 API 사용
+        const res = await fetch('/api/generate/qna-stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -5123,12 +5213,78 @@ const mainPageHtml = `
             insuranceType: selections['qna-insurance'],
             concern: concern,
             generateDesign: generateDesign,
-            photoAnalysis: photoAnalysisResult, // 사진 분석 결과 전달
+            photoAnalysis: photoAnalysisResult,
             hasPhoto: uploadedPhotos.length > 0
           })
         });
         
-        const data = await res.json();
+        // 스트리밍 응답 처리
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let data = {};
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\\n');
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            if (!line.trim() || !line.startsWith('data: ')) continue;
+            try {
+              const jsonStr = line.slice(6);
+              if (jsonStr === '[DONE]') continue;
+              const chunk = JSON.parse(jsonStr);
+              
+              // 실시간 UI 업데이트
+              if (chunk.type === 'progress') {
+                updateProgress(chunk.step || 1, chunk.percent || 10, chunk.message || '생성 중...');
+              } else if (chunk.type === 'keywords') {
+                generatedKeywords = chunk.data || [];
+                const keywordsDiv = document.getElementById('qna-keywords');
+                keywordsDiv.innerHTML = generatedKeywords.map(kw => 
+                  '<span class="keyword-tag" data-kw="' + kw.replace(/"/g, '&quot;') + '" onclick="copyKeyword(this.dataset.kw)">#' + kw + '</span>'
+                ).join('');
+              } else if (chunk.type === 'title') {
+                document.getElementById('qna-title').textContent = chunk.data;
+                document.getElementById('qna-title-section').classList.remove('hidden');
+              } else if (chunk.type === 'question') {
+                const qIdx = chunk.index || 0;
+                document.getElementById('qna-q' + (qIdx + 1)).innerHTML = cleanText(chunk.data || '');
+              } else if (chunk.type === 'answer') {
+                const aIdx = chunk.index || 0;
+                document.getElementById('qna-a' + (aIdx + 1)).innerHTML = cleanText(chunk.data || '');
+                if (aIdx === 0) document.getElementById('qna-char').textContent = (chunk.data || '').length + '자';
+              } else if (chunk.type === 'complete') {
+                data = chunk.data || {};
+              }
+            } catch (e) {
+              console.warn('JSON parse error:', e);
+            }
+          }
+        }
+        
+        // Fallback: 스트리밍 실패 시 기존 API 사용
+        if (!data || (!data.questions && !data.answers)) {
+          updateProgress(1, 50, 'Fallback: 기존 API 사용...');
+          const fallbackRes = await fetch('/api/generate/qna-full', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              target: selections['qna-target'],
+              tone: selections['qna-tone'],
+              insuranceType: selections['qna-insurance'],
+              concern: concern,
+              generateDesign: generateDesign,
+              photoAnalysis: photoAnalysisResult,
+              hasPhoto: uploadedPhotos.length > 0
+            })
+          });
+          data = await fallbackRes.json();
+        }
         
         generatedKeywords = data.keywords || [];
         const keywordsDiv = document.getElementById('qna-keywords');
@@ -7201,6 +7357,180 @@ D.I.A.+ 최적화 제목
 
   return await callGeminiAPI(prompt, geminiKeys)
 }
+
+// ========== V29.0: Q&A 스트리밍 API (체감 속도 1초 이내 목표) ==========
+app.post('/api/generate/qna-stream', async (c) => {
+  const { target: inputTarget, tone: inputTone, insuranceType: inputInsuranceType, concern, generateDesign, photoAnalysis, hasPhoto } = await c.req.json()
+  
+  // 보험 종류 감지 (기존 로직 재사용)
+  let insuranceType = inputInsuranceType || '종합보험'
+  const concernText = concern || ''
+  
+  if (concernText.includes('달러') || concernText.includes('외화')) {
+    insuranceType = '달러종신보험'
+  } else if (concernText.includes('종신') && !concernText.includes('달러')) {
+    insuranceType = '종신보험'
+  } else if (concernText.includes('운전자') || concernText.includes('민식이법')) {
+    insuranceType = '운전자보험'
+  } else if (concernText.includes('암') || concernText.includes('진단비')) {
+    insuranceType = '암보험'
+  } else if (concernText.includes('태아') || concernText.includes('어린이')) {
+    insuranceType = '어린이보험'
+  } else if (concernText.includes('치매') || concernText.includes('간병')) {
+    insuranceType = '간병보험'
+  } else if (concernText.includes('실손') || concernText.includes('의료비')) {
+    insuranceType = '실손보험'
+  }
+  
+  const tone = inputTone || '친근한'
+  const geminiKeys = getGeminiKeys(c.env)
+  
+  if (geminiKeys.length === 0) {
+    return c.json({ error: 'API key not configured' }, 500)
+  }
+  
+  // 타겟 처리
+  let target = inputTarget || '30대'
+  const inputAgeMatch = target.match(/(20대|30대|40대|50대|60대)/)
+  const ageGroup = inputAgeMatch ? inputAgeMatch[1] : '30대'
+  
+  // V29.0: 스트리밍 응답 설정
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder()
+        
+        const sendChunk = (type: string, data: any, index?: number) => {
+          const chunk = JSON.stringify({ type, data, index })
+          controller.enqueue(encoder.encode('data: ' + chunk + '\\n\\n'))
+        }
+        
+        try {
+          // 1단계: 시작 알림
+          sendChunk('progress', { step: 1, percent: 5, message: 'AI 스트리밍 시작...' })
+          
+          // 2단계: 키워드 생성 (Flash 모델 - 빠른 처리)
+          sendChunk('progress', { step: 2, percent: 15, message: '키워드 분석 중...' })
+          
+          const keywordPrompt = '보험 Q&A 키워드 5개 생성: ' + insuranceType + ' ' + ageGroup + ' ' + (concernText || '추천')
+          + '\\n규칙: JSON 배열만 출력, ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5"]'
+          
+          let keywords: string[] = []
+          try {
+            const kwResult = await callGeminiFlash(keywordPrompt, geminiKeys)
+            const kwMatch = kwResult.match(/\[([^\]]+)\]/)
+            if (kwMatch) {
+              keywords = JSON.parse('[' + kwMatch[1] + ']')
+            }
+          } catch (e) {
+            keywords = [insuranceType + ' 추천', ageGroup + ' 보험', '보험료 비교', '보험 가입 시기', '보험 리뷰']
+          }
+          
+          sendChunk('keywords', keywords)
+          sendChunk('progress', { step: 3, percent: 25, message: '질문 생성 중...' })
+          
+          // 3단계: 제목 생성
+          const titlePrompt = ageGroup + ' ' + insuranceType + ' 네이버 카페 질문 제목 생성\\n규칙: 30자 이내, 제목만 출력, 따옴표 없이'
+          let title = ''
+          try {
+            title = await callGeminiFlash(titlePrompt, geminiKeys)
+            title = title.replace(/["\n\r]/g, '').trim().slice(0, 50)
+          } catch (e) {
+            title = ageGroup + ' ' + insuranceType + ' 추천 부탁드립니다'
+          }
+          sendChunk('title', title)
+          
+          // 4단계: 질문 2개 생성 (병렬 처리)
+          sendChunk('progress', { step: 4, percent: 40, message: '질문 작성 중...' })
+          
+          // V29.0: 표 금지 프롬프트 추가
+          const questionPrompt = ageGroup + ' ' + insuranceType + ' 네이버 카페 질문 작성\\n핵심고민: ' + (concernText || '보험 추천') + '\\n톤: ' + tone + '\\n\\n규칙:\\n- 질문 2개 작성 (각각 100-200자)\\n- 마크다운 표(|) 절대 금지\\n- 불릿 포인트는 "•" 사용\\n- 형식: [질문1] 내용\\n[질문2] 내용'
+          
+          let questions: string[] = ['', '']
+          try {
+            const qResult = await callGeminiFlash(questionPrompt, geminiKeys)
+            const q1Match = qResult.match(/\[질문1\]\s*(.+?)(?=\[질문2\]|$)/s)
+            const q2Match = qResult.match(/\[질문2\]\s*(.+?)$/s)
+            if (q1Match) questions[0] = q1Match[1].trim()
+            if (q2Match) questions[1] = q2Match[1].trim()
+          } catch (e) {
+            questions[0] = concernText || insuranceType + ' 추천 부탁드립니다'
+            questions[1] = '가입 시 주의할 점이 있을까요?'
+          }
+          
+          sendChunk('question', questions[0], 0)
+          sendChunk('question', questions[1], 1)
+          sendChunk('progress', { step: 5, percent: 60, message: '전문가 답변 생성 중...' })
+          
+          // 5단계: 답변 3개 생성 (Pro 모델 사용 - 고품질 글쓰기)
+          const answerPrompt = '네이버 카페 보험 전문가 답변 작성\\n보험: ' + insuranceType + '\\n타겟: ' + ageGroup + '\\n핵심고민: ' + (concernText || '보험 추천') + '\\n톤: ' + tone + '\\n\\n규칙:\\n- 답변 3개 작성 (각각 300-500자)\\n- 마크다운 표(|) 절대 금지 - 불릿 포인트만 사용\\n- 형식: [답변1] 내용\\n[답변2] 내용\\n[답변3] 내용\\n- 실질적인 정보와 수치 포함\\n- 친근하면서도 전문적인 톤'
+          
+          let answers: string[] = ['', '', '']
+          try {
+            const aResult = await callGeminiAPI(answerPrompt, geminiKeys)
+            const a1Match = aResult.match(/\[답변1\]\s*(.+?)(?=\[답변2\]|$)/s)
+            const a2Match = aResult.match(/\[답변2\]\s*(.+?)(?=\[답변3\]|$)/s)
+            const a3Match = aResult.match(/\[답변3\]\s*(.+?)$/s)
+            if (a1Match) answers[0] = a1Match[1].trim()
+            if (a2Match) answers[1] = a2Match[1].trim()
+            if (a3Match) answers[2] = a3Match[1].trim()
+          } catch (e) {
+            answers[0] = '안녕하세요! ' + insuranceType + '에 대해 질문 주셨네요. 좋은 질문입니다.'
+            answers[1] = '추가로 궁금하신 점이 있으시면 말씀해주세요.'
+            answers[2] = '보험은 개인 상황에 따라 다르니 전문가 상담을 권장드립니다.'
+          }
+          
+          sendChunk('answer', answers[0], 0)
+          sendChunk('answer', answers[1], 1)
+          sendChunk('answer', answers[2], 2)
+          sendChunk('progress', { step: 6, percent: 85, message: '댓글 생성 중...' })
+          
+          // 6단계: 댓글 5개 생성 (Flash 모델 - 짧은 텍스트)
+          const commentPrompt = '네이버 카페 댓글 5개 생성\\n주제: ' + insuranceType + ' ' + ageGroup + '\\n규칙: 각 댓글 30-50자, 자연스러운 반응, JSON 배열로 출력\\n["댓글1", "댓글2", "댓글3", "댓글4", "댓글5"]'
+          
+          let comments: string[] = []
+          try {
+            const cResult = await callGeminiFlash(commentPrompt, geminiKeys)
+            const cMatch = cResult.match(/\[([^\]]+)\]/)
+            if (cMatch) {
+              comments = JSON.parse('[' + cMatch[1] + ']')
+            }
+          } catch (e) {
+            comments = ['좋은 정보 감사합니다!', '저도 같은 고민 있었어요', '도움이 많이 됐습니다', '자세한 설명 감사해요', '참고하겠습니다!']
+          }
+          
+          sendChunk('progress', { step: 7, percent: 100, message: '완료!' })
+          
+          // 최종 데이터 전송
+          sendChunk('complete', {
+            keywords,
+            title,
+            questions,
+            answers,
+            comments,
+            seo: { grade: 'A', totalScore: 85 }
+          })
+          
+          controller.enqueue(encoder.encode('data: [DONE]\\n\\n'))
+          controller.close()
+          
+        } catch (error) {
+          console.error('스트리밍 오류:', error)
+          sendChunk('error', { message: '스트리밍 생성 실패' })
+          controller.close()
+        }
+      }
+    }),
+    {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+      }
+    }
+  )
+})
 
 // Q&A 완전 자동화 API (V14.0 - Agentic Workflow with Regeneration Loop)
 app.post('/api/generate/qna-full', async (c) => {

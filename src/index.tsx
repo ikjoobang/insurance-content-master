@@ -5534,7 +5534,7 @@ interface ProposalImageDataV2 {
 // V26.1: Health Check 업데이트 - Expert Precision, High-Value Categories + Negative Constraints
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '26.1', 
+  version: '27.0', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
@@ -5562,7 +5562,10 @@ app.get('/api/health', (c) => c.json({
     // V26.1 NEW: Negative Constraints & Precision Prompts
     'forbidden-keyword-filter', 'business-expense-ban', 'realistic-persona-matching',
     'ceo-corporate-precision-prompt', 'nursing-care-precision-prompt', 
-    'inheritance-precision-prompt', 'proposal-image-v2-pipeline'
+    'inheritance-precision-prompt', 'proposal-image-v2-pipeline',
+    // V27.0 NEW: Auto-Detect & html2canvas
+    'insurance-type-auto-detect', 'html2canvas-capture-mode', 'bento-grid-analysis-report',
+    'mandatory-insurancetype-prompt', 'concern-text-priority'
   ],
   highValueCategories: ['간병/치매보험', 'CEO/화재/배상책임', '상속/증여 재원 플랜'],
   expertAnswerStructure: ['정밀진단', '비교분석', '근거제시', '행동제안'],
@@ -6296,7 +6299,7 @@ app.post('/api/generate/proposal-image-data', async (c) => {
     // V26.0: 응답 - 이미지 합성에 필요한 모든 데이터
     return c.json({
       success: true,
-      version: '26.0',
+      version: '27.0',
       imageComposition: {
         format: 'structured-json-for-template',
         description: 'HTML 캡처 대신 템플릿 위에 데이터를 렌더링하는 방식',
@@ -8725,7 +8728,7 @@ ${insuranceType === '간병보험' || insuranceType === '치매보험' ? `
       coverageCount: finalCoverages.length,
       highlightedCount: finalCoverages.filter((c: any) => c.is_highlighted).length,
       clientHtmlGeneration: true,  // 클라이언트에서 html2canvas로 렌더링하도록 안내
-      version: 'V26.1-ProposalImageDataV2'
+      version: 'V27.0-ProposalImageDataV2'
     })
 
   } catch (error: any) {

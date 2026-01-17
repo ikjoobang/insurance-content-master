@@ -1767,7 +1767,7 @@ ${realTalkTitle2}
 
 [질문1]
 급질문요 ㅠㅠ 저 ${target}인데요.
-엄마 친구 설계사 이모가 ${randomCompany} ${insuranceType} 무조건 좋다고 해서 월 ${randomAmount}만원짜리 가입했어요.
+유튜브에서 ${randomCompany} ${insuranceType} 광고 보고 상담받았는데, 설계사가 월 ${randomAmount}만원짜리가 좋다고 해서 가입했어요.
 ${customerConcern}
 근데 유튜브 보니까 초기 적립률이 낮다면서요? 이거 진짜예요?
 이미 3회차 납입했는데 지금이라도 손절하는 게 맞을까요?
@@ -3548,6 +3548,34 @@ const mainPageHtml = `
           </div>
         </div>
         
+        <!-- V27.0: Bento Grid 보장 분석 리포트 -->
+        <div id="bento-report-section" class="result-card p-4 lg:p-6 hidden mb-4 lg:mb-6">
+          <div class="flex items-center justify-between mb-3 lg:mb-4">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-md bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                <i class="fas fa-chart-bar text-white text-xs lg:text-sm"></i>
+              </div>
+              <span id="bento-report-header" class="font-semibold text-white text-sm lg:text-base">AI 보장 분석 리포트</span>
+            </div>
+            <span class="text-gray-400 text-xs">XIVIX PRO</span>
+          </div>
+          
+          <!-- Bento Grid 영역 -->
+          <div id="bento-report-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+            <!-- JavaScript로 동적 렌더링 -->
+          </div>
+          
+          <!-- 요약 정보 -->
+          <div class="bg-white/5 rounded-lg p-3">
+            <div id="bento-report-summary" class="text-sm text-gray-300 mb-2">
+              <!-- 핵심/권장/선택 개수 -->
+            </div>
+            <div id="bento-report-recommend" class="text-xs text-gray-400">
+              <!-- 권장 사항 -->
+            </div>
+          </div>
+        </div>
+        
         <!-- 설계서 (텍스트 표 형식 - 복사 가능) - 전체 너비 -->
         <div id="design-section" class="result-card p-4 lg:p-6 hidden mb-4 lg:mb-6">
           <div class="flex items-center justify-between mb-3 lg:mb-4">
@@ -4366,14 +4394,90 @@ const mainPageHtml = `
         
         const data = await res.json();
         
-        document.getElementById('image-loading').classList.add('hidden');
-        
-        if (data.success && data.imageUrl) {
+        // V27.0: html2canvas 캡처 모드 처리
+        if (data.success && data.mode === 'html-capture') {
+          // 숨겨진 렌더링 영역에 HTML 생성
+          const renderArea = document.createElement('div');
+          renderArea.id = 'proposal-render-area';
+          renderArea.style.cssText = 'position: absolute; left: -9999px; top: 0; width: 800px; background: white; padding: 20px; font-family: "Pretendard Variable", sans-serif;';
+          
+          const d = data.data;
+          const highlightStyle = 'background: linear-gradient(90deg, #fee2e2 0%, #fecaca 100%); border-left: 3px solid #dc2626;';
+          
+          renderArea.innerHTML = \`
+            <div style="background: linear-gradient(135deg, \${d.brandColor.main} 0%, \${d.brandColor.sub} 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div style="font-size: 14px; opacity: 0.9;">문서번호: \${data.docNumber}</div>
+                  <div style="font-size: 24px; font-weight: 700; margin-top: 8px;">\${d.productFull}</div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 12px; opacity: 0.8;">월 납입보험료</div>
+                  <div style="font-size: 28px; font-weight: 800;">\${d.premium}</div>
+                </div>
+              </div>
+              <div style="margin-top: 12px; font-size: 13px; opacity: 0.9;">
+                피보험자: \${d.user} | 생성일: \${new Date().toLocaleDateString('ko-KR')}
+              </div>
+            </div>
+            <div style="background: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e2e8f0;">
+              <div style="font-size: 15px; font-weight: 600; color: #1e293b;">
+                📋 보장내역 상세 (총 \${d.totalItems}개 담보, <span style="color: #dc2626;">\${d.highlightCount}개 핵심 담보</span>)
+              </div>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <thead>
+                <tr style="background: #f1f5f9;">
+                  <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1; width: 50%;">담보명</th>
+                  <th style="padding: 10px; text-align: right; border-bottom: 2px solid #cbd5e1; width: 25%;">가입금액</th>
+                  <th style="padding: 10px; text-align: right; border-bottom: 2px solid #cbd5e1; width: 25%;">보험료</th>
+                </tr>
+              </thead>
+              <tbody>
+                \${d.items.map((item, idx) => \`
+                  <tr style="\${item.isHighlight ? highlightStyle : (idx % 2 === 0 ? 'background: white;' : 'background: #f8fafc;')}">
+                    <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">
+                      \${item.isHighlight ? '🔴 ' : ''}\${item.name}
+                    </td>
+                    <td style="padding: 10px; text-align: right; border-bottom: 1px solid #e2e8f0; font-weight: 600;">\${item.amount}</td>
+                    <td style="padding: 10px; text-align: right; border-bottom: 1px solid #e2e8f0; color: #6b7280;">\${item.premium}</td>
+                  </tr>
+                \`).join('')}
+              </tbody>
+            </table>
+            <div style="background: #fef3c7; padding: 12px 20px; font-size: 11px; color: #92400e; border-radius: 0 0 8px 8px;">
+              \${d.disclaimer}
+            </div>
+          \`;
+          
+          document.body.appendChild(renderArea);
+          
+          // html2canvas로 캡처
+          try {
+            const canvas = await html2canvas(renderArea, {
+              scale: 2,
+              useCORS: true,
+              logging: false,
+              backgroundColor: '#ffffff'
+            });
+            
+            generatedImageUrl = canvas.toDataURL('image/png');
+            document.getElementById('proposal-image').src = generatedImageUrl;
+            document.getElementById('image-doc-number').textContent = '문서번호: ' + data.docNumber;
+            document.getElementById('image-loading').classList.add('hidden');
+            showToast('고퀄리티 설계서 생성 완료! (html2canvas)');
+          } finally {
+            document.body.removeChild(renderArea);
+          }
+        } else if (data.success && data.imageUrl) {
+          // 기존 방식 fallback (AI 생성 이미지)
           generatedImageUrl = data.imageUrl;
           document.getElementById('proposal-image').src = data.imageUrl;
           document.getElementById('image-doc-number').textContent = '문서번호: ' + data.docNumber;
+          document.getElementById('image-loading').classList.add('hidden');
           showToast('설계서 이미지 생성 완료!');
         } else {
+          document.getElementById('image-loading').classList.add('hidden');
           showToast('이미지 생성 실패: ' + (data.error || '알 수 없는 오류'));
           document.getElementById('image-preview-section').classList.add('hidden');
         }
@@ -4653,6 +4757,42 @@ const mainPageHtml = `
         } else {
           document.getElementById('design-section').classList.add('hidden');
           currentDesignData = null;
+        }
+        
+        // V27.0: Bento Grid 보장 분석 리포트 렌더링
+        if (data.bentoGridReport) {
+          const reportSection = document.getElementById('bento-report-section');
+          if (reportSection) {
+            reportSection.classList.remove('hidden');
+            const report = data.bentoGridReport;
+            
+            const gridHtml = report.gridItems.map(item => {
+              const bgColor = item.priority === 'high' ? '#fef2f2' : (item.priority === 'medium' ? '#fffbeb' : '#f0fdf4');
+              const borderColor = item.priority === 'high' ? '#fecaca' : (item.priority === 'medium' ? '#fde68a' : '#bbf7d0');
+              const statusColor = item.priority === 'high' ? '#dc2626' : (item.priority === 'medium' ? '#d97706' : '#16a34a');
+              
+              return \`
+                <div style="background: \${bgColor}; border: 1px solid \${borderColor}; border-radius: 12px; padding: 14px;">
+                  <div style="font-size: 13px; font-weight: 600; color: #1f2937; margin-bottom: 6px;">\${item.item}</div>
+                  <div style="font-size: 11px; color: \${statusColor}; font-weight: 600; margin-bottom: 4px;">● \${item.status}</div>
+                  <div style="font-size: 10px; color: #6b7280;">현재: \${item.current}</div>
+                  <div style="font-size: 11px; color: #059669; font-weight: 500;">권장: \${item.recommend}</div>
+                </div>
+              \`;
+            }).join('');
+            
+            document.getElementById('bento-report-header').textContent = report.header;
+            document.getElementById('bento-report-grid').innerHTML = gridHtml;
+            document.getElementById('bento-report-summary').innerHTML = \`
+              <span style="color: #dc2626;">●</span> 핵심 \${report.summary.highPriority}개 
+              <span style="color: #d97706;">●</span> 권장 \${report.summary.mediumPriority}개 
+              <span style="color: #16a34a;">●</span> 선택 \${report.summary.lowPriority}개
+            \`;
+            document.getElementById('bento-report-recommend').textContent = report.summary.recommendation;
+          }
+        } else {
+          const reportSection = document.getElementById('bento-report-section');
+          if (reportSection) reportSection.classList.add('hidden');
         }
         
         // SEO 점수 패널 업데이트
@@ -6603,7 +6743,43 @@ D.I.A.+ 최적화 제목
 app.post('/api/generate/qna-full', async (c) => {
   const { target: inputTarget, tone: inputTone, insuranceType: inputInsuranceType, concern, generateDesign, photoAnalysis, hasPhoto } = await c.req.json()
   
-  const insuranceType = inputInsuranceType || '종합보험'  // 기본 보험종류
+  // ============================================================
+  // V27.0 - 보험 종류 자동 감지 로직 (텍스트 입력 우선)
+  // 사용자가 텍스트창에 입력한 내용에서 보험 종류를 자동 감지하여 버튼 선택보다 우선
+  // ============================================================
+  let insuranceType = inputInsuranceType || '종합보험'
+  const concernText = concern || ''
+  
+  // 텍스트에 강력한 키워드가 있으면 버튼 선택 무시
+  if (concernText.includes('달러') || concernText.includes('외화') || concernText.includes('USD')) {
+    insuranceType = '달러종신보험'
+    console.log(`[V27.0] 텍스트에서 '달러' 감지 → 보험종류: ${insuranceType}`)
+  } else if (concernText.includes('종신') && !concernText.includes('달러')) {
+    insuranceType = '종신보험'
+    console.log(`[V27.0] 텍스트에서 '종신' 감지 → 보험종류: ${insuranceType}`)
+  } else if (concernText.includes('운전자') || concernText.includes('민식이법') || concernText.includes('베도')) {
+    insuranceType = '운전자보험'
+    console.log(`[V27.0] 텍스트에서 '운전자' 감지 → 보험종류: ${insuranceType}`)
+  } else if (concernText.includes('암') || concernText.includes('cancer') || concernText.includes('진단비')) {
+    insuranceType = '암보험'
+    console.log(`[V27.0] 텍스트에서 '암' 감지 → 보험종류: ${insuranceType}`)
+  } else if (concernText.includes('태아') || concernText.includes('어린이') || concernText.includes('아이')) {
+    insuranceType = '어린이보험'
+    console.log(`[V27.0] 텍스트에서 '태아/어린이' 감지 → 보험종류: ${insuranceType}`)
+  } else if (concernText.includes('치매') || concernText.includes('간병')) {
+    insuranceType = '간병보험'
+    console.log(`[V27.0] 텍스트에서 '치매/간병' 감지 → 보험종류: ${insuranceType}`)
+  } else if (concernText.includes('실손') || concernText.includes('의료비')) {
+    insuranceType = '실손보험'
+    console.log(`[V27.0] 텍스트에서 '실손' 감지 → 보험종류: ${insuranceType}`)
+  } else if (concernText.includes('상속') || concernText.includes('증여')) {
+    insuranceType = '상속/증여 재원 플랜'
+    console.log(`[V27.0] 텍스트에서 '상속/증여' 감지 → 보험종류: ${insuranceType}`)
+  } else if (concernText.includes('CEO') || concernText.includes('법인') || concernText.includes('화재') || concernText.includes('배상책임')) {
+    insuranceType = 'CEO/화재/배상책임'
+    console.log(`[V27.0] 텍스트에서 'CEO/법인' 감지 → 보험종류: ${insuranceType}`)
+  }
+  
   const tone = inputTone || '친근한'  // 기본 톤
   
   // 환경 변수에서 API 키 가져오기 (Cloudflare Secrets) - 4개 키 로테이션
@@ -7061,6 +7237,20 @@ ${newAgeGroup}에 어울리는 현실적인 직업, 2-4글자로만, 설명없�
   // ============================================================
   
   const qnaPrompt = `########################################################################
+#  🚨🚨🚨 V27.0 최상위 강제 명령 (ABSOLUTE PRIORITY) 🚨🚨🚨  #
+########################################################################
+
+🔒 **절대 규칙 #1**: 사용자가 입력한 보험 종류 "${insuranceType}"와 고민 "${customerConcern}"을 
+   **단 한 단어도 바꾸지 말고** 모든 문장의 주어로 사용하라!
+
+🔒 **절대 규칙 #2**: "${insuranceType}"을 "종합보험"으로 바꾸거나, 
+   다른 보험 종류로 대체하면 **즉시 실패** 처리!
+
+🔒 **절대 규칙 #3**: 모든 제목/질문/답변에서 "${insuranceType}"를 **반드시 3회 이상** 언급!
+
+🔒 **절대 규칙 #4**: 핵심고민 "${customerConcern}"이 질문/답변에 **그대로** 포함되어야 함!
+
+########################################################################
 #  🔴🔴🔴 V26.1 NEGATIVE CONSTRAINTS (절대 금지 규칙) 🔴🔴🔴  #
 ########################################################################
 
@@ -8244,12 +8434,54 @@ ${insuranceType} 초보자 가이드, 이것만 알면 끝!
       })(),
       realisticScenario: realisticScenario
     },
+    // V27.0: Bento Grid 보장 분석 리포트 데이터
+    bentoGridReport: {
+      header: `2026 맞춤 보장 분석 리포트 (XIVIX PRO)`,
+      insuranceType: insuranceType,
+      target: target,
+      gridItems: (() => {
+        // 보험 종류별 보장 분석 항목 생성
+        const baseItems = [
+          { item: '암진단비', status: '권장', current: '미확인', recommend: '5천만원', color: '#dc2626', priority: 'high' },
+          { item: '뇌혈관질환', status: '필수', current: '미확인', recommend: '3천만원', color: '#ea580c', priority: 'high' },
+          { item: '급성심근경색', status: '필수', current: '미확인', recommend: '3천만원', color: '#ea580c', priority: 'high' },
+          { item: '수술비(1~5종)', status: '권장', current: '미확인', recommend: '10~500만원', color: '#f59e0b', priority: 'medium' },
+          { item: '입원일당', status: '선택', current: '미확인', recommend: '5만원', color: '#22c55e', priority: 'low' },
+          { item: '후유장해', status: '권장', current: '미확인', recommend: '1억원', color: '#f59e0b', priority: 'medium' }
+        ]
+        
+        // 보험 종류별 특화 항목 추가
+        if (insuranceType.includes('암')) {
+          baseItems.unshift({ item: '유사암', status: '필수', current: '미확인', recommend: '1천만원', color: '#dc2626', priority: 'high' })
+          baseItems.unshift({ item: '표적항암치료', status: '필수', current: '미확인', recommend: '3천만원', color: '#dc2626', priority: 'high' })
+        }
+        if (insuranceType.includes('운전자')) {
+          baseItems.unshift({ item: '변호사선임비', status: '필수', current: '미확인', recommend: '3천만원', color: '#dc2626', priority: 'high' })
+          baseItems.unshift({ item: '벌금/공탁금', status: '필수', current: '미확인', recommend: '5천만원', color: '#dc2626', priority: 'high' })
+        }
+        if (insuranceType.includes('간병') || insuranceType.includes('치매')) {
+          baseItems.unshift({ item: '간병인일당', status: '필수', current: '미확인', recommend: '10만원(체증형)', color: '#dc2626', priority: 'high' })
+          baseItems.unshift({ item: '치매진단비', status: '필수', current: '미확인', recommend: '3천만원', color: '#dc2626', priority: 'high' })
+        }
+        
+        return baseItems.slice(0, 8)  // 최대 8개 항목
+      })(),
+      summary: {
+        totalItems: 8,
+        highPriority: 3,
+        mediumPriority: 3,
+        lowPriority: 2,
+        recommendation: `${insuranceType} 가입 시 위 핵심 담보 중심으로 설계하시기 바랍니다.`
+      },
+      generatedAt: new Date().toISOString()
+    },
     // 버전 정보
-    version: 'V26.1-NegativeConstraints'
+    version: 'V27.0-InsuranceTypeAutoDetect-Html2Canvas'
   })
 })
 
-// ========== 설계서 이미지 생성 API ==========
+// ========== V27.0: 설계서 이미지 생성 API (html2canvas 캡처 방식) ==========
+// Gemini AI 이미지 생성 → HTML 데이터 기반 클라이언트 캡처로 전환
 app.post('/api/generate/proposal-image', async (c) => {
   const body = await c.req.json()
   const {
@@ -8263,56 +8495,70 @@ app.post('/api/generate/proposal-image', async (c) => {
     style = 'compact-card'
   } = body
   
-  // 4개 키 로테이션
-  const geminiKeys = getGeminiKeys(c.env)
-  if (geminiKeys.length === 0) {
-    return c.json({ success: false, error: 'API key not configured' }, 500)
-  }
-  const geminiKey = getNextGeminiKey(geminiKeys)
-  
   // 문서번호 자동 생성 (없으면)
-  const finalDocNumber = docNumber || `INS-${Date.now()}`
+  const finalDocNumber = docNumber || `INS-${Date.now().toString(36).toUpperCase()}`
   
-  // 기본 보장내역 (없으면)
+  // 기본 보장내역 (없으면) - 15행 이상 고밀도 데이터
   const finalCoverages = coverages.length > 0 ? coverages : [
-    { name: '일반사망보험금', amount: '1억원', premium: '52,000원' },
-    { name: '재해사망보험금', amount: '1억원', premium: '8,500원' },
-    { name: '암진단비(일반암)', amount: '5,000만원', premium: '15,200원' },
-    { name: '뇌혈관질환진단비', amount: '3,000만원', premium: '7,800원' },
-    { name: '급성심근경색진단비', amount: '3,000만원', premium: '5,500원' }
+    { name: '일반사망보험금', amount: '1억원', premium: '52,000원', isHighlight: false },
+    { name: '재해사망보험금', amount: '1억원', premium: '8,500원', isHighlight: false },
+    { name: '암진단비(일반암)', amount: '5,000만원', premium: '15,200원', isHighlight: true },
+    { name: '암진단비(유사암)', amount: '1,000만원', premium: '3,200원', isHighlight: false },
+    { name: '뇌혈관질환진단비', amount: '3,000만원', premium: '7,800원', isHighlight: true },
+    { name: '급성심근경색진단비', amount: '3,000만원', premium: '5,500원', isHighlight: true },
+    { name: '뇌출혈진단비', amount: '2,000만원', premium: '4,200원', isHighlight: false },
+    { name: '수술비(1~5종)', amount: '10~500만원', premium: '6,300원', isHighlight: false },
+    { name: '입원일당', amount: '5만원', premium: '3,800원', isHighlight: false },
+    { name: '골절진단비', amount: '30만원', premium: '1,200원', isHighlight: false },
+    { name: '상해후유장해(3%)', amount: '1억원', premium: '4,500원', isHighlight: false },
+    { name: '질병후유장해(80%)', amount: '5,000만원', premium: '2,800원', isHighlight: false },
+    { name: '납입면제(암/뇌/심장)', amount: '해당시면제', premium: '-', isHighlight: true },
+    { name: '정기특약(60세만기)', amount: '5,000만원', premium: '8,200원', isHighlight: false },
+    { name: '실손의료비(선택)', amount: '급여90%', premium: '12,500원', isHighlight: false }
   ]
   
-  const imageData: ImageGenerationData = {
-    companyName,
-    insuranceType,
-    customerAge,
-    customerGender,
-    monthlyPremium,
+  // 브랜드 컬러 매핑
+  const brandColors: Record<string, { main: string, sub: string }> = {
+    '삼성생명': { main: '#0066B3', sub: '#004A8F' },
+    '한화생명': { main: '#FF6600', sub: '#CC5200' },
+    '교보생명': { main: '#00A651', sub: '#008542' },
+    '신한라이프': { main: '#0046FF', sub: '#0035CC' },
+    'NH농협생명': { main: '#00A73C', sub: '#008530' },
+    '동양생명': { main: '#ED1C24', sub: '#C41920' },
+    'KB손해보험': { main: '#FFB900', sub: '#CC9400' },
+    '현대해상': { main: '#4A8FE4', sub: '#3A72B6' },
+    'DB손해보험': { main: '#007856', sub: '#006045' },
+    '메리츠화재': { main: '#FF6600', sub: '#CC5200' },
+    '롯데손해보험': { main: '#E60012', sub: '#B8000E' }
+  }
+  const brandColor = brandColors[companyName] || { main: '#1E3A8A', sub: '#1E40AF' }
+  
+  console.log('[V27.0] HTML 캡처 모드 - 데이터 반환:', { companyName, insuranceType, style, docNumber: finalDocNumber })
+  
+  // V27.0: AI 이미지 생성 대신 데이터만 반환 → 프론트엔드에서 html2canvas로 캡처
+  return c.json({
+    success: true,
+    mode: 'html-capture',  // 프론트엔드에게 "네가 그려라" 지시
     docNumber: finalDocNumber,
-    coverages: finalCoverages,
-    style: style as 'compact-card' | 'full-document' | 'highlight' | 'scan-copy'
-  }
-  
-  console.log('Generating proposal image:', { companyName, insuranceType, style, docNumber: finalDocNumber, keysAvailable: geminiKeys.length })
-  
-  const result = await generateInsuranceImage(imageData, geminiKey, geminiKeys)
-  
-  if (result.success) {
-    return c.json({
-      success: true,
-      imageUrl: result.imageUrl,
-      docNumber: finalDocNumber,
-      model: result.model || 'gemini-2.5-flash-image',
+    data: {
+      company: companyName,
+      product: `${insuranceType} 맞춤 플랜`,
+      productFull: `${companyName} ${insuranceType}`,
+      user: `${customerAge} / ${customerGender}`,
+      customerAge,
+      customerGender,
+      premium: monthlyPremium,
+      premiumNum: parseInt(monthlyPremium.replace(/[^0-9]/g, '')),
+      items: finalCoverages,
+      totalItems: finalCoverages.length,
+      highlightCount: finalCoverages.filter((c: any) => c.isHighlight).length,
+      brandColor,
       style,
-      message: '설계서 이미지가 생성되었습니다.'
-    })
-  } else {
-    return c.json({
-      success: false,
-      error: result.error,
-      docNumber: finalDocNumber
-    }, 500)
-  }
+      generatedAt: new Date().toISOString(),
+      disclaimer: '※ 본 설계서는 AI가 생성한 참고용 자료입니다.'
+    },
+    message: '설계서 데이터가 생성되었습니다. 프론트엔드에서 렌더링 후 캡처하세요.'
+  })
 })
 
 // ========== V26.1: 제안서 이미지 데이터 v2 API (고밀도 템플릿 기반) ==========

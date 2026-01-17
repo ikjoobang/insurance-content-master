@@ -4922,16 +4922,16 @@ app.post('/api/analyze/photo', async (c) => {
   }
 })
 
-// V25.1: Health Check 업데이트
+// V25.2: Health Check 업데이트 - Bento Grid 제안서 추가
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '25.1', 
+  version: '25.2', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
   ragPipeline: 'naver-search → strategy-json → content-gen(multi-persona) → self-diagnosis',
   year: 2026,
-  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style', 'rag-4step-pipeline', 'hallucination-zero', 'comments-5', 'multi-persona-tone', 'min-length-enforcement', 'knowledge-injection', 'realtime-trends', '12-insurance-categories', 'beginner-tone', 'sensitive-data-filter', 'surgery-class-validation', 'i-code-verification'],
+  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style', 'rag-4step-pipeline', 'hallucination-zero', 'comments-5', 'multi-persona-tone', 'min-length-enforcement', 'knowledge-injection', 'realtime-trends', '12-insurance-categories', 'beginner-tone', 'sensitive-data-filter', 'surgery-class-validation', 'i-code-verification', 'bento-grid-report'],
   timestamp: new Date().toISOString() 
 }))
 
@@ -4997,6 +4997,292 @@ app.get('/api/trends/insurance', async (c) => {
         change: Math.floor(Math.random() * 20) - 5
       }))
     })
+  }
+})
+
+// ========== V25.2: Bento Grid 제안서 리포트 API ==========
+app.post('/api/generate/proposal-report', async (c) => {
+  try {
+    const body = await c.req.json()
+    const { 
+      customerType = '40대 가장', 
+      insuranceType = '종신보험',
+      existingCoverage = null,  // 기존 보장 내역
+      concerns = '',            // 고객 고민
+      score = 0                 // 분석 점수 (0이면 자동 계산)
+    } = body
+    
+    // V25.2: Bento Grid 기반 제안서 데이터 생성
+    const statusColor = {
+      ok: { bg: '#1a472a', text: '#4ade80', label: '적정', icon: '✔' },
+      warning: { bg: '#713f12', text: '#facc15', label: '보완필요', icon: '!' },
+      danger: { bg: '#7f1d1d', text: '#f87171', label: '미가입', icon: '✖' }
+    }
+    
+    // 핵심 담보 진단 (기본값 - 실제로는 기존 보장 분석 기반)
+    const criticalChecks = [
+      { item: '암 진단비', status: 'warning', current: '3,000만원', recommend: '5,000만원', icon: '🎯' },
+      { item: '뇌혈관질환', status: 'danger', current: '미가입', recommend: '3,000만원', icon: '🧠' },
+      { item: '심장질환', status: 'danger', current: '미가입', recommend: '3,000만원', icon: '❤️' },
+      { item: '수술비 (1-5종)', status: 'ok', current: '1,000만원', recommend: '적정', icon: '🏥' },
+      { item: '입원일당', status: 'ok', current: '5만원', recommend: '적정', icon: '🛏️' },
+      { item: '후유장해', status: 'warning', current: '5,000만원', recommend: '1억원', icon: '🦽' }
+    ]
+    
+    // 점수 계산 (danger 갯수에 따라)
+    const dangerCount = criticalChecks.filter(c => c.status === 'danger').length
+    const warningCount = criticalChecks.filter(c => c.status === 'warning').length
+    const autoScore = score > 0 ? score : Math.max(50, 100 - (dangerCount * 15) - (warningCount * 8))
+    const scoreGrade = autoScore >= 90 ? 'A+' : autoScore >= 80 ? 'A' : autoScore >= 70 ? 'B' : autoScore >= 60 ? 'C' : 'D'
+    
+    // 요약 텍스트 생성
+    const summaryParts: string[] = []
+    if (dangerCount > 0) {
+      const dangerItems = criticalChecks.filter(c => c.status === 'danger').map(c => c.item)
+      summaryParts.push(`${dangerItems.join(', ')} 보장이 미가입 상태입니다`)
+    }
+    if (warningCount > 0) {
+      const warningItems = criticalChecks.filter(c => c.status === 'warning').map(c => c.item)
+      summaryParts.push(`${warningItems.join(', ')} 보강이 필요합니다`)
+    }
+    const summary = summaryParts.length > 0 
+      ? summaryParts.join('. ') + '.'
+      : '현재 보장 상태가 양호합니다.'
+    
+    // 비교 테이블 데이터
+    const comparison = {
+      existing: {
+        company: '기존 보험',
+        items: existingCoverage || [
+          { name: '사망보험금', amount: '1억원' },
+          { name: '암진단비', amount: '3,000만원' },
+          { name: '수술비', amount: '1,000만원' }
+        ],
+        totalPremium: '85,000원'
+      },
+      xivix: {
+        company: 'XIVIX 제안',
+        items: [
+          { name: '사망보험금', amount: '1억원' },
+          { name: '암진단비', amount: '5,000만원' },
+          { name: '뇌출혈진단', amount: '3,000만원' },
+          { name: '급성심근경색', amount: '3,000만원' },
+          { name: '수술비(1-5종)', amount: '1,000만원' }
+        ],
+        totalPremium: '119,500원'
+      }
+    }
+    
+    // AI 코멘트 (사업비 금지)
+    const aiComment = [
+      `${customerType}에게 3대 진단비(암/뇌/심장)는 필수입니다. ${dangerCount > 0 ? '현재 일부 보장이 없어 위험합니다.' : '보장 구성이 양호합니다.'}`,
+      '비갱신형 특약으로 구성하여 향후 보험료 인상 걱정이 없습니다.',
+      '납입면제 특약 포함으로 3대 진단 시 이후 보험료를 면제받을 수 있습니다.'
+    ]
+    
+    // V25.1: 경고 문구 (민감 데이터 처리)
+    const warnings = [
+      '뇌혈관질환(I60-I69) 보장범위는 보험사별 약관 확인이 필요합니다.',
+      '수술비 급수(1-5종 vs 1-9종)는 보험사 체계에 따라 다릅니다.',
+      '고액 비급여 수술(다빈치 등)은 전용 특약 가입 여부를 확인하세요.'
+    ]
+    
+    const generatedAt = new Date().toISOString().split('T')[0]
+    
+    // Bento Grid HTML 생성
+    const criticalGridHTML = criticalChecks.map(item => {
+      const color = statusColor[item.status as keyof typeof statusColor]
+      return `
+        <div class="bento-item" style="background: ${color.bg};">
+          <div class="bento-icon">${item.icon}</div>
+          <div class="bento-label">${item.item}</div>
+          <div class="bento-status" style="color: ${color.text};">
+            <span class="status-icon">${color.icon}</span>
+            ${color.label}
+          </div>
+          <div class="bento-current">현재: ${item.current}</div>
+          <div class="bento-recommend">권장: ${item.recommend}</div>
+        </div>
+      `
+    }).join('')
+    
+    const existingItemsHTML = comparison.existing.items.map((i: any) => 
+      `<tr><td>${i.name}</td><td class="amount">${i.amount}</td></tr>`
+    ).join('')
+    
+    const xivixItemsHTML = comparison.xivix.items.map((i: any) => 
+      `<tr><td>${i.name}</td><td class="amount highlight">${i.amount}</td></tr>`
+    ).join('')
+    
+    const aiCommentsHTML = aiComment.map(c => `<li>${c}</li>`).join('')
+    const warningsHTML = warnings.map(w => `<li>${w}</li>`).join('')
+    
+    // 전체 HTML 문서 생성
+    const proposalHtml = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XIVIX 보험 분석 리포트</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: text !important; }
+    body { font-family: 'Noto Sans KR', sans-serif; background: #000; color: #E0E0E0; line-height: 1.6; letter-spacing: -0.2px; }
+    #proposal-container { width: 100%; max-width: 800px; background: #000; padding: 24px; margin: 0 auto; }
+    .header { background: linear-gradient(135deg, #111 0%, #1a1a1a 100%); border: 1px solid #333; border-radius: 16px; padding: 24px; margin-bottom: 24px; position: relative; overflow: hidden; }
+    .header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #10B981 0%, #3B82F6 50%, #8B5CF6 100%); }
+    .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+    .header-title { font-size: 24px; font-weight: 900; color: #FFF; }
+    .header-meta { font-size: 13px; color: #888; margin-top: 6px; }
+    .score-badge { background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #fff; padding: 14px 20px; border-radius: 12px; text-align: center; }
+    .score-value { font-size: 32px; font-weight: 900; }
+    .score-label { font-size: 11px; opacity: 0.9; }
+    .summary-text { background: #1a1a1a; border-left: 4px solid #10B981; padding: 14px; border-radius: 0 8px 8px 0; font-size: 15px; color: #FFF; }
+    .section-title { font-size: 16px; font-weight: 700; color: #FFF; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .section-title::before { content: ''; width: 4px; height: 18px; background: #10B981; border-radius: 2px; }
+    .bento-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; }
+    @media (max-width: 600px) { .bento-grid { grid-template-columns: repeat(2, 1fr); } }
+    .bento-item { padding: 16px; border-radius: 12px; border: 1px solid #333; }
+    .bento-icon { font-size: 22px; margin-bottom: 6px; }
+    .bento-label { font-size: 13px; font-weight: 700; color: #FFF; margin-bottom: 4px; }
+    .bento-status { font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
+    .status-icon { display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255,255,255,0.1); font-size: 10px; }
+    .bento-current, .bento-recommend { font-size: 11px; color: #AAA; }
+    .bento-recommend { color: #4ade80; }
+    .comparison-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+    @media (max-width: 600px) { .comparison-section { grid-template-columns: 1fr; } }
+    .comparison-card { background: #111; border: 1px solid #333; border-radius: 12px; overflow: hidden; }
+    .comparison-card.xivix { border-color: #10B981; }
+    .comparison-header { padding: 14px; background: #1a1a1a; font-weight: 700; font-size: 15px; color: #FFF; border-bottom: 1px solid #333; }
+    .comparison-card.xivix .comparison-header { background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); }
+    .comparison-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .comparison-table td { padding: 10px 14px; border-bottom: 1px solid #222; }
+    .comparison-table .amount { text-align: right; font-weight: 600; color: #FFF; }
+    .comparison-table .amount.highlight { color: #4ade80; }
+    .total-row { padding: 14px; background: #1a1a1a; display: flex; justify-content: space-between; font-weight: 700; }
+    .total-row .amount { color: #FFF; font-size: 17px; }
+    .comparison-card.xivix .total-row .amount { color: #4ade80; }
+    .ai-comment-section { background: #111; border: 1px solid #333; border-radius: 12px; padding: 20px; margin-bottom: 28px; }
+    .ai-comment-section .section-title::before { background: #3B82F6; }
+    .ai-comment-list { list-style: none; }
+    .ai-comment-list li { padding: 10px 0; border-bottom: 1px solid #222; font-size: 14px; line-height: 1.7; position: relative; padding-left: 20px; }
+    .ai-comment-list li:last-child { border-bottom: none; }
+    .ai-comment-list li::before { content: '▸'; position: absolute; left: 0; color: #3B82F6; }
+    .warnings-section { background: #1f1507; border: 1px solid #713f12; border-radius: 12px; padding: 18px; margin-bottom: 24px; }
+    .warnings-section .section-title { color: #facc15; }
+    .warnings-section .section-title::before { background: #facc15; }
+    .warnings-list { list-style: none; }
+    .warnings-list li { padding: 6px 0; font-size: 12px; color: #fcd34d; position: relative; padding-left: 18px; }
+    .warnings-list li::before { content: '⚠'; position: absolute; left: 0; }
+    .footer { text-align: center; padding: 14px; font-size: 11px; color: #666; border-top: 1px solid #222; }
+    .footer-brand { font-weight: 700; color: #10B981; }
+    /* 이미지 저장 버튼 */
+    .save-btn { position: fixed; bottom: 20px; right: 20px; background: #10B981; color: #fff; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; box-shadow: 0 4px 12px rgba(16,185,129,0.3); z-index: 1000; }
+    .save-btn:hover { background: #059669; }
+    @media print { .save-btn { display: none; } }
+  </style>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+</head>
+<body>
+  <button class="save-btn" onclick="saveAsImage()">📷 이미지 저장</button>
+  
+  <div id="proposal-container">
+    <div class="header">
+      <div class="header-top">
+        <div>
+          <div class="header-title">맞춤 보험 분석 리포트</div>
+          <div class="header-meta">${customerType} · ${insuranceType} · ${generatedAt}</div>
+        </div>
+        <div class="score-badge">
+          <div class="score-value">${autoScore}</div>
+          <div class="score-label">종합점수 ${scoreGrade}</div>
+        </div>
+      </div>
+      <div class="summary-text">${summary}</div>
+    </div>
+    
+    <div class="section-title">핵심 담보 진단</div>
+    <div class="bento-grid">${criticalGridHTML}</div>
+    
+    <div class="section-title">보장 비교</div>
+    <div class="comparison-section">
+      <div class="comparison-card">
+        <div class="comparison-header">${comparison.existing.company}</div>
+        <table class="comparison-table">${existingItemsHTML}</table>
+        <div class="total-row"><span>월 보험료</span><span class="amount">${comparison.existing.totalPremium}</span></div>
+      </div>
+      <div class="comparison-card xivix">
+        <div class="comparison-header">${comparison.xivix.company}</div>
+        <table class="comparison-table">${xivixItemsHTML}</table>
+        <div class="total-row"><span>월 보험료</span><span class="amount">${comparison.xivix.totalPremium}</span></div>
+      </div>
+    </div>
+    
+    <div class="ai-comment-section">
+      <div class="section-title">AI 분석 코멘트</div>
+      <ul class="ai-comment-list">${aiCommentsHTML}</ul>
+    </div>
+    
+    <div class="warnings-section">
+      <div class="section-title">유의사항</div>
+      <ul class="warnings-list">${warningsHTML}</ul>
+    </div>
+    
+    <div class="footer">
+      <span class="footer-brand">XIVIX</span> 보험 분석 엔진 V25.2 · 2026년 기준 · 실제 보험료는 상담 필요
+    </div>
+  </div>
+  
+  <script>
+    async function saveAsImage() {
+      const container = document.getElementById('proposal-container');
+      const btn = document.querySelector('.save-btn');
+      btn.style.display = 'none';
+      
+      try {
+        const canvas = await html2canvas(container, {
+          backgroundColor: '#000000',
+          scale: 2,
+          useCORS: true,
+          logging: false
+        });
+        
+        const link = document.createElement('a');
+        link.download = 'XIVIX-보험분석-' + new Date().toISOString().split('T')[0] + '.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      } catch (err) {
+        alert('이미지 저장에 실패했습니다.');
+        console.error(err);
+      } finally {
+        btn.style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>`
+
+    return c.json({
+      success: true,
+      data: {
+        score: autoScore,
+        scoreGrade,
+        summary,
+        criticalChecks,
+        comparison,
+        aiComment,
+        warnings,
+        generatedAt
+      },
+      html: proposalHtml
+    })
+    
+  } catch (error: any) {
+    console.error('Proposal report generation error:', error)
+    return c.json({
+      success: false,
+      error: error.message || '제안서 생성 중 오류가 발생했습니다.'
+    }, 500)
   }
 })
 

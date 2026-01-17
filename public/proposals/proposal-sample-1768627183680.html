@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XIVIX 보험 분석 리포트</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      /* 텍스트 선택 허용 */
+      user-select: text !important;
+      -webkit-user-select: text !important;
+      -moz-user-select: text !important;
+      -ms-user-select: text !important;
+    }
+    
+    body {
+      font-family: 'Noto Sans KR', 'Noto Sans CJK KR', 'NanumGothic', sans-serif;
+      background: #000000;
+      color: #E0E0E0;
+      line-height: 1.6;
+      letter-spacing: -0.2px;
+      padding: 0;
+      margin: 0;
+    }
+    
+    #proposal-container {
+      width: 800px;
+      min-height: 1200px;
+      background: #000000;
+      padding: 32px;
+      margin: 0 auto;
+    }
+    
+    /* 헤더 섹션 */
+    .header {
+      background: linear-gradient(135deg, #111111 0%, #1a1a1a 100%);
+      border: 1px solid #333;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #10B981 0%, #3B82F6 50%, #8B5CF6 100%);
+    }
+    
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    
+    .header-title {
+      font-size: 28px;
+      font-weight: 900;
+      color: #FFFFFF;
+      letter-spacing: -0.5px;
+    }
+    
+    .header-meta {
+      font-size: 14px;
+      color: #888;
+      margin-top: 8px;
+    }
+    
+    .score-badge {
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    
+    .score-value {
+      font-size: 36px;
+      font-weight: 900;
+    }
+    
+    .score-label {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    
+    .summary-text {
+      background: #1a1a1a;
+      border-left: 4px solid #10B981;
+      padding: 16px;
+      border-radius: 0 8px 8px 0;
+      font-size: 16px;
+      color: #FFFFFF;
+    }
+    
+    /* Bento Grid 섹션 */
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .section-title::before {
+      content: '';
+      width: 4px;
+      height: 20px;
+      background: #10B981;
+      border-radius: 2px;
+    }
+    
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    
+    .bento-item {
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid #333;
+      transition: transform 0.2s;
+    }
+    
+    .bento-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    
+    .bento-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 4px;
+    }
+    
+    .bento-status {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .status-icon {
+      display: inline-flex;
+      width: 18px;
+      height: 18px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      font-size: 11px;
+    }
+    
+    .bento-current, .bento-recommend {
+      font-size: 12px;
+      color: #AAA;
+    }
+    
+    .bento-recommend {
+      color: #4ade80;
+    }
+    
+    /* 비교 테이블 섹션 */
+    .comparison-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+    
+    .comparison-card {
+      background: #111111;
+      border: 1px solid #333;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    
+    .comparison-card.xivix {
+      border-color: #10B981;
+    }
+    
+    .comparison-header {
+      padding: 16px;
+      background: #1a1a1a;
+      font-weight: 700;
+      font-size: 16px;
+      color: #FFFFFF;
+      border-bottom: 1px solid #333;
+    }
+    
+    .comparison-card.xivix .comparison-header {
+      background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+    }
+    
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .comparison-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #222;
+      font-size: 14px;
+    }
+    
+    .comparison-table .amount {
+      text-align: right;
+      font-weight: 600;
+      color: #FFFFFF;
+    }
+    
+    .comparison-table .amount.highlight {
+      color: #4ade80;
+    }
+    
+    .total-row {
+      padding: 16px;
+      background: #1a1a1a;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+    }
+    
+    .total-row .amount {
+      color: #FFFFFF;
+      font-size: 18px;
+    }
+    
+    .comparison-card.xivix .total-row .amount {
+      color: #4ade80;
+    }
+    
+    /* AI 코멘트 섹션 */
+    .ai-comment-section {
+      background: #111111;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 32px;
+    }
+    
+    .ai-comment-section .section-title::before {
+      background: #3B82F6;
+    }
+    
+    .ai-comment-list {
+      list-style: none;
+    }
+    
+    .ai-comment-list li {
+      padding: 12px 0;
+      border-bottom: 1px solid #222;
+      font-size: 15px;
+      line-height: 1.7;
+      position: relative;
+      padding-left: 24px;
+    }
+    
+    .ai-comment-list li:last-child {
+      border-bottom: none;
+    }
+    
+    .ai-comment-list li::before {
+      content: '▸';
+      position: absolute;
+      left: 0;
+      color: #3B82F6;
+    }
+    
+    /* 경고/유의사항 */
+    .warnings-section {
+      background: #1f1507;
+      border: 1px solid #713f12;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    
+    .warnings-section .section-title {
+      color: #facc15;
+    }
+    
+    .warnings-section .section-title::before {
+      background: #facc15;
+    }
+    
+    .warnings-list {
+      list-style: none;
+    }
+    
+    .warnings-list li {
+      padding: 8px 0;
+      font-size: 13px;
+      color: #fcd34d;
+      position: relative;
+      padding-left: 20px;
+    }
+    
+    .warnings-list li::before {
+      content: '⚠';
+      position: absolute;
+      left: 0;
+    }
+    
+    /* 푸터 */
+    .footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 12px;
+      color: #666;
+      border-top: 1px solid #222;
+    }
+    
+    .footer-brand {
+      font-weight: 700;
+      color: #10B981;
+    }
+  </style>
+</head>
+<body>
+  <div id="proposal-container">
+    <!-- 헤더 -->
+    <div class="header">
+      <div class="header-top">
+        <div>
+          <div class="header-title">맞춤 보험 분석 리포트</div>
+          <div class="header-meta">
+            40대 가장 · 종신보험 · 2026-01-17
+          </div>
+        </div>
+        <div class="score-badge">
+          <div class="score-value">87</div>
+          <div class="score-label">종합점수 A</div>
+        </div>
+      </div>
+      <div class="summary-text">
+        현재 보장 분석 결과, 암 진단비와 뇌/심장 특약 강화가 필요합니다
+      </div>
+    </div>
+    
+    <!-- 핵심 담보 진단 (Bento Grid) -->
+    <div class="section-title">핵심 담보 진단</div>
+    <div class="bento-grid">
+      
+      <div class="bento-item" style="background: #713f12;">
+        <div class="bento-icon">🎯</div>
+        <div class="bento-label">암 진단비</div>
+        <div class="bento-status" style="color: #facc15;">
+          <span class="status-icon">!</span>
+          보완필요
+        </div>
+        <div class="bento-current">현재: 3,000만원</div>
+        <div class="bento-recommend">권장: 5,000만원</div>
+      </div>
+    
+      <div class="bento-item" style="background: #7f1d1d;">
+        <div class="bento-icon">🧠</div>
+        <div class="bento-label">뇌혈관질환</div>
+        <div class="bento-status" style="color: #f87171;">
+          <span class="status-icon">✖</span>
+          미가입
+        </div>
+        <div class="bento-current">현재: 미가입</div>
+        <div class="bento-recommend">권장: 3,000만원</div>
+      </div>
+    
+      <div class="bento-item" style="background: #7f1d1d;">
+        <div class="bento-icon">❤️</div>
+        <div class="bento-label">심장질환</div>
+        <div class="bento-status" style="color: #f87171;">
+          <span class="status-icon">✖</span>
+          미가입
+        </div>
+        <div class="bento-current">현재: 미가입</div>
+        <div class="bento-recommend">권장: 3,000만원</div>
+      </div>
+    
+      <div class="bento-item" style="background: #1a472a;">
+        <div class="bento-icon">🏥</div>
+        <div class="bento-label">수술비 (1-5종)</div>
+        <div class="bento-status" style="color: #4ade80;">
+          <span class="status-icon">✔</span>
+          적정
+        </div>
+        <div class="bento-current">현재: 1,000만원</div>
+        <div class="bento-recommend">권장: 적정</div>
+      </div>
+    
+      <div class="bento-item" style="background: #1a472a;">
+        <div class="bento-icon">🛏️</div>
+        <div class="bento-label">입원일당</div>
+        <div class="bento-status" style="color: #4ade80;">
+          <span class="status-icon">✔</span>
+          적정
+        </div>
+        <div class="bento-current">현재: 5만원</div>
+        <div class="bento-recommend">권장: 적정</div>
+      </div>
+    
+      <div class="bento-item" style="background: #713f12;">
+        <div class="bento-icon">🦽</div>
+        <div class="bento-label">후유장해</div>
+        <div class="bento-status" style="color: #facc15;">
+          <span class="status-icon">!</span>
+          보완필요
+        </div>
+        <div class="bento-current">현재: 5,000만원</div>
+        <div class="bento-recommend">권장: 1억원</div>
+      </div>
+    
+    </div>
+    
+    <!-- 비교 테이블 -->
+    <div class="section-title">보장 비교</div>
+    <div class="comparison-section">
+      <!-- 기존 보험 -->
+      <div class="comparison-card">
+        <div class="comparison-header">기존 보험사</div>
+        <table class="comparison-table">
+          <tr><td>사망보험금</td><td class="amount">1억원</td></tr><tr><td>암진단비</td><td class="amount">3,000만원</td></tr><tr><td>수술비</td><td class="amount">1,000만원</td></tr>
+        </table>
+        <div class="total-row">
+          <span>월 보험료</span>
+          <span class="amount">85,000원</span>
+        </div>
+      </div>
+      
+      <!-- XIVIX 제안 -->
+      <div class="comparison-card xivix">
+        <div class="comparison-header">XIVIX 제안</div>
+        <table class="comparison-table">
+          <tr><td>사망보험금</td><td class="amount highlight">1억원</td></tr><tr><td>암진단비</td><td class="amount highlight">5,000만원</td></tr><tr><td>뇌출혈진단</td><td class="amount highlight">3,000만원</td></tr><tr><td>급성심근경색</td><td class="amount highlight">3,000만원</td></tr><tr><td>수술비(1-5종)</td><td class="amount highlight">1,000만원</td></tr>
+        </table>
+        <div class="total-row">
+          <span>월 보험료</span>
+          <span class="amount">119,500원</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- AI 코멘트 -->
+    <div class="ai-comment-section">
+      <div class="section-title">AI 분석 코멘트</div>
+      <ul class="ai-comment-list">
+        <li>40대 가장에게 3대 진단비(암/뇌/심장)는 필수입니다. 현재 뇌/심장 보장이 없어 위험합니다.</li><li>비갱신형 특약으로 구성하여 향후 보험료 인상 걱정이 없습니다.</li><li>납입면제 특약 포함으로 3대 진단 시 이후 보험료를 면제받을 수 있습니다.</li>
+      </ul>
+    </div>
+    
+    <!-- 경고/유의사항 -->
+    <div class="warnings-section">
+      <div class="section-title">유의사항</div>
+      <ul class="warnings-list">
+        <li>뇌혈관질환(I60-I69) 보장범위는 보험사별 약관 확인이 필요합니다.</li><li>수술비 급수(1-5종 vs 1-9종)는 보험사 체계에 따라 다릅니다.</li>
+      </ul>
+    </div>
+    
+    <!-- 푸터 -->
+    <div class="footer">
+      <span class="footer-brand">XIVIX</span> 보험 분석 엔진 V25.1 · 2026년 기준 · 실제 보험료는 상담 필요
+    </div>
+  </div>
+</body>
+</html>

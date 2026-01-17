@@ -3596,21 +3596,27 @@ const mainPageHtml = `
             </div>
           </div>
           
-          <!-- 이미지 스타일 선택 -->
+          <!-- V27.1: 실사 합성 스타일 선택 -->
           <div id="image-style-selector" class="mb-3 lg:mb-4 hidden">
             <div class="flex items-center gap-2 mb-2">
-              <span class="text-gray-300 text-xs">이미지 스타일:</span>
+              <span class="text-gray-300 text-xs font-medium">📷 실사 합성 스타일:</span>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button onclick="selectImageStyle('compact-card')" class="image-style-btn px-3 py-1.5 rounded-md text-xs font-medium bg-purple-500/30 text-purple-300 border border-purple-500/50" data-style="compact-card">
-                <i class="fas fa-crop-alt mr-1"></i>컴팩트 카드
+              <button onclick="selectImageStyle('phone-shot')" class="image-style-btn px-3 py-1.5 rounded-md text-xs font-medium bg-amber-500/30 text-amber-300 border border-amber-500/50" data-style="phone-shot">
+                <i class="fas fa-mobile-alt mr-1"></i>폰카 (책상 위)
+              </button>
+              <button onclick="selectImageStyle('monitor-shot')" class="image-style-btn px-3 py-1.5 rounded-md text-xs font-medium bg-white/10 text-gray-300 hover:bg-white/20" data-style="monitor-shot">
+                <i class="fas fa-desktop mr-1"></i>모니터 캡처
               </button>
               <button onclick="selectImageStyle('scan-copy')" class="image-style-btn px-3 py-1.5 rounded-md text-xs font-medium bg-white/10 text-gray-300 hover:bg-white/20" data-style="scan-copy">
-                <i class="fas fa-desktop mr-1"></i>책상 위 스캔
+                <i class="fas fa-print mr-1"></i>팩스/스캔
               </button>
-              <button onclick="selectImageStyle('highlight')" class="image-style-btn px-3 py-1.5 rounded-md text-xs font-medium bg-white/10 text-gray-300 hover:bg-white/20" data-style="highlight">
-                <i class="fas fa-highlighter mr-1"></i>형광펜 강조
+              <button onclick="selectImageStyle('compact-card')" class="image-style-btn px-3 py-1.5 rounded-md text-xs font-medium bg-white/10 text-gray-300 hover:bg-white/20" data-style="compact-card">
+                <i class="fas fa-id-card mr-1"></i>깔끔 카드
               </button>
+            </div>
+            <div class="mt-2 text-gray-500 text-2xs">
+              💡 팁: "폰카" 스타일이 네이버 카페에 가장 자연스럽게 보입니다
             </div>
           </div>
           
@@ -4372,12 +4378,15 @@ const mainPageHtml = `
         const insuranceType = selections['qna-insurance'] || '종신보험';
         const target = selections['qna-target'] || '30대 직장인';
         
+        // V27.1: 고객 고민 텍스트 추출 (달러종신 등 자동 감지용)
+        const customerConcern = document.getElementById('qna-concern')?.value || '';
+        
         // 나이/성별 추론
         const ageMatch = target.match(/(\\d+)대/);
         const customerAge = ageMatch ? ageMatch[1] + '세' : '35세';
         const customerGender = target.includes('여성') || target.includes('엄마') || target.includes('주부') ? '여성' : '남성';
         
-        // API 호출
+        // API 호출 - V27.1: customerConcern 추가
         const res = await fetch('/api/generate/proposal-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -4386,67 +4395,259 @@ const mainPageHtml = `
             insuranceType,
             customerAge,
             customerGender,
+            customerConcern,  // V27.1: 고민 텍스트 전달 (보험종류 자동 감지)
             monthlyPremium: currentDesignData?.monthlyPremium || '89,000원',
             coverages: currentDesignData?.coverages || [],
-            style: selectedImageStyle
+            style: selectedImageStyle || 'phone-shot'  // V27.1: 기본값 폰카
           })
         });
         
         const data = await res.json();
         
-        // V27.0: html2canvas 캡처 모드 처리
-        if (data.success && data.mode === 'html-capture') {
-          // 숨겨진 렌더링 영역에 HTML 생성
+        // V27.1: 실사 합성 모드 (Photo Compositing) - CSS로 실사 효과 구현
+        if (data.success && (data.mode === 'html-capture' || data.mode === 'photo-compositing')) {
+          const d = data.data;
+          const style = selectedImageStyle || 'phone-shot';
+          
+          // ============================================================
+          // 스타일별 실사 효과 설정
+          // ============================================================
+          const styleConfigs = {
+            // Type A: 폰카 버전 - 책상 위 비스듬히 찍은 느낌
+            'phone-shot': {
+              containerStyle: \`
+                position: relative;
+                width: 850px; height: 1100px;
+                background: linear-gradient(145deg, #8B7355 0%, #5D4E37 30%, #3D2E1F 100%);
+                padding: 80px 60px 60px 60px;
+                box-shadow: inset 0 0 150px rgba(0,0,0,0.4);
+              \`,
+              paperStyle: \`
+                background: linear-gradient(175deg, #FAFAFA 0%, #F5F5F5 50%, #EFEFEF 100%);
+                padding: 30px;
+                border-radius: 3px;
+                transform: rotate(-1.8deg) perspective(1000px) rotateY(2deg);
+                box-shadow: 
+                  8px 12px 25px rgba(0,0,0,0.35),
+                  -2px -2px 8px rgba(255,255,255,0.1),
+                  inset 0 0 30px rgba(0,0,0,0.03);
+                filter: brightness(0.97) contrast(1.02);
+              \`,
+              contentOpacity: '0.92',
+              fontFamily: '"Malgun Gothic", "맑은 고딕", sans-serif',
+              noise: true,
+              vignette: true
+            },
+            // Type B: 모니터 버전 - 화면 캡처 느낌
+            'monitor-shot': {
+              containerStyle: \`
+                position: relative;
+                width: 850px; height: 1050px;
+                background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+                padding: 40px;
+                border-radius: 12px;
+                box-shadow: inset 0 0 100px rgba(0,0,0,0.5);
+              \`,
+              paperStyle: \`
+                background: linear-gradient(180deg, #FFFFFF 0%, #F8F9FA 100%);
+                padding: 25px;
+                border-radius: 8px;
+                box-shadow: 
+                  0 0 40px rgba(100,150,255,0.15),
+                  inset 0 0 1px rgba(255,255,255,0.5);
+                filter: brightness(1.02) saturate(1.05);
+              \`,
+              contentOpacity: '1.0',
+              fontFamily: '"Pretendard Variable", sans-serif',
+              noise: false,
+              vignette: false,
+              scanlines: true
+            },
+            // Type C: 스캔 버전 - 팩스/복사기 느낌
+            'scan-copy': {
+              containerStyle: \`
+                position: relative;
+                width: 850px; height: 1100px;
+                background: #E8E8E8;
+                padding: 20px;
+              \`,
+              paperStyle: \`
+                background: linear-gradient(180deg, #FDFDFD 0%, #F0F0F0 50%, #E8E8E8 100%);
+                padding: 35px;
+                filter: grayscale(0.15) contrast(1.15) brightness(0.98);
+                box-shadow: 
+                  2px 2px 8px rgba(0,0,0,0.1),
+                  inset 0 0 50px rgba(0,0,0,0.02);
+              \`,
+              contentOpacity: '0.88',
+              fontFamily: '"Gulim", "굴림", serif',
+              noise: true,
+              vignette: false,
+              scanEffect: true
+            },
+            // 기본: 컴팩트 카드 (기존 스타일)
+            'compact-card': {
+              containerStyle: 'width: 800px; background: white; padding: 20px;',
+              paperStyle: '',
+              contentOpacity: '1.0',
+              fontFamily: '"Pretendard Variable", sans-serif',
+              noise: false,
+              vignette: false
+            }
+          };
+          
+          const config = styleConfigs[style] || styleConfigs['phone-shot'];
+          
+          // 형광펜 강조 효과
+          const highlightPenStyle = \`
+            background: linear-gradient(90deg, rgba(255,255,0,0.35) 0%, rgba(255,255,0,0.15) 100%);
+            border-left: 3px solid #fbbf24;
+            padding-left: 8px;
+          \`;
+          
+          // 빨간펜 체크 효과
+          const redCheckStyle = \`
+            position: relative;
+          \`;
+          const redCheckAfter = \`
+            content: '✓';
+            position: absolute;
+            right: -20px;
+            color: #dc2626;
+            font-size: 18px;
+            font-weight: bold;
+          \`;
+          
+          // 렌더링 영역 생성
           const renderArea = document.createElement('div');
           renderArea.id = 'proposal-render-area';
-          renderArea.style.cssText = 'position: absolute; left: -9999px; top: 0; width: 800px; background: white; padding: 20px; font-family: "Pretendard Variable", sans-serif;';
+          renderArea.style.cssText = 'position: absolute; left: -9999px; top: 0;';
           
-          const d = data.data;
-          const highlightStyle = 'background: linear-gradient(90deg, #fee2e2 0%, #fecaca 100%); border-left: 3px solid #dc2626;';
+          // 노이즈 오버레이 (실사 효과)
+          const noiseOverlay = config.noise ? \`
+            <div style="
+              position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+              background-image: url('data:image/svg+xml,<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"100\\" height=\\"100\\"><filter id=\\"n\\"><feTurbulence type=\\"fractalNoise\\" baseFrequency=\\"0.8\\" numOctaves=\\"4\\" stitchTiles=\\"stitch\\"/></filter><rect width=\\"100%\\" height=\\"100%\\" filter=\\"url(%23n)\\" opacity=\\"0.08\\"/></svg>');
+              pointer-events: none;
+              mix-blend-mode: multiply;
+            "></div>
+          \` : '';
+          
+          // 비네팅 효과 (가장자리 어둡게)
+          const vignetteOverlay = config.vignette ? \`
+            <div style="
+              position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+              background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.25) 100%);
+              pointer-events: none;
+            "></div>
+          \` : '';
+          
+          // 스캔라인 효과 (모니터)
+          const scanlinesOverlay = config.scanlines ? \`
+            <div style="
+              position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+              background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0,0,0,0.015) 2px,
+                rgba(0,0,0,0.015) 4px
+              );
+              pointer-events: none;
+            "></div>
+          \` : '';
           
           renderArea.innerHTML = \`
-            <div style="background: linear-gradient(135deg, \${d.brandColor.main} 0%, \${d.brandColor.sub} 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                  <div style="font-size: 14px; opacity: 0.9;">문서번호: \${data.docNumber}</div>
-                  <div style="font-size: 24px; font-weight: 700; margin-top: 8px;">\${d.productFull}</div>
+            <div style="\${config.containerStyle}">
+              \${noiseOverlay}
+              \${vignetteOverlay}
+              \${scanlinesOverlay}
+              
+              <div style="\${config.paperStyle}">
+                <!-- 헤더 -->
+                <div style="
+                  background: linear-gradient(135deg, \${d.brandColor.main} 0%, \${d.brandColor.sub} 100%); 
+                  color: white; 
+                  padding: 18px 20px; 
+                  border-radius: 6px 6px 0 0;
+                  opacity: \${config.contentOpacity};
+                  font-family: \${config.fontFamily};
+                ">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                      <div style="font-size: 11px; opacity: 0.85; letter-spacing: 0.5px;">문서번호: \${data.docNumber}</div>
+                      <div style="font-size: 20px; font-weight: 700; margin-top: 6px; letter-spacing: -0.5px;">\${d.productFull}</div>
+                    </div>
+                    <div style="text-align: right;">
+                      <div style="font-size: 10px; opacity: 0.75;">월 납입보험료</div>
+                      <div style="font-size: 24px; font-weight: 800; letter-spacing: -1px;">\${d.premium}</div>
+                    </div>
+                  </div>
+                  <div style="margin-top: 10px; font-size: 11px; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px;">
+                    피보험자: \${d.user} | 생성일: \${new Date().toLocaleDateString('ko-KR')}
+                  </div>
                 </div>
-                <div style="text-align: right;">
-                  <div style="font-size: 12px; opacity: 0.8;">월 납입보험료</div>
-                  <div style="font-size: 28px; font-weight: 800;">\${d.premium}</div>
+                
+                <!-- 담보 테이블 -->
+                <div style="opacity: \${config.contentOpacity}; font-family: \${config.fontFamily};">
+                  <div style="background: #f1f5f9; padding: 12px 16px; font-size: 13px; font-weight: 600; color: #334155; border-bottom: 1px solid #e2e8f0;">
+                    📋 보장내역 상세 (총 \${d.totalItems}개 담보)
+                  </div>
+                  <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead>
+                      <tr style="background: #f8fafc;">
+                        <th style="padding: 10px 12px; text-align: left; border-bottom: 2px solid #cbd5e1; font-weight: 600; color: #475569;">담보명</th>
+                        <th style="padding: 10px 12px; text-align: right; border-bottom: 2px solid #cbd5e1; font-weight: 600; color: #475569;">가입금액</th>
+                        <th style="padding: 10px 12px; text-align: right; border-bottom: 2px solid #cbd5e1; font-weight: 600; color: #475569;">보험료</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      \${d.items.map((item, idx) => \`
+                        <tr style="\${item.isHighlight ? highlightPenStyle : (idx % 2 === 0 ? 'background: white;' : 'background: #fafafa;')}">
+                          <td style="padding: 9px 12px; border-bottom: 1px solid #e5e7eb; color: #1f2937;">
+                            \${item.isHighlight ? '<span style="color: #dc2626; font-weight: bold;">●</span> ' : ''}\${item.name}
+                          </td>
+                          <td style="padding: 9px 12px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #111827;">\${item.amount}</td>
+                          <td style="padding: 9px 12px; text-align: right; border-bottom: 1px solid #e5e7eb; color: #6b7280;">\${item.premium}</td>
+                        </tr>
+                      \`).join('')}
+                    </tbody>
+                  </table>
                 </div>
+                
+                <!-- 하단 면책 -->
+                <div style="
+                  background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%); 
+                  padding: 12px 16px; 
+                  font-size: 10px; 
+                  color: #92400e; 
+                  border-radius: 0 0 6px 6px;
+                  opacity: \${config.contentOpacity};
+                  font-family: \${config.fontFamily};
+                ">
+                  ※ 본 설계서는 AI가 생성한 참고용 자료입니다. 실제 가입 시 보험사 공식 설계서를 확인하세요.
+                </div>
+                
+                \${d.badPoints && d.badPoints.length > 0 ? \`
+                  <!-- 문제점 표시 (빨간펜 효과) -->
+                  <div style="
+                    margin-top: 15px; 
+                    padding: 12px 16px; 
+                    background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%); 
+                    border-left: 4px solid #dc2626;
+                    border-radius: 4px;
+                    opacity: \${config.contentOpacity};
+                    font-family: \${config.fontFamily};
+                  ">
+                    <div style="font-size: 12px; font-weight: 700; color: #dc2626; margin-bottom: 8px;">⚠️ 전문가 체크포인트</div>
+                    \${d.badPoints.map(point => \`
+                      <div style="font-size: 11px; color: #7f1d1d; margin-bottom: 4px;">
+                        <span style="color: #dc2626;">✗</span> \${point}
+                      </div>
+                    \`).join('')}
+                  </div>
+                \` : ''}
               </div>
-              <div style="margin-top: 12px; font-size: 13px; opacity: 0.9;">
-                피보험자: \${d.user} | 생성일: \${new Date().toLocaleDateString('ko-KR')}
-              </div>
-            </div>
-            <div style="background: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e2e8f0;">
-              <div style="font-size: 15px; font-weight: 600; color: #1e293b;">
-                📋 보장내역 상세 (총 \${d.totalItems}개 담보, <span style="color: #dc2626;">\${d.highlightCount}개 핵심 담보</span>)
-              </div>
-            </div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-              <thead>
-                <tr style="background: #f1f5f9;">
-                  <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1; width: 50%;">담보명</th>
-                  <th style="padding: 10px; text-align: right; border-bottom: 2px solid #cbd5e1; width: 25%;">가입금액</th>
-                  <th style="padding: 10px; text-align: right; border-bottom: 2px solid #cbd5e1; width: 25%;">보험료</th>
-                </tr>
-              </thead>
-              <tbody>
-                \${d.items.map((item, idx) => \`
-                  <tr style="\${item.isHighlight ? highlightStyle : (idx % 2 === 0 ? 'background: white;' : 'background: #f8fafc;')}">
-                    <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">
-                      \${item.isHighlight ? '🔴 ' : ''}\${item.name}
-                    </td>
-                    <td style="padding: 10px; text-align: right; border-bottom: 1px solid #e2e8f0; font-weight: 600;">\${item.amount}</td>
-                    <td style="padding: 10px; text-align: right; border-bottom: 1px solid #e2e8f0; color: #6b7280;">\${item.premium}</td>
-                  </tr>
-                \`).join('')}
-              </tbody>
-            </table>
-            <div style="background: #fef3c7; padding: 12px 20px; font-size: 11px; color: #92400e; border-radius: 0 0 8px 8px;">
-              \${d.disclaimer}
             </div>
           \`;
           
@@ -4458,14 +4659,15 @@ const mainPageHtml = `
               scale: 2,
               useCORS: true,
               logging: false,
-              backgroundColor: '#ffffff'
+              backgroundColor: null,
+              allowTaint: true
             });
             
             generatedImageUrl = canvas.toDataURL('image/png');
             document.getElementById('proposal-image').src = generatedImageUrl;
-            document.getElementById('image-doc-number').textContent = '문서번호: ' + data.docNumber;
+            document.getElementById('image-doc-number').textContent = '문서번호: ' + data.docNumber + ' | 스타일: ' + style;
             document.getElementById('image-loading').classList.add('hidden');
-            showToast('고퀄리티 설계서 생성 완료! (html2canvas)');
+            showToast('실사 합성 설계서 생성 완료! (' + style + ')');
           } finally {
             document.body.removeChild(renderArea);
           }
@@ -5534,7 +5736,7 @@ interface ProposalImageDataV2 {
 // V26.1: Health Check 업데이트 - Expert Precision, High-Value Categories + Negative Constraints
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '27.0', 
+  version: '27.1', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
@@ -5563,8 +5765,8 @@ app.get('/api/health', (c) => c.json({
     'forbidden-keyword-filter', 'business-expense-ban', 'realistic-persona-matching',
     'ceo-corporate-precision-prompt', 'nursing-care-precision-prompt', 
     'inheritance-precision-prompt', 'proposal-image-v2-pipeline',
-    // V27.0 NEW: Auto-Detect & html2canvas
-    'insurance-type-auto-detect', 'html2canvas-capture-mode', 'bento-grid-analysis-report',
+    // V27.1 NEW: Photo Compositing + Gemini JSON Data
+    'insurance-type-auto-detect', 'photo-compositing-mode', 'gemini-proposal-data', 'bento-grid-analysis-report',
     'mandatory-insurancetype-prompt', 'concern-text-priority'
   ],
   highValueCategories: ['간병/치매보험', 'CEO/화재/배상책임', '상속/증여 재원 플랜'],
@@ -6299,7 +6501,7 @@ app.post('/api/generate/proposal-image-data', async (c) => {
     // V26.0: 응답 - 이미지 합성에 필요한 모든 데이터
     return c.json({
       success: true,
-      version: '27.0',
+      version: '27.1',
       imageComposition: {
         format: 'structured-json-for-template',
         description: 'HTML 캡처 대신 템플릿 위에 데이터를 렌더링하는 방식',
@@ -8479,12 +8681,12 @@ ${insuranceType} 초보자 가이드, 이것만 알면 끝!
       generatedAt: new Date().toISOString()
     },
     // 버전 정보
-    version: 'V27.0-InsuranceTypeAutoDetect-Html2Canvas'
+    version: 'V27.1-PhotoCompositing-GeminiDataGen'
   })
 })
 
-// ========== V27.0: 설계서 이미지 생성 API (html2canvas 캡처 방식) ==========
-// Gemini AI 이미지 생성 → HTML 데이터 기반 클라이언트 캡처로 전환
+// ========== V27.1: 실사 합성 설계서 이미지 API (Photo Compositing) ==========
+// 핵심 전략: AI에게 이미지 생성 명령 금지 → Gemini로 "타사 설계서 데이터" JSON 생성 → 프론트엔드 CSS 실사 합성
 app.post('/api/generate/proposal-image', async (c) => {
   const body = await c.req.json()
   const {
@@ -8493,18 +8695,143 @@ app.post('/api/generate/proposal-image', async (c) => {
     customerAge = '35세',
     customerGender = '남성',
     monthlyPremium = '89,000원',
+    customerConcern = '', // 입력된 고민 텍스트
     docNumber,
     coverages = [],
-    style = 'compact-card'
+    style = 'phone-shot'  // V27.1: 기본값을 폰카(Type A)로 변경
   } = body
+  
+  const geminiKeys = getGeminiKeys(c.env)
   
   // 문서번호 자동 생성 (없으면)
   const finalDocNumber = docNumber || `INS-${Date.now().toString(36).toUpperCase()}`
   
-  // 기본 보장내역 (없으면) - 15행 이상 고밀도 데이터
-  const finalCoverages = coverages.length > 0 ? coverages : [
-    { name: '일반사망보험금', amount: '1억원', premium: '52,000원', isHighlight: false },
-    { name: '재해사망보험금', amount: '1억원', premium: '8,500원', isHighlight: false },
+  // ============================================================
+  // V27.1: Gemini로 "타사 설계서 데이터" JSON 생성 (이미지 생성 아님!)
+  // ============================================================
+  let aiGeneratedData = null
+  
+  // 입력 텍스트에서 보험종류 자동 감지
+  const concernLower = customerConcern.toLowerCase()
+  let detectedInsuranceType = insuranceType
+  let detectedCompany = companyName
+  
+  // 달러/외화 보험 감지
+  if (concernLower.includes('달러') || concernLower.includes('usd') || concernLower.includes('외화')) {
+    detectedInsuranceType = '달러종신보험'
+    detectedCompany = ['메트라이프생명', 'AIA생명', '푸르덴셜생명'][Math.floor(Math.random() * 3)]
+  }
+  
+  if (geminiKeys.length > 0) {
+    try {
+      // V27.1: 타사 설계서 데이터 생성 프롬프트 (이미지 생성 금지!)
+      const dataPrompt = `당신은 보험 설계 전문가입니다. 
+【 절대 규칙 】
+- 이미지를 생성하지 마세요! 데이터만 JSON 형식으로 출력하세요.
+- "사업비", "수수료", "운영비" 키워드 절대 사용 금지!
+- 담보명에 전문 용어 정확히 사용 (보험 약관 기준)
+
+【 생성 요청 】
+"${detectedCompany || companyName}"에서 판매하는 "${detectedInsuranceType}" 상품의 설계서 데이터를 가상으로 생성해주세요.
+고객 정보: ${customerAge} / ${customerGender}
+${customerConcern ? `고객 고민: ${customerConcern}` : ''}
+
+【 출력 형식 - JSON 】
+{
+  "company": "가상의 보험회사명",
+  "product_name": "가상의 상품명 (정식 상품명 형태로)",
+  "customer_info": "${customerAge} / ${customerGender}",
+  "premium": "월 납입보험료 (원화 또는 달러)",
+  "premium_usd": "(달러보험인 경우) USD 금액",
+  "table_rows": [
+    {"name": "담보명1", "amount": "가입금액", "premium": "월보험료", "isHighlight": true/false},
+    ... (최소 15개 이상)
+  ],
+  "bad_points": [
+    "이 설계의 문제점 1 (전문가 관점)",
+    "이 설계의 문제점 2",
+    "이 설계의 문제점 3"
+  ],
+  "expert_advice": "전문가 한줄 조언"
+}
+
+【 담보 생성 규칙 】
+${detectedInsuranceType === '달러종신보험' ? `
+- 달러 상품이므로 주요 담보 금액을 USD로 표기 (예: USD 100,000)
+- 일부 원화 특약도 포함 (예: 암진단비 5,000만원)
+- 환율 리스크 관련 문제점 포함
+- 예상 회사: 메트라이프, AIA, 푸르덴셜 스타일
+` : detectedInsuranceType === '암보험' ? `
+- 암진단비(일반암/유사암/소액암) 필수
+- 표적항암치료비, 면역항암치료비 포함
+- 2026년 개정 약관 기준 담보명
+` : detectedInsuranceType === '종신보험' ? `
+- 일반사망/재해사망 기본 담보
+- CI특약, 납입면제 등 종신보험 특성 반영
+` : `
+- ${detectedInsuranceType} 특성에 맞는 담보 구성
+- 실제 보험사 설계서 스타일로 생성
+`}
+
+【 bad_points 생성 규칙 - 전문가 분석 】
+- 갱신형 특약이 많은지, 보장 공백이 있는지, 보험료가 높은지 분석
+- "사업비", "수수료" 단어 대신 "초기 적립률", "위험관리자산" 표현 사용
+- 실제 전문가가 지적할 만한 포인트 3-5개
+
+JSON만 출력하세요. 다른 설명은 불필요합니다.`
+
+      const geminiKey = geminiKeys[Math.floor(Math.random() * geminiKeys.length)]
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: dataPrompt }] }],
+            generationConfig: { temperature: 0.8, maxOutputTokens: 2000 }
+          })
+        }
+      )
+      
+      if (response.ok) {
+        const result = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+        const text = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
+        
+        // JSON 추출
+        const jsonMatch = text.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          aiGeneratedData = JSON.parse(jsonMatch[0])
+          console.log('[V27.1] Gemini 타사 설계서 데이터 생성 성공:', aiGeneratedData.company, aiGeneratedData.product_name)
+        }
+      }
+    } catch (error) {
+      console.error('[V27.1] Gemini 데이터 생성 실패, 기본 데이터 사용:', error)
+    }
+  }
+  
+  // AI 생성 데이터 또는 기본 데이터 사용
+  const finalCompany = aiGeneratedData?.company || detectedCompany || companyName
+  const finalProductName = aiGeneratedData?.product_name || `${detectedInsuranceType} 맞춤 플랜`
+  const finalPremium = aiGeneratedData?.premium || monthlyPremium
+  const finalPremiumUsd = aiGeneratedData?.premium_usd || (detectedInsuranceType === '달러종신보험' ? 'USD 350.00' : null)
+  const finalBadPoints = aiGeneratedData?.bad_points || [
+    '갱신형 특약 비중이 높아 장기 유지 시 보험료 상승 우려',
+    '주요 담보의 보장 금액 대비 보험료가 다소 높은 편',
+    '납입면제 조건이 제한적 (암/뇌/심장 한정)'
+  ]
+  const finalExpertAdvice = aiGeneratedData?.expert_advice || '보장 분석 후 불필요한 특약 정리를 권장드립니다.'
+  
+  // 담보 데이터 - AI 생성 또는 기본값
+  const finalCoverages = aiGeneratedData?.table_rows?.length > 0 
+    ? aiGeneratedData.table_rows.map((row: any, idx: number) => ({
+        name: row.name || row.담보명 || `담보${idx + 1}`,
+        amount: row.amount || row.가입금액 || '-',
+        premium: row.premium || row.보험료 || '-',
+        isHighlight: row.isHighlight || row.is_highlighted || false
+      }))
+    : coverages.length > 0 ? coverages : [
+    { name: '일반사망보험금', amount: detectedInsuranceType === '달러종신보험' ? 'USD 100,000' : '1억원', premium: '52,000원', isHighlight: false },
+    { name: '재해사망보험금', amount: detectedInsuranceType === '달러종신보험' ? 'USD 50,000' : '1억원', premium: '8,500원', isHighlight: false },
     { name: '암진단비(일반암)', amount: '5,000만원', premium: '15,200원', isHighlight: true },
     { name: '암진단비(유사암)', amount: '1,000만원', premium: '3,200원', isHighlight: false },
     { name: '뇌혈관질환진단비', amount: '3,000만원', premium: '7,800원', isHighlight: true },
@@ -8520,7 +8847,7 @@ app.post('/api/generate/proposal-image', async (c) => {
     { name: '실손의료비(선택)', amount: '급여90%', premium: '12,500원', isHighlight: false }
   ]
   
-  // 브랜드 컬러 매핑
+  // 브랜드 컬러 매핑 (외국계 보험사 추가)
   const brandColors: Record<string, { main: string, sub: string }> = {
     '삼성생명': { main: '#0066B3', sub: '#004A8F' },
     '한화생명': { main: '#FF6600', sub: '#CC5200' },
@@ -8532,35 +8859,61 @@ app.post('/api/generate/proposal-image', async (c) => {
     '현대해상': { main: '#4A8FE4', sub: '#3A72B6' },
     'DB손해보험': { main: '#007856', sub: '#006045' },
     '메리츠화재': { main: '#FF6600', sub: '#CC5200' },
-    '롯데손해보험': { main: '#E60012', sub: '#B8000E' }
+    '롯데손해보험': { main: '#E60012', sub: '#B8000E' },
+    // 외국계 (달러보험 전문)
+    '메트라이프생명': { main: '#00A550', sub: '#008040' },
+    'AIA생명': { main: '#CB122A', sub: '#A00E21' },
+    '푸르덴셜생명': { main: '#00539B', sub: '#003D70' },
+    'ABL생명': { main: '#1E3A5F', sub: '#152C47' },
+    '처브라이프': { main: '#002B5C', sub: '#001E3E' }
   }
-  const brandColor = brandColors[companyName] || { main: '#1E3A8A', sub: '#1E40AF' }
+  const brandColor = brandColors[finalCompany] || { main: '#1E3A8A', sub: '#1E40AF' }
   
-  console.log('[V27.0] HTML 캡처 모드 - 데이터 반환:', { companyName, insuranceType, style, docNumber: finalDocNumber })
+  console.log('[V27.1] 실사 합성 모드 - 데이터 반환:', { 
+    company: finalCompany, 
+    product: finalProductName,
+    insuranceType: detectedInsuranceType, 
+    style, 
+    docNumber: finalDocNumber,
+    aiGenerated: !!aiGeneratedData
+  })
   
-  // V27.0: AI 이미지 생성 대신 데이터만 반환 → 프론트엔드에서 html2canvas로 캡처
+  // V27.1: AI 이미지 생성 금지 → 데이터만 반환 → 프론트엔드 CSS 실사 합성
   return c.json({
     success: true,
-    mode: 'html-capture',  // 프론트엔드에게 "네가 그려라" 지시
+    mode: 'photo-compositing',  // V27.1: 실사 합성 모드
     docNumber: finalDocNumber,
     data: {
-      company: companyName,
-      product: `${insuranceType} 맞춤 플랜`,
-      productFull: `${companyName} ${insuranceType}`,
+      company: finalCompany,
+      product: finalProductName,
+      productFull: `${finalCompany} ${finalProductName}`,
       user: `${customerAge} / ${customerGender}`,
       customerAge,
       customerGender,
-      premium: monthlyPremium,
-      premiumNum: parseInt(monthlyPremium.replace(/[^0-9]/g, '')),
+      premium: finalPremium,
+      premiumUsd: finalPremiumUsd,
+      premiumNum: parseInt(String(finalPremium).replace(/[^0-9]/g, '')) || 89000,
       items: finalCoverages,
       totalItems: finalCoverages.length,
       highlightCount: finalCoverages.filter((c: any) => c.isHighlight).length,
       brandColor,
       style,
+      // V27.1: 전문가 분석 포인트 (빨간펜 효과용)
+      badPoints: finalBadPoints,
+      expertAdvice: finalExpertAdvice,
+      // 메타 정보
       generatedAt: new Date().toISOString(),
-      disclaimer: '※ 본 설계서는 AI가 생성한 참고용 자료입니다.'
+      disclaimer: '※ 본 설계서는 AI가 생성한 가상의 참고용 자료입니다. 실제 가입 시 공식 설계서를 확인하세요.',
+      aiGenerated: !!aiGeneratedData
     },
-    message: '설계서 데이터가 생성되었습니다. 프론트엔드에서 렌더링 후 캡처하세요.'
+    // V27.1: 합성 스타일 가이드
+    styleGuide: {
+      'phone-shot': 'Type A: 책상 위 종이를 핸드폰으로 비스듬히 촬영 (그림자/주름/기울임)',
+      'monitor-shot': 'Type B: 모니터 화면 캡처 느낌 (모아레/빛반사)',
+      'scan-copy': 'Type C: 팩스/스캔 문서 느낌 (흑백 노이즈)',
+      'compact-card': '기본: 깔끔한 카드 스타일'
+    },
+    message: '실사 합성용 데이터가 생성되었습니다. 프론트엔드 CSS로 렌더링 후 html2canvas로 캡처하세요.'
   })
 })
 
@@ -8728,7 +9081,7 @@ ${insuranceType === '간병보험' || insuranceType === '치매보험' ? `
       coverageCount: finalCoverages.length,
       highlightedCount: finalCoverages.filter((c: any) => c.is_highlighted).length,
       clientHtmlGeneration: true,  // 클라이언트에서 html2canvas로 렌더링하도록 안내
-      version: 'V27.0-ProposalImageDataV2'
+      version: 'V27.1-ProposalImageDataV2'
     })
 
   } catch (error: any) {

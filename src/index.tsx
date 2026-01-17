@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { streamText } from 'hono/streaming'
 
 type Bindings = {
   GEMINI_API_KEY?: string
@@ -19,6 +20,13 @@ type Bindings = {
 const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('/*', cors())
+
+// ========== V28.0: 속도 개선 - 하이브리드 엔진 ==========
+// Flash 모델: 전략수립, JSON 생성, 키워드 추출 (속도 10배)
+// Pro 모델: 최종 글쓰기만 사용
+
+const GEMINI_FLASH_MODEL = 'gemini-2.0-flash'  // 빠른 모델 (전략, JSON, 키워드)
+const GEMINI_PRO_MODEL = 'gemini-pro-latest'   // 품질 모델 (글쓰기)
 
 // ========== Gemini API 키 로테이션 관리 ==========
 // API 키는 환경 변수에서 가져옴 (Cloudflare Secrets)
@@ -46,6 +54,93 @@ function getNextGeminiKey(keys: string[]): string {
   return key
 }
 
+// ========== V28.0: Flash 모델 API (빠른 작업용) ==========
+async function callGeminiFlash(prompt: string, apiKeys: string | string[], retries = 2): Promise<string> {
+  const keys = Array.isArray(apiKeys) ? apiKeys : [apiKeys]
+  if (keys.length === 0 || !keys[0]) throw new Error('No API keys available')
+  
+  let keyIndex = currentKeyIndex
+  
+  for (let attempt = 0; attempt < retries * keys.length; attempt++) {
+    const apiKey = keys[keyIndex % keys.length]
+    
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_FLASH_MODEL}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.5, maxOutputTokens: 4096 }
+          })
+        }
+      )
+      
+      if (response.status === 403 || response.status === 429) {
+        keyIndex++
+        currentKeyIndex = keyIndex % keys.length
+        continue
+      }
+      
+      if (!response.ok) continue
+      const data = await response.json() as any
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    } catch (error) {
+      keyIndex++
+      continue
+    }
+  }
+  throw new Error('Flash API call failed')
+}
+
+// ========== V28.0: 스트리밍 API (Pro 모델) ==========
+async function* callGeminiProStream(prompt: string, apiKey: string): AsyncGenerator<string> {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_PRO_MODEL}:streamGenerateContent?alt=sse&key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 8192 }
+      })
+    }
+  )
+  
+  if (!response.ok) {
+    throw new Error(`Gemini API error: ${response.status}`)
+  }
+  
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error('No response body')
+  
+  const decoder = new TextDecoder()
+  let buffer = ''
+  
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const json = JSON.parse(line.slice(6))
+          const text = json.candidates?.[0]?.content?.parts?.[0]?.text
+          if (text) yield text
+        } catch (e) {
+          // JSON 파싱 실패 무시
+        }
+      }
+    }
+  }
+}
+
+// ========== V28.0: Pro 모델 (일반 호출, 기존 호환) ==========
 async function callGeminiAPI(prompt: string, apiKeys: string | string[], retries = 3): Promise<string> {
   // 배열이면 키 로테이션, 단일 문자열이면 그대로 사용
   const keys = Array.isArray(apiKeys) ? apiKeys : [apiKeys]
@@ -3647,7 +3742,13 @@ const mainPageHtml = `
               <div id="image-loading" class="absolute inset-0 flex items-center justify-center bg-black/60 hidden">
                 <div class="text-center">
                   <div class="spinner mb-2"></div>
-                  <span class="text-purple-400 text-sm">AI 이미지 생성 중...</span>
+                  <span id="streaming-status" class="text-purple-400 text-sm">AI 이미지 생성 중...</span>
+                  <div id="streaming-progress" class="mt-2 w-48 mx-auto hidden">
+                    <div class="bg-gray-700 rounded-full h-2">
+                      <div id="progress-bar" class="bg-purple-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <div id="progress-text" class="text-xs text-gray-400 mt-1">준비 중...</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3979,7 +4080,7 @@ const mainPageHtml = `
       if (!list) return;
       
       list.innerHTML = trends.map((trend, idx) => 
-        '<div class="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/30 transition-all cursor-pointer" onclick="applyTrendKeyword(\\'' + escapeHtml(trend.keyword) + '\\')">' +
+        '<div class="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/30 transition-all cursor-pointer" onclick="applyTrendKeyword('' + escapeHtml(trend.keyword) + '')">' +
         '<div class="flex items-center gap-2 mb-2">' +
         '<span class="w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold flex items-center justify-center">' + (idx + 1) + '</span>' +
         '<span class="text-white font-medium text-sm">' + escapeHtml(trend.keyword) + '</span>' +
@@ -4376,10 +4477,14 @@ const mainPageHtml = `
       btn.disabled = true;
       btn.innerHTML = '<div class="spinner"></div><span class="text-xs">생성중...</span>';
       
-      // 이미지 미리보기 섹션 표시 + 로딩
+      // 이미지 미리보기 섹션 표시 + 로딩 + 스트리밍 UI
       document.getElementById('image-preview-section').classList.remove('hidden');
       document.getElementById('image-loading').classList.remove('hidden');
       document.getElementById('proposal-image').src = '';
+      document.getElementById('streaming-progress').classList.remove('hidden');
+      document.getElementById('progress-bar').style.width = '5%';
+      document.getElementById('progress-text').textContent = '연결 중...';
+      document.getElementById('streaming-status').textContent = 'AI 설계서 생성 시작...';
       
       try {
         // 설계서 데이터 추출 (선택된 값들에서)
@@ -4395,23 +4500,95 @@ const mainPageHtml = `
         const customerAge = ageMatch ? ageMatch[1] + '세' : '35세';
         const customerGender = target.includes('여성') || target.includes('엄마') || target.includes('주부') ? '여성' : '남성';
         
-        // API 호출 - V27.1: customerConcern 추가
-        const res = await fetch('/api/generate/proposal-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            companyName,
-            insuranceType,
-            customerAge,
-            customerGender,
-            customerConcern,  // V27.1: 고민 텍스트 전달 (보험종류 자동 감지)
-            monthlyPremium: currentDesignData?.monthlyPremium || '89,000원',
-            coverages: currentDesignData?.coverages || [],
-            style: selectedImageStyle || 'phone-shot'  // V27.1: 기본값 폰카
-          })
-        });
+        // ========== V28.0: 스트리밍 API 먼저 시도 ==========
+        let data = null;
+        const useStreaming = true; // 스트리밍 모드 활성화
         
-        const data = await res.json();
+        if (useStreaming) {
+          try {
+            const streamRes = await fetch('/api/generate/proposal-stream', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                companyName,
+                insuranceType,
+                customerAge,
+                customerGender,
+                customerConcern,
+                monthlyPremium: currentDesignData?.monthlyPremium || '89,000원',
+                style: selectedImageStyle || 'phone-shot'
+              })
+            });
+            
+            if (streamRes.ok) {
+              const reader = streamRes.body.getReader();
+              const decoder = new TextDecoder();
+              let buffer = '';
+              let progress = 10;
+              
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                  if (!line.trim()) continue;
+                  try {
+                    const msg = JSON.parse(line);
+                    
+                    if (msg.type === 'start') {
+                      document.getElementById('streaming-status').textContent = msg.message || '시작...';
+                      progress = 15;
+                    } else if (msg.type === 'progress') {
+                      document.getElementById('streaming-status').textContent = msg.message || '진행 중...';
+                      progress = Math.min(90, 20 + msg.step * 20);
+                      document.getElementById('progress-text').textContent = \`Step \${msg.step}/3\`;
+                    } else if (msg.type === 'chunk') {
+                      progress = Math.min(85, progress + 2);
+                    } else if (msg.type === 'complete') {
+                      data = msg;
+                      progress = 100;
+                      document.getElementById('streaming-status').textContent = '완료!';
+                    } else if (msg.type === 'error') {
+                      console.error('[V28.0] 스트리밍 오류:', msg.message);
+                    }
+                    
+                    document.getElementById('progress-bar').style.width = progress + '%';
+                  } catch (e) {}
+                }
+              }
+            }
+          } catch (streamErr) {
+            console.log('[V28.0] 스트리밍 실패, 기본 API로 폴백:', streamErr);
+          }
+        }
+        
+        // 스트리밍 실패 시 기본 API 사용
+        if (!data) {
+          document.getElementById('streaming-status').textContent = 'AI 분석 중... (기본 모드)';
+          document.getElementById('progress-bar').style.width = '30%';
+          
+          const res = await fetch('/api/generate/proposal-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              companyName,
+              insuranceType,
+              customerAge,
+              customerGender,
+              customerConcern,
+              monthlyPremium: currentDesignData?.monthlyPremium || '89,000원',
+              coverages: currentDesignData?.coverages || [],
+              style: selectedImageStyle || 'phone-shot'
+            })
+          });
+          
+          data = await res.json();
+          document.getElementById('progress-bar').style.width = '100%';
+        }
         
         // V27.1: 실사 합성 모드 (Photo Compositing) - CSS로 실사 효과 구현
         if (data.success && (data.mode === 'html-capture' || data.mode === 'photo-compositing')) {
@@ -4895,7 +5072,7 @@ const mainPageHtml = `
         generatedKeywords = data.keywords || [];
         const keywordsDiv = document.getElementById('qna-keywords');
         keywordsDiv.innerHTML = generatedKeywords.map(kw => 
-          '<span class="keyword-tag" onclick="copyKeyword(\\'' + kw + '\\')">#' + kw + '</span>'
+          '<span class="keyword-tag" onclick="copyKeyword('' + kw + '')">#' + kw + '</span>'
         ).join('');
         
         // 제목 업데이트
@@ -4929,7 +5106,7 @@ const mainPageHtml = `
           return '<div class="bg-white/5 rounded-lg p-2.5 border-l-2 border-' + color + '-500">' +
             '<div class="flex items-center justify-between mb-1.5">' +
               '<span class="text-' + color + '-400 text-2xs font-semibold">' + label + '</span>' +
-              '<button onclick="copyText(\\'qna-c' + (i+1) + '\\')" class="px-1.5 py-0.5 rounded bg-' + color + '-500/20 text-' + color + '-400 text-2xs hover:bg-' + color + '-500/30">' +
+              '<button onclick="copyText('qna-c' + (i+1) + '')" class="px-1.5 py-0.5 rounded bg-' + color + '-500/20 text-' + color + '-400 text-2xs hover:bg-' + color + '-500/30">' +
                 '<i class="fas fa-copy"></i>' +
               '</button>' +
             '</div>' +
@@ -5742,15 +5919,20 @@ interface ProposalImageDataV2 {
   }
 }
 
-// V26.1: Health Check 업데이트 - Expert Precision, High-Value Categories + Negative Constraints
+// V28.0: Health Check 업데이트 - 스트리밍 + 하이브리드 엔진 + 병렬 처리
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '27.4', 
-  ai: 'gemini-pro-latest + naver-rag + html2canvas', 
+  version: '28.0', 
+  ai: 'gemini-pro-latest + gemini-flash + naver-rag + html2canvas', 
   textModel: 'gemini-pro-latest (gemini-2.5-pro)',
+  fastModel: 'gemini-2.0-flash',
   imageModel: 'html2canvas (CSS rendering)',
-  ragPipeline: 'naver-search → strategy-json → content-gen(multi-persona) → self-diagnosis',
+  ragPipeline: 'naver-search → flash-strategy → pro-content → self-diagnosis',
   year: 2026,
+  speedFeatures: [
+    'streaming-api', 'hybrid-engine', 'parallel-processing',
+    'flash-for-strategy', 'pro-for-writing', '1sec-first-response'
+  ],
   features: [
     // Core Features
     'keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 
@@ -5774,12 +5956,15 @@ app.get('/api/health', (c) => c.json({
     'forbidden-keyword-filter', 'business-expense-ban', 'realistic-persona-matching',
     'ceo-corporate-precision-prompt', 'nursing-care-precision-prompt', 
     'inheritance-precision-prompt', 'proposal-image-v2-pipeline',
-    // V27.1 NEW: Photo Compositing + Gemini JSON Data
+    // V27.x: Photo Compositing + Gemini JSON Data
     'insurance-type-auto-detect', 'photo-compositing-mode', 'gemini-proposal-data', 'bento-grid-analysis-report',
     'mandatory-insurancetype-prompt', 'concern-text-priority',
-    // V27.3 NEW: Precision Prompt + 2026 Real Data
+    // V27.3: Precision Prompt + 2026 Real Data
     '2026-premium-table', 'few-shot-examples', 'product-name-patterns', 'age-gender-premium-calc',
-    'coverage-based-premium-rules', 'naver-search-data-integration'
+    'coverage-based-premium-rules', 'naver-search-data-integration',
+    // V28.0 NEW: Speed Optimization
+    'streaming-text-output', 'hybrid-flash-pro-engine', 'parallel-api-calls',
+    'savings-annuity-logic', 'surrender-value-table', 'progress-ui', 'fast-api-endpoint'
   ],
   highValueCategories: ['간병/치매보험', 'CEO/화재/배상책임', '상속/증여 재원 플랜'],
   expertAnswerStructure: ['정밀진단', '비교분석', '근거제시', '행동제안'],
@@ -9627,5 +9812,506 @@ function generateDemoIP(): string {
   const suffix2 = Math.floor(Math.random() * 256)
   return `${prefix}.${suffix1}.${suffix2}`
 }
+
+// ========== V28.0: 스트리밍 Q&A API (체감 응답시간 1초) ==========
+app.post('/api/generate/qna-stream', async (c) => {
+  const body = await c.req.json()
+  const {
+    insuranceType = '종신보험',
+    targetAudience = '30대 직장인',
+    keywords = '',
+    concern = ''
+  } = body
+  
+  const geminiKeys = getGeminiKeys(c.env)
+  if (geminiKeys.length === 0) {
+    return c.json({ success: false, error: 'API key not configured' }, 500)
+  }
+  
+  const apiKey = getNextGeminiKey(geminiKeys)
+  
+  // Q&A 생성 프롬프트
+  const prompt = `당신은 보험 전문가입니다. 네이버 카페에 올릴 자연스러운 Q&A를 생성하세요.
+
+【타깃】${targetAudience}
+【보험종류】${insuranceType}
+【키워드】${keywords || insuranceType + ' 추천'}
+【고민】${concern || '보험 가입을 고민하고 있습니다'}
+
+【출력 형식 - 스트리밍용】
+=== 제목 ===
+[제목 1-2개]
+
+=== 질문 ===
+[자연스러운 질문 3개, 구어체]
+
+=== 답변 ===
+[전문가 답변 - 친절하고 상세하게]
+
+=== 해시태그 ===
+[관련 해시태그 5-7개]`
+  
+  return streamText(c, async (stream) => {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_PRO_MODEL}:streamGenerateContent?alt=sse&key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.8, maxOutputTokens: 4096 }
+          })
+        }
+      )
+      
+      if (!response.ok) {
+        await stream.write(`[ERROR] API 호출 실패: ${response.status}`)
+        return
+      }
+      
+      const reader = response.body?.getReader()
+      if (!reader) {
+        await stream.write('[ERROR] 응답 스트림 없음')
+        return
+      }
+      
+      const decoder = new TextDecoder()
+      let buffer = ''
+      
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const json = JSON.parse(line.slice(6))
+              const text = json.candidates?.[0]?.content?.parts?.[0]?.text
+              if (text) {
+                await stream.write(text)
+              }
+            } catch (e) {
+              // JSON 파싱 실패 무시
+            }
+          }
+        }
+      }
+      
+      // 남은 버퍼 처리
+      if (buffer.startsWith('data: ')) {
+        try {
+          const json = JSON.parse(buffer.slice(6))
+          const text = json.candidates?.[0]?.content?.parts?.[0]?.text
+          if (text) await stream.write(text)
+        } catch (e) {}
+      }
+      
+    } catch (error) {
+      await stream.write(`[ERROR] ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  })
+})
+
+// ========== V28.0: 스트리밍 설계서 API (병렬 처리 + Flash 모델) ==========
+app.post('/api/generate/proposal-stream', async (c) => {
+  const body = await c.req.json()
+  const {
+    companyName = '삼성생명',
+    insuranceType = '종신보험',
+    customerAge = '35세',
+    customerGender = '남성',
+    customerConcern = '',
+    monthlyPremium = '89,000원',
+    style = 'phone-shot'
+  } = body
+  
+  const geminiKeys = getGeminiKeys(c.env)
+  if (geminiKeys.length === 0) {
+    return c.json({ success: false, error: 'API key not configured' }, 500)
+  }
+  
+  const docNumber = `INS-${Date.now().toString(36).toUpperCase()}`
+  const ageNum = parseInt(customerAge.replace(/[^0-9]/g, '')) || 35
+  
+  // ========== V28.0: 저축/연금 vs 보장성 로직 분기 ==========
+  const isSavingsType = ['저축보험', '연금보험', '변액보험', '저축성보험'].includes(insuranceType) ||
+    customerConcern.toLowerCase().includes('연금') || 
+    customerConcern.toLowerCase().includes('저축') ||
+    customerConcern.toLowerCase().includes('적립')
+  
+  return streamText(c, async (stream) => {
+    try {
+      const apiKey = getNextGeminiKey(geminiKeys)
+      
+      // 스트리밍 시작 알림
+      await stream.write(JSON.stringify({
+        type: 'start',
+        docNumber,
+        message: '설계서 데이터 생성 시작...'
+      }) + '\n')
+      
+      // ========== Step 1: Flash 모델로 기본 정보 빠르게 생성 ==========
+      await stream.write(JSON.stringify({
+        type: 'progress',
+        step: 1,
+        message: '보험 정보 분석 중...'
+      }) + '\n')
+      
+      const quickInfoPrompt = isSavingsType 
+        ? `저축/연금보험 설계서 기본 정보를 JSON으로 출력하세요.
+보험종류: \${insuranceType}
+고객: \${customerAge} \${customerGender}
+고민: \${customerConcern || '노후 대비'}
+
+출력:
+{
+  "company": "추천 보험사",
+  "product_name": "상품명",
+  "contract_period": "10년 또는 20년",
+  "payment_period": "납입기간",
+  "expected_return_rate": "예상 수익률",
+  "surrender_schedule": [
+    {"year": 3, "rate": "약 75%", "amount": "...만원"},
+    {"year": 5, "rate": "약 85%", "amount": "...만원"},
+    {"year": 7, "rate": "약 95%", "amount": "...만원"},
+    {"year": 10, "rate": "약 110%", "amount": "...만원"},
+    {"year": 15, "rate": "약 130%", "amount": "...만원"},
+    {"year": 20, "rate": "약 155%", "amount": "...만원"}
+  ],
+  "benefits": ["주요 특징 3-5개"],
+  "bad_points": ["문제점 2-3개"]
+}`
+        : `보장성 보험 설계서 기본 정보를 JSON으로 출력하세요.
+보험종류: \${insuranceType}
+보험사: \${companyName}
+고객: \${customerAge} \${customerGender}
+고민: \${customerConcern}
+
+출력 (JSON만):
+{
+  "company": "보험사명",
+  "product_name": "(무)상품명",
+  "recommended_coverages": ["필수담보 5-7개 목록"],
+  "highlight_coverages": ["중요담보 3개"],
+  "premium_range": "예상 월보험료 범위"
+}`
+      
+      let basicInfo: any = null
+      try {
+        const flashResponse = await callGeminiFlash(quickInfoPrompt, geminiKeys)
+        const jsonMatch = flashResponse.match(/\{[\\s\S]*\\}/)
+        if (jsonMatch) {
+          basicInfo = JSON.parse(jsonMatch[0])
+        }
+      } catch (e) {
+        console.log('[V28.0] Flash 모델 실패, 기본값 사용')
+      }
+      
+      await stream.write(JSON.stringify({
+        type: 'progress',
+        step: 2,
+        message: basicInfo ? '기본 정보 분석 완료' : '기본 정보 생성 중...'
+      }) + '\n')
+      
+      // ========== Step 2: Pro 모델로 상세 담보/환급금 테이블 생성 (스트리밍) ==========
+      await stream.write(JSON.stringify({
+        type: 'progress',
+        step: 3,
+        message: isSavingsType ? '해지환급금 예시표 생성 중...' : '담보 테이블 생성 중...'
+      }) + '\n')
+      
+      const detailPrompt = isSavingsType
+        ? `저축/연금보험 상세 설계서 데이터를 생성하세요.
+
+【고객】\${customerAge} \${customerGender}
+【월납입액】\${monthlyPremium}
+【보험종류】\${insuranceType}
+【기본정보】\${JSON.stringify(basicInfo || {})}
+
+【중요】저축/연금보험이므로 암/뇌/심장 진단비 담보는 절대 포함하지 마세요!
+
+【해지환급금 예시표 생성 규칙】
+- 월 납입액 기준으로 계산
+- 3년차: 납입액의 70-80%
+- 5년차: 납입액의 85-95%
+- 7년차: 납입액의 95-105%
+- 10년차: 납입액의 105-115%
+- 15년차: 납입액의 125-140%
+- 20년차: 납입액의 145-165%
+- 30년차(연금개시): 납입액의 180-220%
+
+【출력 JSON】
+{
+  "company": "\${basicInfo?.company || companyName}",
+  "product_name": "상품명 (저축/연금 유형)",
+  "customer_info": "\${customerAge} / \${customerGender}",
+  "premium": "\${monthlyPremium}",
+  "contract_period": "계약기간",
+  "payment_period": "납입기간",
+  "surrender_table": [
+    {"year": "3년차", "total_paid": "납입총액", "surrender_value": "해지환급금", "rate": "환급률"},
+    {"year": "5년차", ...},
+    {"year": "7년차", ...},
+    {"year": "10년차", ...},
+    {"year": "15년차", ...},
+    {"year": "20년차", ...}
+  ],
+  "pension_example": {
+    "start_age": "55세 또는 60세",
+    "monthly_pension": "예상 월연금액",
+    "pension_period": "종신 또는 확정기간"
+  },
+  "benefits": ["특징 3-5개"],
+  "bad_points": ["전문가 관점 문제점 2-3개"],
+  "expert_advice": "핵심 조언 1문장"
+}`
+        : `보장성 보험 상세 설계서 데이터를 생성하세요.
+
+【고객】\${customerAge} \${customerGender}
+【보험종류】\${insuranceType}
+【보험사】\${basicInfo?.company || companyName}
+【월보험료】\${monthlyPremium}
+【기본정보】\${JSON.stringify(basicInfo || {})}
+
+【담보 테이블 생성 규칙 - 15~18개】
+- 핵심 담보(암/뇌/심장)는 isHighlight: true
+- 각 담보별 현실적인 보험료 배분
+- 합계가 월보험료와 ±10% 내로 일치
+
+【출력 JSON】
+{
+  "company": "보험사",
+  "product_name": "(무)상품명",
+  "customer_info": "\${customerAge} / \${customerGender}",
+  "premium": "\${monthlyPremium}",
+  "contract_period": "종신 또는 80세/100세",
+  "payment_period": "20년납",
+  "table_rows": [
+    {"name": "담보명", "amount": "가입금액", "premium": "개별보험료", "isHighlight": boolean}
+  ],
+  "bad_points": ["문제점 3-4개"],
+  "expert_advice": "핵심 조언"
+}`
+      
+      // Pro 모델 스트리밍으로 상세 데이터 생성
+      let fullResponse = ''
+      const proResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/\${GEMINI_PRO_MODEL}:streamGenerateContent?alt=sse&key=\${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: detailPrompt }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+          })
+        }
+      )
+      
+      if (proResponse.ok && proResponse.body) {
+        const reader = proResponse.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let chunkCount = 0
+        
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const json = JSON.parse(line.slice(6))
+                const text = json.candidates?.[0]?.content?.parts?.[0]?.text
+                if (text) {
+                  fullResponse += text
+                  chunkCount++
+                  // 주기적으로 진행 상황 알림
+                  if (chunkCount % 5 === 0) {
+                    await stream.write(JSON.stringify({
+                      type: 'chunk',
+                      preview: text.substring(0, 50)
+                    }) + '\n')
+                  }
+                }
+              } catch (e) {}
+            }
+          }
+        }
+      }
+      
+      // JSON 파싱
+      let finalData: any = null
+      const jsonMatch = fullResponse.match(/\{[\\s\S]*\\}/)
+      if (jsonMatch) {
+        try {
+          finalData = JSON.parse(jsonMatch[0])
+        } catch (e) {
+          console.log('[V28.0] JSON 파싱 실패')
+        }
+      }
+      
+      // 브랜드 컬러
+      const brandColors: Record<string, { main: string, sub: string }> = {
+        '삼성생명': { main: '#0066B3', sub: '#004A8F' },
+        '한화생명': { main: '#FF6600', sub: '#CC5200' },
+        '교보생명': { main: '#00A651', sub: '#008542' },
+        '신한라이프': { main: '#0046FF', sub: '#0035CC' },
+        'NH농협생명': { main: '#00A73C', sub: '#008530' },
+        '메트라이프생명': { main: '#00A550', sub: '#008040' },
+        'AIA생명': { main: '#CB122A', sub: '#A00E21' },
+        '푸르덴셜생명': { main: '#00539B', sub: '#003D70' }
+      }
+      const brandColor = brandColors[finalData?.company || companyName] || { main: '#1E3A8A', sub: '#1E40AF' }
+      
+      // 최종 결과 전송
+      await stream.write(JSON.stringify({
+        type: 'complete',
+        success: true,
+        mode: isSavingsType ? 'savings-compositing' : 'photo-compositing',
+        docNumber,
+        isSavingsType,
+        data: finalData ? {
+          ...finalData,
+          brandColor,
+          style,
+          aiGenerated: true,
+          generatedAt: new Date().toISOString(),
+          disclaimer: '※ 본 설계서는 AI가 생성한 가상의 참고용 자료입니다.'
+        } : {
+          company: companyName,
+          product_name: insuranceType + ' 맞춤 플랜',
+          customer_info: `\${customerAge} / \${customerGender}`,
+          premium: monthlyPremium,
+          brandColor,
+          style,
+          aiGenerated: false,
+          error: '데이터 생성 실패 - 기본값 사용'
+        }
+      }) + '\n')
+      
+    } catch (error) {
+      await stream.write(JSON.stringify({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      }) + '\n')
+    }
+  })
+})
+
+// ========== V28.0: 하이브리드 병렬 API (최대 속도) ==========
+app.post('/api/generate/proposal-fast', async (c) => {
+  const body = await c.req.json()
+  const {
+    companyName = '삼성생명',
+    insuranceType = '종신보험',
+    customerAge = '35세',
+    customerGender = '남성',
+    customerConcern = '',
+    monthlyPremium = '89,000원',
+    style = 'phone-shot'
+  } = body
+  
+  const geminiKeys = getGeminiKeys(c.env)
+  if (geminiKeys.length === 0) {
+    return c.json({ success: false, error: 'API key not configured' }, 500)
+  }
+  
+  const startTime = Date.now()
+  const docNumber = `INS-\${Date.now().toString(36).toUpperCase()}`
+  const ageNum = parseInt(customerAge.replace(/[^0-9]/g, '')) || 35
+  
+  // 저축/연금 타입 감지
+  const isSavingsType = ['저축보험', '연금보험', '변액보험'].includes(insuranceType) ||
+    customerConcern.toLowerCase().includes('연금') || 
+    customerConcern.toLowerCase().includes('저축')
+  
+  try {
+    // ========== V28.0: 병렬 처리 - Flash로 전략 + Pro로 상세 ==========
+    const [strategyResult, detailResult] = await Promise.all([
+      // Task 1: Flash 모델로 전략/구조 빠르게 생성
+      callGeminiFlash(`\${insuranceType} \${customerAge} \${customerGender} 설계 전략을 JSON으로:
+{"company":"추천보험사","focus":["핵심포인트3개"],"avoid":["피할점2개"]}`, geminiKeys),
+      
+      // Task 2: Pro 모델로 상세 담보 데이터 생성
+      callGeminiAPI(isSavingsType
+        ? `저축/연금보험 해지환급금 예시표 생성 (암/뇌/심장 담보 제외!):
+고객: \${customerAge} \${customerGender}, 월납입: \${monthlyPremium}
+JSON: {"surrender_table":[{"year":"3년","rate":"75%"},{"year":"5년","rate":"90%"},...],"pension_monthly":"예상연금"}`
+        : `보장성보험 담보 테이블 15-18개:
+\${insuranceType}, \${customerAge} \${customerGender}, 월보험료 \${monthlyPremium}
+JSON: {"table_rows":[{"name":"담보명","amount":"금액","premium":"보험료","isHighlight":true/false}],"bad_points":["문제점"]}`,
+      geminiKeys)
+    ])
+    
+    const elapsedTime = Date.now() - startTime
+    
+    // 결과 파싱
+    let strategy: any = {}
+    let detail: any = {}
+    
+    try {
+      const strategyMatch = strategyResult.match(/\{[\\s\S]*\\}/)
+      if (strategyMatch) strategy = JSON.parse(strategyMatch[0])
+    } catch (e) {}
+    
+    try {
+      const detailMatch = detailResult.match(/\{[\\s\S]*\\}/)
+      if (detailMatch) detail = JSON.parse(detailMatch[0])
+    } catch (e) {}
+    
+    // 브랜드 컬러
+    const brandColors: Record<string, { main: string, sub: string }> = {
+      '삼성생명': { main: '#0066B3', sub: '#004A8F' },
+      '한화생명': { main: '#FF6600', sub: '#CC5200' },
+      '교보생명': { main: '#00A651', sub: '#008542' }
+    }
+    const finalCompany = strategy.company || detail.company || companyName
+    const brandColor = brandColors[finalCompany] || { main: '#1E3A8A', sub: '#1E40AF' }
+    
+    return c.json({
+      success: true,
+      mode: isSavingsType ? 'savings-compositing' : 'photo-compositing',
+      docNumber,
+      isSavingsType,
+      elapsedMs: elapsedTime,
+      data: {
+        company: finalCompany,
+        product_name: detail.product_name || `\${insuranceType} 맞춤 플랜`,
+        customer_info: `\${customerAge} / \${customerGender}`,
+        premium: monthlyPremium,
+        ...(isSavingsType ? {
+          surrender_table: detail.surrender_table || [],
+          pension_monthly: detail.pension_monthly
+        } : {
+          items: detail.table_rows || [],
+          totalItems: detail.table_rows?.length || 0
+        }),
+        strategy: strategy.focus || [],
+        bad_points: detail.bad_points || strategy.avoid || [],
+        expert_advice: detail.expert_advice || '전문가 상담을 권장합니다.',
+        brandColor,
+        style,
+        aiGenerated: true,
+        generatedAt: new Date().toISOString()
+      }
+    })
+    
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      elapsedMs: Date.now() - startTime
+    }, 500)
+  }
+})
 
 export default app

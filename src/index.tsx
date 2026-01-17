@@ -8903,32 +8903,27 @@ ${detectedInsuranceType === '달러종신보험' ? `
 
 위 형식을 정확히 따라 JSON만 출력하세요. 다른 설명 없이 { 로 시작해서 } 로 끝나야 합니다.`
 
-      const geminiKey = geminiKeys[Math.floor(Math.random() * geminiKeys.length)]
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: dataPrompt }] }],
-            generationConfig: { temperature: 0.8, maxOutputTokens: 2000 }
-          })
-        }
-      )
+      console.log('[V27.2] Gemini API 호출 시작 - 키 개수:', geminiKeys.length)
       
-      if (response.ok) {
-        const result = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
-        const text = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
-        
-        // JSON 추출
-        const jsonMatch = text.match(/\{[\s\S]*\}/)
-        if (jsonMatch) {
+      // 기존 callGeminiAPI 함수 사용 (검증된 방식)
+      const text = await callGeminiAPI(dataPrompt, geminiKeys)
+      
+      console.log('[V27.2] Gemini 응답 텍스트 길이:', text.length)
+      
+      // JSON 추출
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try {
           aiGeneratedData = JSON.parse(jsonMatch[0])
-          console.log('[V27.1] Gemini 타사 설계서 데이터 생성 성공:', aiGeneratedData.company, aiGeneratedData.product_name)
+          console.log('[V27.2] Gemini 타사 설계서 데이터 생성 성공:', aiGeneratedData.company, aiGeneratedData.product_name)
+        } catch (parseError) {
+          console.error('[V27.2] JSON 파싱 실패:', parseError)
         }
+      } else {
+        console.log('[V27.2] JSON 매칭 실패 - 응답 앞부분:', text.substring(0, 200))
       }
     } catch (error) {
-      console.error('[V27.1] Gemini 데이터 생성 실패, 기본 데이터 사용:', error)
+      console.error('[V27.2] Gemini 데이터 생성 실패, 기본 데이터 사용:', error)
     }
   }
   

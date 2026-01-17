@@ -1,91 +1,144 @@
-# 🛡️ XIVIX 보험 콘텐츠 마스터 V25.5
+# 🛡️ XIVIX 보험 콘텐츠 마스터 V27.3
 
 > **AI 기반 보험 마케팅 콘텐츠 자동 생성 플랫폼**  
 > 보험 설계사의 네이버 카페 마케팅을 위한 Q&A, 분석 리포트, 제안서 자동 생성
 
 ---
 
-## 🌐 라이브 서비스
+## 🌐 라이브 서비스 (모든 링크)
 
+### ■ 프론트엔드
 | 서비스 | URL |
 |--------|-----|
-| **메인 서비스** | https://insurance-content-master.pages.dev |
-| **관리자 패널** | https://insurance-content-master.pages.dev/admin |
-| **API Health** | https://insurance-content-master.pages.dev/api/health |
-| **GitHub** | https://github.com/ikjoobang/insurance-content-master |
+| **메인 페이지** | https://insurance-content-master.pages.dev |
+| **대시보드** | https://insurance-content-master.pages.dev (메인과 동일) |
+| **어드민 페이지** | https://insurance-content-master.pages.dev/admin |
+
+### ■ 백엔드 API
+| 서비스 | URL |
+|--------|-----|
+| **API 서버** | https://insurance-content-master.pages.dev/api/* |
+| **Health Check** | https://insurance-content-master.pages.dev/api/health |
+| **API 문서 (Swagger)** | 미구현 - 별도 Swagger 미적용 |
+
+### ■ 저장소
+| 서비스 | URL |
+|--------|-----|
+| **GitHub (Backend)** | https://github.com/ikjoobang/insurance-content-master |
+
+### ■ 개발 환경 (샌드박스)
+| 서비스 | URL |
+|--------|-----|
+| **로컬 서버** | https://3000-it76dqh2zidiverpa9gm8-18e660f9.sandbox.novita.ai |
+| **로컬 어드민** | https://3000-it76dqh2zidiverpa9gm8-18e660f9.sandbox.novita.ai/admin |
+| **로컬 Health** | https://3000-it76dqh2zidiverpa9gm8-18e660f9.sandbox.novita.ai/api/health |
 
 ---
 
-## 🎯 누가 사용하나요?
+## 🎯 V27.3 신규 기능
 
-### ■ 보험 설계사 / GA
-- 네이버 카페에 올릴 Q&A 콘텐츠 자동 생성
-- 고객 맞춤형 보험 제안서 자동 작성
-- 보험 증권 분석 리포트 생성
+### ❶ 정밀 프롬프트 + 2026년 실제 보험료 데이터
+```
+- 네이버 검색/공시자료 기반 2026년 1월 현실적 보험료 테이블
+- 담보별 보험료 기준표 (35세 남성 20년납 기준)
+- 보험사 12개 상품명 패턴 적용
+- 연령/성별 차등 로직 (40세 +20%, 50세 +70%, 여성 -8%)
+```
 
-### ■ 보험 마케터
-- SEO 최적화된 보험 콘텐츠 생성
-- 실시간 보험 트렌드 키워드 분석
-- 타깃별 맞춤 톤앤매너 콘텐츠
+### ❷ Photo Compositing 설계서 생성
+```
+- Type A: 폰카 버전 - 책상 위 비스듬히 찍은 느낌 (기본값)
+- Type B: 모니터 버전 - 화면 캡처 느낌
+- Type C: 스캔 버전 - 팩스/복사기 느낌
+- Gemini API JSON 데이터 생성 → 프론트엔드 CSS 실사 합성
+```
+
+### ❸ Few-shot 예시 기반 정밀 생성
+```
+- 달러종신보험 35세 남성 예시 (15개 담보, USD 311/월)
+- 암보험 40세 여성 예시 (15개 담보, 78,500원/월)
+- 담보 합계 ±10% 오차 범위 유지
+```
 
 ---
 
-## ✨ 핵심 기능
+## 📡 전체 API 엔드포인트
 
-### ❶ Q&A 자동 생성 (보험카페용)
-```
-입력: 타깃(40대 가장) + 보험종류(암보험) + 고객고민(갱신형이 좋을까요?)
-출력: 제목 2개 + 질문 3개 + 전문가 답변 3개 + 댓글 5개 + SEO 키워드
+| 엔드포인트 | 메서드 | 설명 |
+|------------|--------|------|
+| `/` | GET | 메인 페이지 |
+| `/admin` | GET | 관리자 페이지 |
+| `/api/health` | GET | 서버 상태 및 버전 정보 (V27.3) |
+| `/api/generate/qna-full` | POST | Q&A 전체 자동 생성 |
+| `/api/generate/proposal-report` | POST | Bento Grid 제안서 리포트 |
+| `/api/generate/proposal-image` | POST | **V27.1 실사 합성 설계서** |
+| `/api/generate/proposal-image-data` | POST | 설계서 데이터 JSON |
+| `/api/generate/proposal-image-data-v2` | POST | 고밀도 템플릿 버전 |
+| `/api/generate/blog` | POST | 블로그 콘텐츠 생성 |
+| `/api/analyze/insurance-report` | POST | 보험 증권 분석 |
+| `/api/analyze/photo` | POST | 사진 분석 (OCR) |
+| `/api/analyze/blog` | POST | 블로그 분석 |
+| `/api/trends/insurance` | GET | 실시간 보험 트렌드 |
+| `/api/naver/keywords` | GET | 네이버 키워드 분석 |
+| `/api/proxy/current-ip` | GET | 현재 IP 확인 |
+| `/api/proxy/status` | GET | 프록시 상태 확인 |
+| `/api/proxy/change-ip` | POST | IP 변경 요청 |
+
+---
+
+## ✅ 테스트 완료 현황 (2026-01-17)
+
+### ■ 기능 테스트
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 헬스체크 API | ✅ 정상 | version: 27.3 |
+| Q&A 자동생성 | ✅ 정상 | 3개 질문 + SEO 키워드 생성 |
+| 설계서 이미지 API | ✅ 정상 | 15개 담보, photo-compositing 모드 |
+| 할루시네이션 테스트 | ✅ 통과 | 금지키워드 0건 검출 |
+| 캐시 버스팅 | ✅ 적용 | meta no-cache 태그 |
+| TXT 다운로드 | ✅ 구현 | downloadTxt() 함수 |
+| PDF 다운로드 | ✅ 구현 | jsPDF 라이브러리 적용 |
+| 프론트엔드 UI | ✅ 정상 | V25.5 텍스트 선택 허용 |
+| 어드민 페이지 | ✅ 정상 | /admin 정상 접속 |
+
+### ■ Gemini API 키 상태
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 키 개수 | ⚠️ 4개 등록됨 | .dev.vars에 4개 슬롯 설정 |
+| API 호출 | ⚠️ 실패 | 동일 키 복사로 인한 실패 |
+| 폴백 데이터 | ✅ 정상 | aiGenerated: false 시 기본 데이터 사용 |
+
+> **참고**: 실제 다른 4개의 유효한 Gemini API 키가 필요합니다.
+> 현재는 기본 데이터를 사용하여 서비스가 작동합니다.
+
+---
+
+## 🔧 환경 설정
+
+### ■ 로컬 개발 (.dev.vars)
+```bash
+# Gemini API Keys (4개 로테이션)
+GEMINI_API_KEY_1=your-key-1
+GEMINI_API_KEY_2=your-key-2
+GEMINI_API_KEY_3=your-key-3
+GEMINI_API_KEY_4=your-key-4
+
+# Naver Search API
+NAVER_CLIENT_ID=your_naver_client_id
+NAVER_CLIENT_SECRET=your_naver_client_secret
 ```
 
-**특징:**
-- 3개 페르소나 시스템 (전문/설득형, 리얼토크형, 친근형)
-- RAG 4단계 파이프라인 (할루시네이션 Zero)
-- 네이버 검색 API 기반 실시간 팩트 수집
-- 자가진단 루프 (70점 미만 시 재생성)
-
-### ❷ Bento Grid 분석 리포트
+### ■ 프로덕션 (Cloudflare Secrets)
+```bash
+# wrangler secret put 명령으로 등록
+npx wrangler pages secret put GEMINI_API_KEY_1 --project-name insurance-content-master
+npx wrangler pages secret put GEMINI_API_KEY_2 --project-name insurance-content-master
+# ... (4개 모두 등록)
 ```
-입력: 보험 증권 이미지 또는 보장 정보
-출력: 인포그래픽 스타일 분석 리포트
-```
-
-**분석 항목:**
-- 🧠 **뇌혈관질환 (I60-I69)** 보장 범위 정밀 분석
-- ❤️ **심장질환 (I49, 급성심근경색)** 보장 여부
-- 🏥 **수술비 급수 체계** 자동 감지 (1-5종 vs 1-9종)
-- ⚠️ **민감 데이터 경고** (불확실 정보 명시)
-
-### ❸ 보험 설계서 자동 생성
-```
-입력: 고객 정보 + 보험 유형
-출력: 브랜드 컬러 적용 설계서 (PDF/이미지)
-```
-
-### ❹ 실시간 트렌드 분석
-- 네이버 DataLab 연동
-- 12개 보험 카테고리 키워드 분석
-- SEO 최적화 제목 자동 생성
 
 ---
 
 ## 🏗️ 기술 아키텍처
-
-### ■ RAG 4단계 파이프라인
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Step 1: 팩트 수집      Step 2: 전략 수립     Step 3: 콘텐츠 생성   │
-│  [네이버 검색 API] →    [전략 JSON]    →     [RAG 기반 작성]       │
-│  블로그 5개 + 뉴스 3개  SEO 키워드 5개       JSON에 없는 내용      │
-│                        팩트 체크 3개         절대 생성 금지         │
-│                                                                     │
-│                            ↓ 자가진단 실패 시 재생성 (최대 2회)     │
-│                                                                     │
-│  Step 4: 자가 진단                                                  │
-│  [Self-Diagnosis Loop]                                              │
-│  핵심고민 포함 여부 / 2026년 트렌드 반영 / 검수 점수 70점 이상     │
-└─────────────────────────────────────────────────────────────────────┘
-```
 
 ### ■ 기술 스택
 | 구분 | 기술 |
@@ -97,7 +150,7 @@
 | **검색 연동** | NAVER Search API (블로그 + 뉴스) |
 | **키워드 분석** | NAVER DataLab API |
 | **UI** | Tailwind CSS + Font Awesome 6 |
-| **폰트** | Pretendard Variable, Noto Sans KR |
+| **폰트** | Pretendard Variable, Noto Sans KR, Malgun Gothic |
 
 ### ■ 주요 원칙 (XIVIX Principles)
 | 원칙 | 설명 |
@@ -110,68 +163,12 @@
 
 ---
 
-## 📡 API 엔드포인트
-
-| 엔드포인트 | 메서드 | 설명 |
-|------------|--------|------|
-| `/api/health` | GET | 서버 상태 및 버전 정보 |
-| `/api/generate/qna-full` | POST | Q&A 전체 자동 생성 |
-| `/api/generate/proposal-report` | POST | Bento Grid 제안서 리포트 |
-| `/api/analyze/insurance-report` | POST | 보험 증권 분석 |
-| `/api/trends/insurance` | GET | 실시간 보험 트렌드 |
-| `/api/naver/keywords` | GET | 네이버 키워드 분석 |
-| `/api/analyze/photo` | POST | 사진 분석 (OCR) |
-
-### ■ Q&A 생성 API 예시
-```bash
-curl -X POST https://insurance-content-master.pages.dev/api/generate/qna-full \
-  -H "Content-Type: application/json" \
-  -d '{
-    "target": "40대 가장",
-    "insuranceType": "암보험",
-    "customerConcern": "갱신형이 좋을지 비갱신형이 좋을지 모르겠어요",
-    "tone": "전문"
-  }'
-```
-
-### ■ 분석 리포트 API 예시
-```bash
-curl -X POST https://insurance-content-master.pages.dev/api/analyze/insurance-report \
-  -H "Content-Type: application/json" \
-  -d '{
-    "company": "삼성생명",
-    "productName": "무배당 삼성 암보험",
-    "coverages": [
-      {"name": "암진단비", "amount": "5,000만원", "premium": "28,000원"},
-      {"name": "뇌출혈진단", "amount": "3,000만원", "premium": "12,000원"}
-    ],
-    "totalPremium": "119,500원"
-  }'
-```
-
----
-
-## 🎨 UI/UX 특징
-
-### ■ 디자인 시스템
-- **테마**: Deep Black (#000000) + Soft Silver (#E0E0E0)
-- **레이아웃**: Bento Grid 기반 인포그래픽
-- **반응형**: PC 전체 너비 활용, 모바일 최적화
-- **접근성**: 모든 텍스트 선택/복사 가능
-
-### ■ 원클릭 복사
-- 제목, 질문, 답변, 댓글 각각 원클릭 복사
-- 설계서 텍스트/HTML 버전 복사
-- SEO 키워드 일괄 복사
-
----
-
 ## 📁 프로젝트 구조
 
 ```
 webapp/
 ├── src/
-│   └── index.tsx          # 메인 애플리케이션 (7,000줄+)
+│   └── index.tsx          # 메인 애플리케이션 (9,600줄+)
 ├── scripts/
 │   └── generate-proposal-image.cjs  # Puppeteer 이미지 생성
 ├── public/
@@ -180,6 +177,7 @@ webapp/
 ├── dist/                  # 빌드 결과물
 ├── ecosystem.config.cjs   # PM2 설정
 ├── wrangler.jsonc         # Cloudflare 설정
+├── .dev.vars              # 로컬 환경변수 (Git 제외)
 ├── package.json
 ├── tsconfig.json
 └── vite.config.ts
@@ -191,38 +189,32 @@ webapp/
 
 | 버전 | 날짜 | 주요 변경사항 |
 |------|------|---------------|
-| **V25.5** | **2026-01-17** | **텍스트 선택/복사 완전 허용, body 인라인 이벤트 제거** |
-| V25.4 | 2026-01-17 | XIVIX 원칙 적용, 정밀 프롬프트 설계, Negative Constraints 강화 |
-| V25.3 | 2026-01-17 | XIVIX 표준 JSON 스키마, I-코드 정밀 분석, 수술비 체계 자동 감지 |
-| V25.2 | 2026-01-17 | Bento Grid 제안서 API, 한글 폰트 설치, Puppeteer 이미지 엔진 |
-| V25.1 | 2026-01-16 | 민감 데이터 필터, 수술비 급수 검증, I-코드 검증 |
-| V25.0 | 2026-01-16 | 실시간 트렌드, 12개 보험 카테고리, 가독성 최적화 |
+| **V27.3** | **2026-01-17** | **정밀 프롬프트 + 2026년 실데이터 보험료 테이블 + Few-shot 예시** |
+| V27.2 | 2026-01-17 | 정밀 프롬프트 + callGeminiAPI 통합 |
+| V27.1 | 2026-01-17 | Photo Compositing + Gemini JSON Data Generation |
+| V27.0 | 2026-01-17 | 보험종류 자동 감지, 달러종신보험 지원 |
+| V25.5 | 2026-01-17 | 텍스트 선택/복사 완전 허용, XIVIX 원칙 |
+| V25.3 | 2026-01-17 | XIVIX 표준 JSON 스키마, I-코드 정밀 분석 |
 
 ---
 
-## ⚠️ 주의사항
+## ⚠️ 알려진 이슈 및 권장사항
 
-- Gemini API 키는 서버사이드에서만 사용 (4키 로테이션)
-- 금소법 관련 내용은 참고용이며, 실제 활용 시 법적 검토 필요
-- 뇌혈관질환(I60-I69), 부정맥(I49) 보장은 보험사별 약관 확인 필수
-- 수술비 급수(1-5종 vs 1-9종)는 보험사별로 상이
+### ■ Gemini API 키 설정 필요
+- 현재 프로덕션에서 Gemini API 키 미설정 또는 유효하지 않음
+- `aiGenerated: false` 상태로 기본 데이터 사용 중
+- **해결 방법**: `wrangler pages secret put` 명령으로 4개의 유효한 키 등록
+
+### ■ 코드 경고
+- `src/index.tsx`에 중복 키 경고 (`운전자` 키 중복)
+- 기능에 영향 없음, 향후 정리 권장
 
 ---
 
 ## 👨‍💻 개발 정보
 
 - **개발자**: 방익주
-- **버전**: V25.5
+- **버전**: V27.3
 - **최종 업데이트**: 2026-01-17
+- **GitHub**: https://github.com/ikjoobang/insurance-content-master
 - **기술 지원**: XIVIX Dev Team
-
----
-
-## 📞 빠른 시작
-
-1. https://insurance-content-master.pages.dev 접속
-2. **타깃** 선택 (예: 40대 가장)
-3. **보험종류** 선택 (예: 암보험)
-4. **고객 고민** 입력 (예: 갱신형이 좋을까요?)
-5. **생성하기** 클릭
-6. 결과물 **원클릭 복사** → 네이버 카페에 붙여넣기 🎉

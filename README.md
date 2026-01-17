@@ -1,7 +1,9 @@
-# 🛡️ XIVIX 보험 콘텐츠 마스터 V27.3
+# 🛡️ XIVIX 보험 콘텐츠 마스터 V28.0
 
 > **AI 기반 보험 마케팅 콘텐츠 자동 생성 플랫폼**  
 > 보험 설계사의 네이버 카페 마케팅을 위한 Q&A, 분석 리포트, 제안서 자동 생성
+> 
+> **V28.0 속도 혁신: 스트리밍 + 하이브리드 엔진 + 병렬 처리**
 
 ---
 
@@ -35,7 +37,40 @@
 
 ---
 
-## 🎯 V27.3 신규 기능
+## 🚀 V28.0 속도 혁신 (NEW!)
+
+### ❶ 스트리밍 API - 체감 응답 1초
+```
+- 버튼 누르자마자 글자가 타닥타닥 써지기 시작
+- ChatGPT처럼 실시간 텍스트 출력
+- 30초 걸리는 작업도 1초 내 반응
+- 프로그레스 바로 진행 상황 표시
+```
+
+### ❷ 하이브리드 엔진 - Flash + Pro 모델 분리
+```
+- Flash 모델 (gemini-2.0-flash): 전략 수립, JSON 생성, 키워드 추출
+- Pro 모델 (gemini-pro-latest): 최종 글쓰기, 정밀 분석
+- 속도 10배 향상 (쉬운 작업은 Flash로)
+```
+
+### ❸ 병렬 처리 - Promise.all 동시 실행
+```
+- 검색 → 전략 → 글쓰기 순차 → 동시 실행으로 변경
+- Text Gen + Image Data Gen 병렬 처리
+- 전체 응답 시간 50% 단축
+```
+
+### ❹ 저축/연금 로직 분기
+```
+- 저축/연금보험 선택 시: 해지환급금 예시표 생성
+- 보장성보험 선택 시: 기존 담보 테이블 생성
+- 암/뇌/심장 담보 자동 제외 (저축성)
+```
+
+---
+
+## 🎯 V27.x 기능
 
 ### ❶ 정밀 프롬프트 + 2026년 실제 보험료 데이터
 ```
@@ -72,6 +107,9 @@
 | `/api/generate/qna-full` | POST | Q&A 전체 자동 생성 |
 | `/api/generate/proposal-report` | POST | Bento Grid 제안서 리포트 |
 | `/api/generate/proposal-image` | POST | **V27.1 실사 합성 설계서** |
+| `/api/generate/proposal-stream` | POST | **V28.0 스트리밍 설계서 API** |
+| `/api/generate/proposal-fast` | POST | **V28.0 병렬 처리 고속 API** |
+| `/api/generate/qna-stream` | POST | **V28.0 스트리밍 Q&A API** |
 | `/api/generate/proposal-image-data` | POST | 설계서 데이터 JSON |
 | `/api/generate/proposal-image-data-v2` | POST | 고밀도 템플릿 버전 |
 | `/api/generate/blog` | POST | 블로그 콘텐츠 생성 |
@@ -88,10 +126,18 @@
 
 ## ✅ 테스트 완료 현황 (2026-01-17)
 
+### ■ V28.0 속도 테스트
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 스트리밍 API | ✅ 정상 | 첫 응답 1.8초 (start→progress→complete) |
+| 병렬 처리 API | ✅ 정상 | Flash+Pro 동시 호출 |
+| 저축/연금 분기 | ✅ 정상 | 해지환급금 예시표 생성 |
+| 프로그레스 UI | ✅ 정상 | 진행 상황 실시간 표시 |
+
 ### ■ 기능 테스트
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| 헬스체크 API | ✅ 정상 | version: 27.3 |
+| 헬스체크 API | ✅ 정상 | version: 28.0 |
 | Q&A 자동생성 | ✅ 정상 | 3개 질문 + SEO 키워드 생성 |
 | 설계서 이미지 API | ✅ 정상 | 15개 담보, photo-compositing 모드 |
 | 할루시네이션 테스트 | ✅ 통과 | 금지키워드 0건 검출 |

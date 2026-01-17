@@ -1272,6 +1272,129 @@ async function generateContentWithStrategy(
     '지금 해지하면 손해라고요? 똥차인 줄 알면서 계속 수리비 내는 게 더 큰 손해입니다.'
   ]
   
+  // ========== V25.1: 민감 질병 코드 및 수술비 체계 처리 로직 ==========
+  
+  // V25.1: 민감 질병 코드 정의 (I60~I69, I49) - 회사별 상이하므로 일반화 금지
+  const SENSITIVE_DISEASE_CODES = {
+    'I60-I69': {
+      name: '뇌혈관 질환',
+      warning: '⚠️ 주의: I60~I69(뇌혈관 질환)은 보험사마다 보장 범위가 상이합니다. 뇌출혈/뇌졸중/뇌혈관 담보를 각각 구분하여 약관 확인이 필수입니다.',
+      details: {
+        'I60': '거미막하출혈 (뇌출혈)',
+        'I61': '뇌내출혈 (뇌출혈)',
+        'I62': '기타 비외상성 두개내출혈 (뇌출혈)',
+        'I63': '뇌경색증 (뇌졸중)',
+        'I64': '출혈/경색 미명시 뇌졸중',
+        'I65-I66': '뇌전동맥 폐쇄/협착',
+        'I67': '기타 뇌혈관 질환',
+        'I68-I69': '뇌혈관 질환 후유증'
+      },
+      coverageNote: '• 뇌출혈 담보만 있으면 전체의 약 9%만 보장\n• 뇌혈관질환 담보가 있어야 100% 커버 가능\n• 반드시 해당 보험사 약관의 정의 조항 확인 필요'
+    },
+    'I49': {
+      name: '부정맥',
+      warning: '⚠️ 주의: I49(부정맥)는 최근 약관 개정이 빈번한 항목입니다. 데이터 확인 없이 보장 여부를 추측하지 않습니다.',
+      details: {
+        'I49.0': '심실세동 및 심실조동',
+        'I49.1': '심방조기탈분극',
+        'I49.2': '접합부조기탈분극',
+        'I49.3': '심실조기탈분극',
+        'I49.4': '기타 및 상세불명의 조기탈분극',
+        'I49.5': '동기능부전증후군',
+        'I49.8': '기타 명시된 심장부정맥',
+        'I49.9': '상세불명의 심장부정맥'
+      },
+      coverageNote: '• 2024년 이후 개정 약관에서 보장 범위 변경 빈번\n• 보험사별 언더라이팅 기준 상이\n• 반드시 최신 약관 및 해당 보험사 확인 필요'
+    }
+  }
+  
+  // V25.1: 수술비 급수 체계 (1-5종 vs 1-9종) - 회사별 상이
+  const SURGERY_CLASS_SYSTEMS = {
+    '1-5종': {
+      companies: ['삼성생명', '한화생명', '교보생명', '신한라이프', '미래에셋생명'],
+      description: '1~5종 수술비 분류 체계 (생명보험사 주로 사용)',
+      classes: {
+        '1종': '최고난도 수술 (개두/개흉/개복 대수술)',
+        '2종': '고난도 수술',
+        '3종': '중등도 수술',
+        '4종': '일반 수술',
+        '5종': '소수술'
+      }
+    },
+    '1-9종': {
+      companies: ['DB손해보험', '현대해상', '삼성화재', 'KB손해보험', '메리츠화재'],
+      description: '1~9종 수술비 분류 체계 (손해보험사 주로 사용)',
+      classes: {
+        '1종': '최고난도 (개두/개흉/개복 복합대수술)',
+        '2종': '고난도 (장기이식 등)',
+        '3종': '중고난도',
+        '4종': '중등도',
+        '5종': '일반A',
+        '6종': '일반B',
+        '7종': '경도A',
+        '8종': '경도B',
+        '9종': '소수술/시술'
+      }
+    }
+  }
+  
+  // V25.1: 고액 비급여 특약 키워드
+  const HIGH_COST_SURGERY_KEYWORDS = [
+    '다빈치', '로봇수술', '하이푸', '감마나이프', '토모테라피', '사이버나이프',
+    '양성자치료', '중입자치료', '면역세포치료', '표적치료', 'CAR-T'
+  ]
+  
+  // V25.1: 민감 데이터 감지 함수
+  const detectSensitiveContent = (text: string): { hasSensitive: boolean, warnings: string[] } => {
+    const warnings: string[] = []
+    const textUpper = text.toUpperCase()
+    
+    // I60~I69 감지
+    if (/I6[0-9]|뇌혈관|뇌출혈|뇌졸중|뇌경색/.test(textUpper) || /I6[0-9]|뇌혈관|뇌출혈|뇌졸중|뇌경색/.test(text)) {
+      warnings.push(SENSITIVE_DISEASE_CODES['I60-I69'].warning)
+    }
+    
+    // I49 감지
+    if (/I49|부정맥|심실세동|심방세동/.test(textUpper) || /I49|부정맥|심실세동|심방세동/.test(text)) {
+      warnings.push(SENSITIVE_DISEASE_CODES['I49'].warning)
+    }
+    
+    // 수술비 급수 혼동 감지
+    if (/[1-9]종.*수술/.test(text)) {
+      warnings.push('⚠️ 수술비 급수 안내: 1~5종 체계와 1~9종 체계는 보험사마다 다릅니다. 해당 보험사의 수술비 분류 기준을 반드시 확인하세요.')
+    }
+    
+    // 고액 비급여 수술 감지
+    const foundHighCost = HIGH_COST_SURGERY_KEYWORDS.filter(kw => text.includes(kw))
+    if (foundHighCost.length > 0) {
+      warnings.push('⚠️ 고액 비급여 수술 안내: ' + foundHighCost.join(', ') + ' 등은 일반 수술비와 별개의 특약입니다. 해당 특약 가입 여부를 먼저 확인하세요.')
+    }
+    
+    return { hasSensitive: warnings.length > 0, warnings }
+  }
+  
+  // V25.1: 민감 정보 경고 가이드라인
+  const sensitiveDataGuideline = `
+【 V25.1 민감 데이터 처리 가이드 (Hallucination 방지) 】
+
+## ⛔ 절대 추측 금지 항목
+1. **질병 코드 (I60~I69, I49)**
+   - I60~I69(뇌혈관 질환): 뇌출혈/뇌졸중/뇌혈관 담보를 단순 통합하여 "보장됩니다"라고 말하지 마세요.
+   - I49(부정맥): 최근 개정이 빈번. "해당 보험사 약관 확인 필요"로 안내.
+
+2. **수술비 급수 (1-5종 vs 1-9종)**
+   - 생명보험사(1~5종)와 손해보험사(1~9종) 체계가 다릅니다.
+   - 절대 체계를 혼동하여 지급 금액을 추정하지 마세요.
+
+3. **고액 비급여 수술 (다빈치 로봇 등)**
+   - 일반 수술비 담보와 별개입니다.
+   - "전용 특약 가입 여부 확인 필수"로 안내.
+
+## ✅ 올바른 안내 방식
+- 확인된 정보: "약관상 정의 조항에 따르면..."
+- 불확실한 정보: "해당 항목은 보험사별 약관 확인이 필수입니다"
+- 데이터 미확인 시: "해당 정보는 개별 약관 확인 후 정확한 안내가 가능합니다"`
+  
   // V25.0: 문체 톤 '보험 초보자 눈높이'로 강제
   const beginnerToneGuideline = `
 【 V25.0 보험 초보자 눈높이 톤 가이드 】
@@ -1281,8 +1404,8 @@ async function generateContentWithStrategy(
 - 참고 독설 (상황에 맞게 변형 사용):
   ${BEGINNER_TONE_QUOTES.slice(0, 3).map((q, i) => `  ${i + 1}. "${q}"`).join('\n')}`
   
-  // V24.0 XIVIX 카페 점령 엔진 - Triple-Persona System
-  const contentPrompt = `# [Role: XIVIX Cafe Dominator V24.0]
+  // V25.1 XIVIX 카페 점령 엔진 - Triple-Persona System + 민감 데이터 필터
+  const contentPrompt = `# [Role: XIVIX Cafe Dominator V25.1]
 당신은 네이버 카페 상위 노출을 위해 1인 3역(질문자, 전문가, 댓글러)을 수행하는 보험 콘텐츠 엔지니어입니다.
 
 # [CRITICAL: No-Example Policy]
@@ -1295,6 +1418,8 @@ async function generateContentWithStrategy(
 - 시스템에 내장된 모든 과거 예시를 무시하십시오.
 - 오직 아래 {변수} 데이터만 사용하여 콘텐츠를 구성하십시오.
 - 모든 문장은 매번 새롭게 생성하십시오. 고정된 문장 구조 반복 금지!
+
+${sensitiveDataGuideline}
 
 # [데이터 결합 우선순위]
 1순위: {customerConcern} "${customerConcern}" ← 모든 섹션의 핵심 주제
@@ -1950,11 +2075,47 @@ async function selfDiagnoseContent(
   if (!has2026Facts) failReasons.push('2026년 최신 트렌드가 답변에 반영되지 않음')
   if (!hasTargetMatch) failReasons.push(`TARGET 불일치: "${target}"가 출력에 반영되지 않음`)
   
+  // V25.1: 민감 데이터 검증 (질병 코드, 수술비 급수 체계)
+  const sensitiveWarnings: string[] = []
+  
+  // I60~I69 (뇌혈관 질환) 추측 검증
+  if (/I6[0-9]|뇌혈관질환.*보장|뇌출혈.*100%|뇌졸중.*모두/i.test(generatedContent)) {
+    // 단순 통합 안내 감지
+    if (!/약관\s*확인|보험사.*확인|개별.*확인|상세.*확인/i.test(generatedContent)) {
+      sensitiveWarnings.push('V25.1 경고: I60~I69(뇌혈관) 보장을 단순 통합하여 안내함 - 회사별 확인 문구 필요')
+    }
+  }
+  
+  // I49 (부정맥) 추측 검증
+  if (/I49|부정맥.*보장|부정맥.*담보/.test(generatedContent)) {
+    if (!/약관\s*확인|개정|최신|해당.*보험사/i.test(generatedContent)) {
+      sensitiveWarnings.push('V25.1 경고: I49(부정맥) 보장을 확정적으로 안내함 - 약관 확인 문구 필요')
+    }
+  }
+  
+  // 수술비 급수 혼동 검증
+  if (/[1-5]종\s*수술비.*[6-9]종|[6-9]종\s*수술비.*[1-5]종/i.test(generatedContent)) {
+    sensitiveWarnings.push('V25.1 경고: 수술비 급수 체계(1-5종/1-9종) 혼동 가능성 감지')
+  }
+  
+  // 고액 비급여 수술 확정 안내 검증
+  if (/다빈치.*보장|로봇수술.*지급|중입자.*담보/i.test(generatedContent)) {
+    if (!/특약\s*확인|별도\s*담보|전용\s*특약/i.test(generatedContent)) {
+      sensitiveWarnings.push('V25.1 경고: 고액 비급여 수술(다빈치 등)을 일반 담보로 안내함 - 특약 확인 문구 필요')
+    }
+  }
+  
+  if (sensitiveWarnings.length > 0) {
+    console.log(`[V25.1 민감 데이터 경고] ${sensitiveWarnings.join('; ')}`)
+    failReasons.push(...sensitiveWarnings)
+  }
+  
   // V24.0: 금지어 포함 시 무조건 실패 (할루시네이션 원천 차단)
   const overallPass = !hasForbiddenWords && hasConcernInQuestions && hasConcernInAnswers && hasInsuranceTypeInAnswers && hasTargetMatch
   
   console.log(`[RAG Step 4] 자가 진단 - 통과: ${overallPass}, 실패 사유: ${failReasons.length}개`)
   if (!hasTargetMatch) console.log(`[V23.0 TARGET 실패] 입력: "${target}"`)
+  if (sensitiveWarnings.length > 0) console.log(`[V25.1 민감 데이터] 경고 ${sensitiveWarnings.length}개 - 내용은 로그 확인`)
   
   return {
     hasConcernInQuestions,
@@ -4761,16 +4922,16 @@ app.post('/api/analyze/photo', async (c) => {
   }
 })
 
-// V25.0: Health Check 업데이트
+// V25.1: Health Check 업데이트
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '25.0', 
+  version: '25.1', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
   ragPipeline: 'naver-search → strategy-json → content-gen(multi-persona) → self-diagnosis',
   year: 2026,
-  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style', 'rag-4step-pipeline', 'hallucination-zero', 'comments-5', 'multi-persona-tone', 'min-length-enforcement', 'knowledge-injection', 'realtime-trends', '12-insurance-categories', 'beginner-tone'],
+  features: ['keyword-analysis', 'qna-full-auto', 'customer-tailored-design', 'no-emoji', 'responsive-ui', 'excel-style-design', 'one-click-copy', 'pc-full-width-layout', 'security-protection', 'proposal-image-generation', 'compact-card-style', 'rag-4step-pipeline', 'hallucination-zero', 'comments-5', 'multi-persona-tone', 'min-length-enforcement', 'knowledge-injection', 'realtime-trends', '12-insurance-categories', 'beginner-tone', 'sensitive-data-filter', 'surgery-class-validation', 'i-code-verification'],
   timestamp: new Date().toISOString() 
 }))
 

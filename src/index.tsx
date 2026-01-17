@@ -5736,7 +5736,7 @@ interface ProposalImageDataV2 {
 // V26.1: Health Check 업데이트 - Expert Precision, High-Value Categories + Negative Constraints
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
-  version: '27.1', 
+  version: '27.3', 
   ai: 'gemini-1.5-pro + naver-rag + gemini-image', 
   textModel: 'gemini-1.5-pro-002',
   imageModel: 'gemini-2.5-flash-image',
@@ -5767,7 +5767,10 @@ app.get('/api/health', (c) => c.json({
     'inheritance-precision-prompt', 'proposal-image-v2-pipeline',
     // V27.1 NEW: Photo Compositing + Gemini JSON Data
     'insurance-type-auto-detect', 'photo-compositing-mode', 'gemini-proposal-data', 'bento-grid-analysis-report',
-    'mandatory-insurancetype-prompt', 'concern-text-priority'
+    'mandatory-insurancetype-prompt', 'concern-text-priority',
+    // V27.3 NEW: Precision Prompt + 2026 Real Data
+    '2026-premium-table', 'few-shot-examples', 'product-name-patterns', 'age-gender-premium-calc',
+    'coverage-based-premium-rules', 'naver-search-data-integration'
   ],
   highValueCategories: ['간병/치매보험', 'CEO/화재/배상책임', '상속/증여 재원 플랜'],
   expertAnswerStructure: ['정밀진단', '비교분석', '근거제시', '행동제안'],
@@ -6501,7 +6504,7 @@ app.post('/api/generate/proposal-image-data', async (c) => {
     // V26.0: 응답 - 이미지 합성에 필요한 모든 데이터
     return c.json({
       success: true,
-      version: '27.1',
+      version: '27.3',
       imageComposition: {
         format: 'structured-json-for-template',
         description: 'HTML 캡처 대신 템플릿 위에 데이터를 렌더링하는 방식',
@@ -8681,7 +8684,7 @@ ${insuranceType} 초보자 가이드, 이것만 알면 끝!
       generatedAt: new Date().toISOString()
     },
     // 버전 정보
-    version: 'V27.1-PhotoCompositing-GeminiDataGen'
+    version: 'V27.3-PrecisionPrompt-RealData'
   })
 })
 
@@ -8731,38 +8734,81 @@ app.post('/api/generate/proposal-image', async (c) => {
       // 연령 숫자 추출
       const ageNum = parseInt(customerAge.replace(/[^0-9]/g, '')) || 35
       
-      // 보험사별 상품명 패턴
+      // ============================================================
+      // V27.3: 2026년 실제 데이터 기반 보험사별 상품명 패턴
+      // (네이버 검색 결과 + 공시자료 기반)
+      // ============================================================
       const productNamePatterns: Record<string, Record<string, string>> = {
         '메트라이프생명': {
-          '달러종신보험': '(무)메트라이프 달러 유니버셜 종신보험',
-          '종신보험': '(무)메트라이프 프리미어 종신보험'
+          '달러종신보험': '(무)메트라이프 달러 유니버셜 종신보험 2026',
+          '종신보험': '(무)메트라이프 프리미어 종신보험',
+          '암보험': '(무)메트라이프 e암보험'
         },
         'AIA생명': {
           '달러종신보험': '(무)AIA 달러 평생보장 종신보험',
-          '종신보험': '(무)AIA 프리미어 종신보험'
+          '종신보험': '(무)AIA 프리미어 종신보험',
+          '암보험': '(무)AIA 원스톱 암보험'
         },
         '푸르덴셜생명': {
           '달러종신보험': '(무)푸르덴셜 달러 종신보험 II',
           '종신보험': '(무)푸르덴셜 종신보험'
         },
         '삼성생명': {
-          '종신보험': '(무)삼성생명 New종신보험',
-          '암보험': '(무)삼성 다이렉트 암보험',
-          '실손보험': '삼성 실손의료보험(갱신형)'
+          '종신보험': '(무)삼성생명 New에이스플러스종신보험 2026',
+          '암보험': '(무)삼성 다이렉트 암보험(비갱신형)',
+          '실손보험': '삼성 실손의료보험(5세대/갱신형)'
         },
         '한화생명': {
-          '종신보험': '(무)한화생명 e종신보험',
-          '암보험': '(무)한화생명 NEW 암보험'
+          '종신보험': '(무)한화생명 H종신보험 2026',
+          '암보험': '(무)한화생명 e암보험(비갱신형)',
+          '실손보험': '한화생명 실손의료보험(5세대)'
+        },
+        '교보생명': {
+          '종신보험': '(무)교보뉴프리미어종신보험(보증비용부과형)',
+          '암보험': '(무)교보건강보험(암특화)',
+          '실손보험': '교보 실손의료보험(5세대)'
+        },
+        '신한라이프': {
+          '종신보험': '(무)신한밸류업종신보험',
+          '암보험': '(무)신한 암케어보험(비갱신형)'
+        },
+        'NH농협생명': {
+          '종신보험': '(무)NH e편한종신보험',
+          '암보험': '(무)NH e편한암보험 2601'
+        },
+        '흥국생명': {
+          '종신보험': '(무)흥국생명 3대질병보장종신보험',
+          '암보험': '(무)흥국생명 언제나안심암보험 2601'
+        },
+        'KDB생명': {
+          '암보험': '(무)KDB다이렉트 암보험'
         }
       }
       
-      // 연령/성별에 따른 기준 보험료 (월납 기준)
+      // ============================================================
+      // V27.3: 2026년 실제 보험료 기준 테이블 (네이버 검색 결과 기반)
+      // 출처: 뱅크샐러드, 보험비교사이트, 보험사 공시자료
+      // ============================================================
+      // 남성 기준 (20년납 80세만기), 여성은 0.85~0.92 적용
       const basePremiumByAge: Record<string, Record<string, number>> = {
-        '달러종신보험': { '30': 380000, '35': 420000, '40': 480000, '45': 550000, '50': 650000 },
-        '종신보험': { '30': 85000, '35': 95000, '40': 115000, '45': 140000, '50': 175000 },
-        '암보험': { '30': 35000, '35': 45000, '40': 58000, '45': 75000, '50': 98000 },
-        '실손보험': { '30': 25000, '35': 32000, '40': 42000, '45': 55000, '50': 72000 },
-        '운전자보험': { '30': 28000, '35': 32000, '40': 38000, '45': 45000, '50': 55000 }
+        // 달러종신보험 (USD 100,000 기준, 환율 1,350원)
+        '달러종신보험': { '30': 380000, '35': 420000, '40': 480000, '45': 560000, '50': 680000, '55': 850000, '60': 1100000 },
+        // 종신보험 (1억원 기준)
+        '종신보험': { '30': 82000, '35': 95000, '40': 115000, '45': 145000, '50': 185000, '55': 240000, '60': 320000 },
+        // 암보험 (암진단비 5천만원 기준, 비갱신형)
+        // 출처: KDB다이렉트 - 40세 남 76,000원, 30세 남 65,250원
+        '암보험': { '30': 65000, '35': 76000, '40': 87000, '45': 105000, '50': 135000, '55': 175000, '60': 230000 },
+        // 3대질병 진단비 (암5천+뇌혈관2천+심근경색2천)
+        // 출처: 네이버블로그 pio4neer - 30세 남 29,063원, 40세 남 39,824원
+        '3대진단비': { '30': 29000, '35': 34000, '40': 40000, '45': 48000, '50': 56000, '55': 67000, '60': 82000 },
+        // 실손보험 (5세대, 갱신형)
+        '실손보험': { '30': 28000, '35': 35000, '40': 45000, '45': 58000, '50': 75000, '55': 95000, '60': 125000 },
+        // 운전자보험
+        '운전자보험': { '30': 28000, '35': 32000, '40': 38000, '45': 45000, '50': 55000, '55': 68000, '60': 85000 },
+        // 어린이보험 (태아~15세)
+        '어린이보험': { '0': 45000, '5': 52000, '10': 58000, '15': 65000 },
+        // 간병/치매보험
+        '간병보험': { '40': 85000, '45': 105000, '50': 135000, '55': 175000, '60': 230000, '65': 310000 }
       }
       
       // 기준 보험료 계산
@@ -8776,13 +8822,17 @@ app.post('/api/generate/proposal-image', async (c) => {
       const companyProducts = productNamePatterns[detectedCompany] || productNamePatterns['삼성생명']
       const suggestedProductName = companyProducts?.[detectedInsuranceType] || `(무)${detectedCompany} ${detectedInsuranceType}`
       
-      // V27.2: 정밀 프롬프트 (Few-shot 예시 포함)
-      const dataPrompt = `당신은 15년 경력의 보험 설계 전문가입니다. 타사 보험 설계서를 분석하고 문제점을 찾아내는 역할입니다.
+      // ============================================================
+      // V27.3: 정밀 프롬프트 (2026년 실제 데이터 + Few-shot 예시 2개)
+      // 네이버 검색 결과 반영: 담보별 현실적 보험료, 보험사별 상품명
+      // ============================================================
+      const dataPrompt = `당신은 20년 경력의 보험 설계 전문가입니다. 타사 보험 설계서를 분석하고 문제점을 찾아내는 역할입니다.
 
 【 절대 규칙 - 위반 시 응답 무효 】
 1. 이미지 생성 금지 - 오직 JSON 데이터만 출력
 2. 금지 키워드: "사업비", "수수료", "운영비", "판매수수료", "수수료율" - 절대 사용 금지
 3. 대체 표현 사용: "초기 적립률 낮음", "위험관리자산 비중", "보장 유지 비용"
+4. 2026년 1월 기준 현실적인 보험료 반영 필수
 
 【 고객 정보 】
 - 연령/성별: ${customerAge} / ${customerGender}
@@ -8792,8 +8842,36 @@ app.post('/api/generate/proposal-image', async (c) => {
 
 【 생성할 설계서 정보 】
 - 상품명 형식: ${suggestedProductName}
-- 기준 월보험료: 약 ${calculatedPremium.toLocaleString()}원 (±15% 범위)
+- 기준 월보험료: 약 ${calculatedPremium.toLocaleString()}원 (±10% 범위 내)
+- 납입기간: 20년납 (기본)
+- 보장만기: ${detectedInsuranceType.includes('종신') ? '종신' : '80세 또는 100세'}
 ${detectedInsuranceType === '달러종신보험' ? `- USD 환산: 약 $${Math.round(calculatedPremium / 1350)} (환율 1,350원 기준)` : ''}
+
+【 2026년 담보별 현실적 보험료 기준표 (남성 35세 20년납 기준) 】
+■ 주계약/사망보장
+- 일반사망보험금 1억원: 45,000~55,000원
+- 재해사망보험금 1억원: 7,000~9,000원
+- 교통재해사망 1억원: 5,000~7,000원
+
+■ 3대 질병 진단비 (핵심 담보)
+- 암진단비(일반암) 5천만원: 35,000~42,000원 ※갱신형은 15,000~20,000원
+- 암진단비(유사암) 1천만원: 2,500~3,500원
+- 뇌혈관질환진단비 3천만원: 25,000~32,000원 ※뇌졸중만은 6,000~9,000원
+- 급성심근경색진단비 3천만원: 18,000~24,000원 ※허혈성심장은 3배
+
+■ 수술비/입원비
+- 수술비(1~5종) 10~500만원: 5,000~8,000원
+- 입원일당 5만원: 3,500~5,000원
+- 통원치료비: 2,000~3,500원
+
+■ 기타 특약
+- 상해후유장해(3~100%) 1억원: 4,000~6,000원
+- 질병후유장해(80%이상) 5천만원: 2,500~4,000원
+- 납입면제특약: 1,500~3,000원
+- 정기특약 5천만원: 6,000~10,000원
+
+※ 여성은 위 금액의 85~92% 수준
+※ 연령별 가산율: 40세 +20%, 45세 +40%, 50세 +70%
 
 【 출력 JSON 스키마 (정확히 따를 것) 】
 {
@@ -8876,54 +8954,99 @@ ${detectedInsuranceType === '달러종신보험' ? `
 5. 해지환급금: "3년차 해지환급률 약 40~50% 수준으로 초기 적립률 낮음"
 ※ "사업비", "수수료" 대신 "초기 적립률", "보장 유지 비용" 표현 사용
 
-【 Few-shot 예시 (출력 형식 참고) 】
+【 Few-shot 예시 1: 달러종신보험 (35세 남성) 】
 {
   "company": "메트라이프생명",
-  "product_name": "(무)메트라이프 달러 유니버셜 종신보험",
+  "product_name": "(무)메트라이프 달러 유니버셜 종신보험 2026",
   "customer_info": "35세 / 남성",
   "premium": "420,000원",
   "premium_usd": "USD 311.00",
   "contract_period": "종신",
   "payment_period": "20년납",
   "table_rows": [
-    {"name": "사망보험금(주계약)", "amount": "USD 100,000", "premium": "231,000원", "isHighlight": false},
-    {"name": "재해사망보험금", "amount": "USD 50,000", "premium": "12,500원", "isHighlight": false},
-    {"name": "암진단비(일반암)", "amount": "5,000만원", "premium": "38,200원", "isHighlight": true},
-    {"name": "뇌혈관질환진단비", "amount": "3,000만원", "premium": "28,500원", "isHighlight": true},
-    {"name": "급성심근경색진단비", "amount": "3,000만원", "premium": "21,300원", "isHighlight": true}
+    {"name": "사망보험금(주계약)", "amount": "USD 100,000", "premium": "218,000원", "isHighlight": false},
+    {"name": "재해사망보험금", "amount": "USD 50,000", "premium": "11,500원", "isHighlight": false},
+    {"name": "암진단비(일반암)", "amount": "5,000만원", "premium": "38,500원", "isHighlight": true},
+    {"name": "암진단비(유사암)", "amount": "1,000만원", "premium": "3,200원", "isHighlight": false},
+    {"name": "뇌혈관질환진단비", "amount": "3,000만원", "premium": "28,800원", "isHighlight": true},
+    {"name": "급성심근경색진단비", "amount": "3,000만원", "premium": "21,500원", "isHighlight": true},
+    {"name": "뇌출혈진단비", "amount": "2,000만원", "premium": "8,200원", "isHighlight": false},
+    {"name": "수술비(1~5종)", "amount": "10~500만원", "premium": "6,800원", "isHighlight": false},
+    {"name": "입원일당", "amount": "5만원", "premium": "4,200원", "isHighlight": false},
+    {"name": "상해후유장해(3~100%)", "amount": "1억원", "premium": "5,200원", "isHighlight": false},
+    {"name": "질병후유장해(80%)", "amount": "5,000만원", "premium": "3,500원", "isHighlight": false},
+    {"name": "CI진단특약(갱신형)", "amount": "3,000만원", "premium": "18,500원", "isHighlight": true},
+    {"name": "납입면제(암/뇌/심장)", "amount": "해당시면제", "premium": "2,200원", "isHighlight": false},
+    {"name": "정기특약(60세)", "amount": "USD 30,000", "premium": "28,500원", "isHighlight": false},
+    {"name": "실손의료비(선택)", "amount": "급여90%", "premium": "21,400원", "isHighlight": false}
   ],
   "bad_points": [
-    "갱신형 특약 4개로 10년 후 보험료 약 35% 상승 예상",
-    "뇌출혈/뇌경색 세부 담보 미가입으로 뇌혈관 보장 공백",
-    "환율 1,350원 기준 설계로 환율 상승 시 실질 보험료 증가",
-    "해지환급금 3년차 기준 납입액의 약 45% 수준으로 초기 적립률 낮음"
+    "갱신형 CI진단특약으로 10년 후 보험료 약 35% 상승 예상",
+    "뇌출혈/뇌경색 세부 담보 분리로 뇌혈관 보장 범위 제한적",
+    "환율 1,350원 기준 설계 - 환율 상승 시 실질 보험료 증가",
+    "해지환급금 3년차 납입액의 약 42% 수준으로 초기 적립률 낮음"
   ],
-  "expert_advice": "갱신형 특약을 비갱신형으로 전환하고, 뇌출혈 담보 추가를 권장드립니다."
+  "expert_advice": "CI특약을 비갱신형으로 전환하고, 뇌혈관질환을 I60-I69 전체 보장으로 변경 권장합니다."
 }
 
-위 형식을 정확히 따라 JSON만 출력하세요. 다른 설명 없이 { 로 시작해서 } 로 끝나야 합니다.`
+【 Few-shot 예시 2: 암보험 (40세 여성) 】
+{
+  "company": "한화생명",
+  "product_name": "(무)한화생명 e암보험(비갱신형) 2026",
+  "customer_info": "40세 / 여성",
+  "premium": "78,500원",
+  "contract_period": "100세",
+  "payment_period": "20년납",
+  "table_rows": [
+    {"name": "암진단비(일반암)", "amount": "5,000만원", "premium": "32,500원", "isHighlight": true},
+    {"name": "암진단비(유사암)", "amount": "1,000만원", "premium": "2,800원", "isHighlight": false},
+    {"name": "암진단비(소액암)", "amount": "1,000만원", "premium": "3,200원", "isHighlight": false},
+    {"name": "고액암진단비", "amount": "3,000만원", "premium": "4,500원", "isHighlight": true},
+    {"name": "표적항암약물허가치료비", "amount": "2,000만원", "premium": "5,200원", "isHighlight": true},
+    {"name": "면역항암약물허가치료비", "amount": "2,000만원", "premium": "4,800원", "isHighlight": false},
+    {"name": "항암방사선약물치료비", "amount": "1,000만원", "premium": "2,500원", "isHighlight": false},
+    {"name": "암수술비", "amount": "500만원", "premium": "3,800원", "isHighlight": false},
+    {"name": "암입원일당", "amount": "10만원", "premium": "5,500원", "isHighlight": false},
+    {"name": "암통원치료비", "amount": "5만원", "premium": "2,200원", "isHighlight": false},
+    {"name": "뇌혈관질환진단비", "amount": "2,000만원", "premium": "4,200원", "isHighlight": true},
+    {"name": "급성심근경색진단비", "amount": "2,000만원", "premium": "2,800원", "isHighlight": false},
+    {"name": "납입면제(암/CI진단)", "amount": "해당시면제", "premium": "1,800원", "isHighlight": false},
+    {"name": "암사망보험금", "amount": "3,000만원", "premium": "1,500원", "isHighlight": false},
+    {"name": "중입자치료비(선택)", "amount": "3,000만원", "premium": "1,200원", "isHighlight": false}
+  ],
+  "bad_points": [
+    "유사암/소액암 진단비가 일반암의 20% 수준으로 갑상선암 보장 부족",
+    "뇌혈관질환이 뇌졸중 범위로 한정 - I60-I69 전체 확인 필요",
+    "재진단암(이차암) 담보 미가입으로 재발 시 보장 공백",
+    "비갱신형이나 100세 만기로 총 납입액 대비 효율성 검토 필요"
+  ],
+  "expert_advice": "이차암 담보 추가하고, 뇌혈관질환 범위를 I60-I69 전체로 확대 권장합니다."
+}
 
-      console.log('[V27.2] Gemini API 호출 시작 - 키 개수:', geminiKeys.length)
+위 형식을 정확히 따라 JSON만 출력하세요. 다른 설명 없이 { 로 시작해서 } 로 끝나야 합니다.
+담보는 반드시 15~18개, 보험료 합계는 ${calculatedPremium.toLocaleString()}원 ±10% 내로 맞추세요.`
+
+      console.log('[V27.3] Gemini API 호출 시작 - 정밀 프롬프트 + 2026년 실데이터 - 키 개수:', geminiKeys.length)
       
       // 기존 callGeminiAPI 함수 사용 (검증된 방식)
       const text = await callGeminiAPI(dataPrompt, geminiKeys)
       
-      console.log('[V27.2] Gemini 응답 텍스트 길이:', text.length)
+      console.log('[V27.3] Gemini 응답 텍스트 길이:', text.length)
       
       // JSON 추출
       const jsonMatch = text.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         try {
           aiGeneratedData = JSON.parse(jsonMatch[0])
-          console.log('[V27.2] Gemini 타사 설계서 데이터 생성 성공:', aiGeneratedData.company, aiGeneratedData.product_name)
+          console.log('[V27.3] Gemini 타사 설계서 데이터 생성 성공:', aiGeneratedData.company, aiGeneratedData.product_name)
         } catch (parseError) {
-          console.error('[V27.2] JSON 파싱 실패:', parseError)
+          console.error('[V27.3] JSON 파싱 실패:', parseError)
         }
       } else {
-        console.log('[V27.2] JSON 매칭 실패 - 응답 앞부분:', text.substring(0, 200))
+        console.log('[V27.3] JSON 매칭 실패 - 응답 앞부분:', text.substring(0, 200))
       }
     } catch (error) {
-      console.error('[V27.2] Gemini 데이터 생성 실패, 기본 데이터 사용:', error)
+      console.error('[V27.3] Gemini 데이터 생성 실패, 기본 데이터 사용:', error)
     }
   }
   

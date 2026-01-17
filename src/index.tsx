@@ -4080,7 +4080,7 @@ const mainPageHtml = `
       if (!list) return;
       
       list.innerHTML = trends.map((trend, idx) => 
-        '<div class="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/30 transition-all cursor-pointer" onclick="applyTrendKeyword('' + escapeHtml(trend.keyword) + '')">' +
+        '<div class="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-orange-500/30 transition-all cursor-pointer" data-keyword="' + escapeHtml(trend.keyword) + '" onclick="applyTrendKeyword(this.dataset.keyword)">' +
         '<div class="flex items-center gap-2 mb-2">' +
         '<span class="w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold flex items-center justify-center">' + (idx + 1) + '</span>' +
         '<span class="text-white font-medium text-sm">' + escapeHtml(trend.keyword) + '</span>' +
@@ -4531,7 +4531,7 @@ const mainPageHtml = `
                 if (done) break;
                 
                 buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\\n');
+                const lines = buffer.split(String.fromCharCode(10));
                 buffer = lines.pop() || '';
                 
                 for (const line of lines) {
@@ -4545,7 +4545,7 @@ const mainPageHtml = `
                     } else if (msg.type === 'progress') {
                       document.getElementById('streaming-status').textContent = msg.message || '진행 중...';
                       progress = Math.min(90, 20 + msg.step * 20);
-                      document.getElementById('progress-text').textContent = \`Step \${msg.step}/3\`;
+                      document.getElementById('progress-text').textContent = 'Step ' + msg.step + '/3';
                     } else if (msg.type === 'chunk') {
                       progress = Math.min(85, progress + 2);
                     } else if (msg.type === 'complete') {
@@ -5072,7 +5072,7 @@ const mainPageHtml = `
         generatedKeywords = data.keywords || [];
         const keywordsDiv = document.getElementById('qna-keywords');
         keywordsDiv.innerHTML = generatedKeywords.map(kw => 
-          '<span class="keyword-tag" onclick="copyKeyword('' + kw + '')">#' + kw + '</span>'
+          '<span class="keyword-tag" data-kw="' + kw.replace(/"/g, '&quot;') + '" onclick="copyKeyword(this.dataset.kw)">#' + kw + '</span>'
         ).join('');
         
         // 제목 업데이트
@@ -5106,7 +5106,7 @@ const mainPageHtml = `
           return '<div class="bg-white/5 rounded-lg p-2.5 border-l-2 border-' + color + '-500">' +
             '<div class="flex items-center justify-between mb-1.5">' +
               '<span class="text-' + color + '-400 text-2xs font-semibold">' + label + '</span>' +
-              '<button onclick="copyText('qna-c' + (i+1) + '')" class="px-1.5 py-0.5 rounded bg-' + color + '-500/20 text-' + color + '-400 text-2xs hover:bg-' + color + '-500/30">' +
+              '<button data-id="qna-c' + (i+1) + '" onclick="copyText(this.dataset.id)" class="px-1.5 py-0.5 rounded bg-' + color + '-500/20 text-' + color + '-400 text-2xs hover:bg-' + color + '-500/30">' +
                 '<i class="fas fa-copy"></i>' +
               '</button>' +
             '</div>' +

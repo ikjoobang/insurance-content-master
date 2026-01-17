@@ -1,245 +1,183 @@
-# 보험 콘텐츠 마스터 V22.0 - Clean-Template (Hallucination Zero)
+# 🛡️ XIVIX 보험 콘텐츠 마스터 V25.5
 
-AI 기반 보험 콘텐츠 자동 생성 플랫폼 + Chrome Extension (네이버 마케팅 프록시)
-
-## 🌐 라이브 URL
-
-### ■ 프론트엔드
-- **메인 (Production)**: https://insurance-content-master.pages.dev
-- **관리자 페이지**: https://insurance-content-master.pages.dev/admin
-
-### ■ 백엔드 API
-- **API 서버**: https://insurance-content-master.pages.dev/api/
-- **Health Check**: https://insurance-content-master.pages.dev/api/health
-
-### ■ GitHub 저장소
-- **Backend (Full Stack)**: https://github.com/ikjoobang/insurance-content-master
-
-### ■ API 엔드포인트
-| 엔드포인트 | 메서드 | 설명 |
-|------------|--------|------|
-| `/api/health` | GET | 서버 상태 확인 (V22.0 정보 포함) |
-| `/api/naver/keywords` | GET | 네이버 키워드 분석 |
-| `/api/generate/qna-full` | POST | Q&A 전체 자동 생성 (**V22.0 Clean-Template**) |
-| `/api/generate/proposal-image` | POST | 설계서 이미지 생성 |
-| `/api/generate/blog` | POST | 블로그 글 생성 |
-| `/api/analyze/blog` | POST | 블로그 SEO 분석 |
-| `/api/proxy/change-ip` | POST | Bright Data IP 변경 |
-| `/api/proxy/current-ip` | GET | 현재 프록시 IP 확인 |
-| `/api/proxy/status` | GET | 프록시 상태 조회 |
-
-## ✅ V22.0 핵심 업데이트 - Clean-Template (Hallucination Zero)
-
-### 🔥 V22.0 변경사항 (2026-01-16)
-
-1. **시나리오 데이터베이스 완전 삭제**: 앵커링 오류 원천 차단
-2. **예시 출력 완전 제거**: AI가 베낄 구석 제거
-3. **Clean-Template 프롬프트**: 입력 변수만 사용하는 깡통 프롬프트
-4. **3개 페르소나 시스템**: 전문/설득, 리얼토크, 친근
-5. **분량 강제**: 질문 ≥300자, 답변 ≥500자
-6. **빌드 사이즈 최적화**: 258KB → 244KB (14KB 감소)
+> **AI 기반 보험 마케팅 콘텐츠 자동 생성 플랫폼**  
+> 보험 설계사의 네이버 카페 마케팅을 위한 Q&A, 분석 리포트, 제안서 자동 생성
 
 ---
 
-## ✅ RAG 기반 Hallucination Zero Project
+## 🌐 라이브 서비스
 
-### ❶ RAG 4단계 파이프라인 (핵심 아키텍처)
+| 서비스 | URL |
+|--------|-----|
+| **메인 서비스** | https://insurance-content-master.pages.dev |
+| **관리자 패널** | https://insurance-content-master.pages.dev/admin |
+| **API Health** | https://insurance-content-master.pages.dev/api/health |
+| **GitHub** | https://github.com/ikjoobang/insurance-content-master |
 
-**목표**: AI가 검색 결과(Fact)만 사용하도록 강제하여 할루시네이션 완전 차단, 사용자 맥락 100% 유지
+---
 
-**파이프라인 흐름**:
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  Step 1: 팩트 수집        Step 2: 전략 수립      Step 3: 콘텐츠 생성        │
-│  [네이버 검색 API]  →     [전략 JSON]     →     [RAG 기반 작성]           │
-│  블로그/뉴스 검색         SEO 키워드 5개         JSON에 없는 내용           │
-│  상위 5+3개 수집          팩트 체크 3개          절대 생성 금지             │
-│                          전문가 전략 3명                                   │
-│                                                                            │
-│                               ↓ 자가진단 실패 시 재생성 (최대 2회)          │
-│                                                                            │
-│  Step 4: 자가 진단                                                         │
-│  [Self-Diagnosis Loop]                                                     │
-│  핵심고민 포함 여부                                                        │
-│  2026년 트렌드 반영                                                        │
-│  검수 점수 70점 이상 통과                                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+## 🎯 누가 사용하나요?
 
-### ❷ 기술 스택 변경
+### ■ 보험 설계사 / GA
+- 네이버 카페에 올릴 Q&A 콘텐츠 자동 생성
+- 고객 맞춤형 보험 제안서 자동 작성
+- 보험 증권 분석 리포트 생성
 
-| 구분 | 기존 (V15.0) | 변경 (V16.0) |
-|------|-------------|--------------|
-| **텍스트 모델** | gemini-2.0-flash | **gemini-1.5-pro-002** (추론력 강화) |
-| **이미지 모델** | gemini-2.5-flash-image | gemini-2.5-flash-image (유지) |
-| **검색 연동** | 키워드 추출만 | **RAG 팩트 수집 (블로그+뉴스)** |
-| **콘텐츠 생성** | 단일 프롬프트 | **전략 JSON 기반 체이닝** |
+### ■ 보험 마케터
+- SEO 최적화된 보험 콘텐츠 생성
+- 실시간 보험 트렌드 키워드 분석
+- 타깃별 맞춤 톤앤매너 콘텐츠
 
-### ❸ RAG 파이프라인 상세
+---
 
-**Step 1 - 팩트 수집 (collectFactData)**
-```javascript
-// 네이버 검색 API 호출
-queries = [
-  "2026년 {보험종류} 개정",
-  "{보험종류} {핵심고민 앞 20자}",
-  "{보험종류} 추천 {타깃}"
-]
-// 블로그 5개 + 뉴스 3개 수집
-```
-
-**Step 2 - 전략 수립 (buildStrategy)**
-```json
-{
-  "seoKeywords": ["암보험 추천", "암보험 비교", "..."],
-  "factChecks": ["2026년 비갱신형 특약 강화", "통합 보장 트렌드", "..."],
-  "expertStrategies": {
-    "factExpert": "약관 기준 정확한 보장 범위 분석",
-    "empathyExpert": "고민 상황에 대한 공감과 현실적 대안",
-    "comparisonExpert": "타사 상품 및 2020년형 vs 2026년형 비교"
-  },
-  "userContextSummary": "타깃이 핵심고민에 대해 고민하는 상황"
-}
-```
-
-**Step 3 - 콘텐츠 생성 (generateContentWithStrategy)**
-- 전략 JSON 안에서만 작성 (할루시네이션 차단)
-- 핵심 고민 필수 포함
-- 보험종류 최소 2회 언급
-
-**Step 4 - 자가 진단 (selfDiagnoseContent)**
-- 핵심고민 포함 여부 검증
-- 2026년 트렌드 반영 여부 검증
-- 검수 점수 70점 미만 시 재생성
-
-### ❹ 응답에 포함되는 RAG 정보
-
-```json
-{
-  "version": "V16.0-RAG-HallucinationZero",
-  "ragPipeline": {
-    "step1_factCollection": {
-      "success": true,
-      "blogCount": 5,
-      "newsCount": 3
-    },
-    "step2_strategyBuilding": {
-      "success": true,
-      "seoKeywords": ["암보험 추천", "암보험 비교", "..."]
-    },
-    "step3_contentGeneration": {
-      "success": true,
-      "generatedLength": 1279
-    },
-    "step4_selfDiagnosis": {
-      "pass": true,
-      "failReasons": []
-    },
-    "strategyUsed": {
-      "factChecks": ["2026년 비갱신형 특약 강화", "..."],
-      "expertStrategies": {...}
-    }
-  },
-  "selfCorrection": {
-    "totalAttempts": 1,
-    "maxAttempts": 2,
-    "wasRegenerated": false,
-    "finalScore": 84
-  },
-  "audit": {
-    "passed": true,
-    "totalScore": 84,
-    "scores": {
-      "seoOptimization": 80,
-      "contextConsistency": 100,
-      "expertDiversity": 55,
-      "commentRealism": 100
-    }
-  }
-}
-```
-
-## ✅ 기존 기능 유지
+## ✨ 핵심 기능
 
 ### ❶ Q&A 자동 생성 (보험카페용)
-- **제목 2개** (다양한 어그로성)
-- **질문 3개** (각기 다른 화자 사연)
-- **전문가 답변 3개** (A: 팩트형, B: 공감형, C: 분석형)
-- **현실적 댓글 3개** (공감/경험담 중심)
-- SEO 키워드 5개 + 최적화 제목 2개 출력
-
-### ❷ 도메인 지식 (2026년 기준)
-- 2025년 통계 + 2026년 개정 약관 비교 설명
-- 보험종류별 전문 지식:
-  - 암보험, 뇌/심장(2대질환), 3대 질환
-  - 운전자보험, 간병/치매/요양
-  - 종합보험, 실손보험
-
-### ❸ 설계서 이미지 생성
-- 보험사별 브랜드 컬러 적용
-- Compact Card 스타일 설계서
-- PDF 다운로드 지원
-
-### ❹ 4대 검수 기준 (auditQnAContent)
-| 기준 | 검증 내용 | 감점 조건 |
-|------|----------|----------|
-| **SEO 최적화** | C-Rank / D.I.A.+ / Agent N | 보험종류 미포함 -30점, 키워드 밀도 부족 -20점 |
-| **문맥 일치성** | 핵심고민이 질문/답변/댓글 전반에 반영 | 질문 미반영 -25점, 답변 미반영 -30점 |
-| **전문가 다각화** | 3명의 서로 다른 관점 전문가 | 답변 3개 미만 -40점, 300자 미만 -15점/개 |
-| **댓글 현실성** | 단순 칭찬 금지, 경험담 중심 | 댓글 3개 미만 -30점, 단순 칭찬만 -20점 |
-
-## 🔧 Chrome Extension (네이버 마케팅 프록시)
-
-### ■ 기능 개요
-보험 설계사들이 보안 프로그램 충돌 없이 네이버 마케팅을 수행하도록 지원
-
-### ■ 기술 요구사항 (Critical Spec)
-- **Manifest V3** 기반
-- **externally_connectable** 권한으로 지정 도메인만 통신
-- **PAC Script 기반 분할 터널링**:
-  - `*.naver.com` 트래픽 → Bright Data Proxy 경유
-  - 그 외 트래픽 → DIRECT (보안 프로그램 충돌 방지)
-
-### ■ Bright Data 연동
-- Host: `brd.superproxy.io`
-- Port: `33335`
-- Country: KR (한국 IP 할당)
-- Session ID 관리로 IP 유지
-
-### ■ 파일 구조
 ```
-chrome-extension/
-├── manifest.json          # MV3 매니페스트
-├── background.js          # Service Worker (프록시 제어)
-├── popup.html             # Popup UI
-├── popup.js               # Popup 스크립트
-└── icons/
-    ├── icon16.png
-    ├── icon48.png
-    ├── icon128.png
-    └── *-active.png       # 활성 상태 아이콘
+입력: 타깃(40대 가장) + 보험종류(암보험) + 고객고민(갱신형이 좋을까요?)
+출력: 제목 2개 + 질문 3개 + 전문가 답변 3개 + 댓글 5개 + SEO 키워드
 ```
 
-### ■ 설치 방법
-1. `naver-marketing-proxy-v1.0.0.zip` 다운로드
-2. Chrome → `chrome://extensions` 접속
-3. "개발자 모드" 활성화
-4. "압축해제된 확장 프로그램 로드" → zip 압축 해제 폴더 선택
+**특징:**
+- 3개 페르소나 시스템 (전문/설득형, 리얼토크형, 친근형)
+- RAG 4단계 파이프라인 (할루시네이션 Zero)
+- 네이버 검색 API 기반 실시간 팩트 수집
+- 자가진단 루프 (70점 미만 시 재생성)
+
+### ❷ Bento Grid 분석 리포트
+```
+입력: 보험 증권 이미지 또는 보장 정보
+출력: 인포그래픽 스타일 분석 리포트
+```
+
+**분석 항목:**
+- 🧠 **뇌혈관질환 (I60-I69)** 보장 범위 정밀 분석
+- ❤️ **심장질환 (I49, 급성심근경색)** 보장 여부
+- 🏥 **수술비 급수 체계** 자동 감지 (1-5종 vs 1-9종)
+- ⚠️ **민감 데이터 경고** (불확실 정보 명시)
+
+### ❸ 보험 설계서 자동 생성
+```
+입력: 고객 정보 + 보험 유형
+출력: 브랜드 컬러 적용 설계서 (PDF/이미지)
+```
+
+### ❹ 실시간 트렌드 분석
+- 네이버 DataLab 연동
+- 12개 보험 카테고리 키워드 분석
+- SEO 최적화 제목 자동 생성
+
+---
+
+## 🏗️ 기술 아키텍처
+
+### ■ RAG 4단계 파이프라인
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Step 1: 팩트 수집      Step 2: 전략 수립     Step 3: 콘텐츠 생성   │
+│  [네이버 검색 API] →    [전략 JSON]    →     [RAG 기반 작성]       │
+│  블로그 5개 + 뉴스 3개  SEO 키워드 5개       JSON에 없는 내용      │
+│                        팩트 체크 3개         절대 생성 금지         │
+│                                                                     │
+│                            ↓ 자가진단 실패 시 재생성 (최대 2회)     │
+│                                                                     │
+│  Step 4: 자가 진단                                                  │
+│  [Self-Diagnosis Loop]                                              │
+│  핵심고민 포함 여부 / 2026년 트렌드 반영 / 검수 점수 70점 이상     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ■ 기술 스택
+| 구분 | 기술 |
+|------|------|
+| **프레임워크** | Hono (TypeScript) |
+| **배포** | Cloudflare Pages (Edge Runtime) |
+| **AI 텍스트** | Google Gemini 1.5 Pro (4키 로테이션) |
+| **AI 이미지** | Google Gemini 2.5 Flash Image |
+| **검색 연동** | NAVER Search API (블로그 + 뉴스) |
+| **키워드 분석** | NAVER DataLab API |
+| **UI** | Tailwind CSS + Font Awesome 6 |
+| **폰트** | Pretendard Variable, Noto Sans KR |
+
+### ■ 주요 원칙 (XIVIX Principles)
+| 원칙 | 설명 |
+|------|------|
+| **Negative Constraints** | '사업비', '수수료', '운영비' 등 금지어 원천 차단 |
+| **I-Code Verification** | 뇌혈관(I60-I69), 부정맥(I49) 약관 1:1 대조 |
+| **Surgery Class Validation** | 1-5종(생보) vs 1-9종(손보) 체계 자동 감지 |
+| **Hallucination Zero** | RAG 기반 팩트만 사용, 추측 금지 |
+| **Text Selectable UI** | 모든 텍스트 드래그/복사 허용 |
+
+---
+
+## 📡 API 엔드포인트
+
+| 엔드포인트 | 메서드 | 설명 |
+|------------|--------|------|
+| `/api/health` | GET | 서버 상태 및 버전 정보 |
+| `/api/generate/qna-full` | POST | Q&A 전체 자동 생성 |
+| `/api/generate/proposal-report` | POST | Bento Grid 제안서 리포트 |
+| `/api/analyze/insurance-report` | POST | 보험 증권 분석 |
+| `/api/trends/insurance` | GET | 실시간 보험 트렌드 |
+| `/api/naver/keywords` | GET | 네이버 키워드 분석 |
+| `/api/analyze/photo` | POST | 사진 분석 (OCR) |
+
+### ■ Q&A 생성 API 예시
+```bash
+curl -X POST https://insurance-content-master.pages.dev/api/generate/qna-full \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": "40대 가장",
+    "insuranceType": "암보험",
+    "customerConcern": "갱신형이 좋을지 비갱신형이 좋을지 모르겠어요",
+    "tone": "전문"
+  }'
+```
+
+### ■ 분석 리포트 API 예시
+```bash
+curl -X POST https://insurance-content-master.pages.dev/api/analyze/insurance-report \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company": "삼성생명",
+    "productName": "무배당 삼성 암보험",
+    "coverages": [
+      {"name": "암진단비", "amount": "5,000만원", "premium": "28,000원"},
+      {"name": "뇌출혈진단", "amount": "3,000만원", "premium": "12,000원"}
+    ],
+    "totalPremium": "119,500원"
+  }'
+```
+
+---
+
+## 🎨 UI/UX 특징
+
+### ■ 디자인 시스템
+- **테마**: Deep Black (#000000) + Soft Silver (#E0E0E0)
+- **레이아웃**: Bento Grid 기반 인포그래픽
+- **반응형**: PC 전체 너비 활용, 모바일 최적화
+- **접근성**: 모든 텍스트 선택/복사 가능
+
+### ■ 원클릭 복사
+- 제목, 질문, 답변, 댓글 각각 원클릭 복사
+- 설계서 텍스트/HTML 버전 복사
+- SEO 키워드 일괄 복사
+
+---
 
 ## 📁 프로젝트 구조
 
 ```
 webapp/
 ├── src/
-│   └── index.tsx          # 메인 애플리케이션 (5,300줄+)
-├── chrome-extension/      # Chrome Extension 소스
-│   ├── manifest.json
-│   ├── background.js
-│   ├── popup.html
-│   ├── popup.js
-│   └── icons/
+│   └── index.tsx          # 메인 애플리케이션 (7,000줄+)
+├── scripts/
+│   └── generate-proposal-image.cjs  # Puppeteer 이미지 생성
+├── public/
+│   ├── proposals/         # 생성된 제안서 이미지
+│   └── static/            # 정적 파일
 ├── dist/                  # 빌드 결과물
-├── public/                # 정적 파일
 ├── ecosystem.config.cjs   # PM2 설정
 ├── wrangler.jsonc         # Cloudflare 설정
 ├── package.json
@@ -247,53 +185,44 @@ webapp/
 └── vite.config.ts
 ```
 
-## 🛠️ 기술 스택
-
-- **프레임워크**: Hono (TypeScript)
-- **배포**: Cloudflare Pages
-- **AI (텍스트)**: Google Gemini 1.5 Pro (4개 키 로테이션)
-- **AI (이미지)**: Google Gemini 2.5 Flash Image
-- **RAG**: NAVER Search API (블로그 + 뉴스) → 전략 JSON → 콘텐츠 생성
-- **키워드 분석**: NAVER DataLab API
-- **프록시**: Bright Data Residential Proxy
-- **폰트**: Pretendard Variable
-- **아이콘**: Font Awesome 6
+---
 
 ## 🚀 버전 히스토리
 
 | 버전 | 날짜 | 주요 변경사항 |
 |------|------|---------------|
-| **V16.0** | **2026-01-16** | **RAG 4단계 파이프라인 도입, Hallucination Zero, gemini-1.5-pro 전환** |
-| V15.0 | 2026-01-16 | Self-Correction Loop 도입, 재생성 이력 추적 |
-| V14.0 | 2026-01-16 | Context 강제 주입 프롬프트, 재생성 함수 분리 |
-| V13.0 | 2026-01-16 | Agentic Workflow, 제목 2개/질문 3개 확장, Chrome Extension 완성 |
-| V12.2 | 2026-01-16 | 자가진단 워크플로우, SEO 키워드/최적화 제목 출력 |
-| V11.4 | 2026-01-15 | 전문가 답변 3종 다각화, 도메인 지식 2026 기준 |
+| **V25.5** | **2026-01-17** | **텍스트 선택/복사 완전 허용, body 인라인 이벤트 제거** |
+| V25.4 | 2026-01-17 | XIVIX 원칙 적용, 정밀 프롬프트 설계, Negative Constraints 강화 |
+| V25.3 | 2026-01-17 | XIVIX 표준 JSON 스키마, I-코드 정밀 분석, 수술비 체계 자동 감지 |
+| V25.2 | 2026-01-17 | Bento Grid 제안서 API, 한글 폰트 설치, Puppeteer 이미지 엔진 |
+| V25.1 | 2026-01-16 | 민감 데이터 필터, 수술비 급수 검증, I-코드 검증 |
+| V25.0 | 2026-01-16 | 실시간 트렌드, 12개 보험 카테고리, 가독성 최적화 |
 
-## 📋 RAG Hallucination Zero Project 개발 명세
-
-**수신**: 젠스파이크 개발팀  
-**작성자**: 방익주  
-**목표**: 할루시네이션 완전 차단 및 사용자 맥락 100% 유지
-
-### 핵심 변경
-- Gemini Flash 단독 사용 중지 → **NAVER Search API + Gemini 1.5 Pro 체이닝** 도입
-- 로직 흐름: `[네이버 검색 API] → [정보 추출] → [전략 수립] → [글쓰기] → [검수]`
-
-### 원칙
-- AI가 가져다 준 검색 결과(Fact)만 사용하도록 강제
-- 전략 JSON에 없는 내용은 절대 생성 금지
-- Context 강제 주입으로 맥락 100% 유지
+---
 
 ## ⚠️ 주의사항
 
-- Gemini API 키는 서버사이드에서만 사용됩니다
-- API 키 로테이션 시스템으로 안정성 확보
+- Gemini API 키는 서버사이드에서만 사용 (4키 로테이션)
 - 금소법 관련 내용은 참고용이며, 실제 활용 시 법적 검토 필요
-- Chrome Extension은 Chrome Web Store 등록 전 개발자 모드로 사용
+- 뇌혈관질환(I60-I69), 부정맥(I49) 보장은 보험사별 약관 확인 필수
+- 수술비 급수(1-5종 vs 1-9종)는 보험사별로 상이
 
-## 👨‍💻 개발자 정보
+---
+
+## 👨‍💻 개발 정보
 
 - **개발자**: 방익주
-- **버전**: V16.0-RAG-HallucinationZero
-- **최종 업데이트**: 2026-01-16
+- **버전**: V25.5
+- **최종 업데이트**: 2026-01-17
+- **기술 지원**: XIVIX Dev Team
+
+---
+
+## 📞 빠른 시작
+
+1. https://insurance-content-master.pages.dev 접속
+2. **타깃** 선택 (예: 40대 가장)
+3. **보험종류** 선택 (예: 암보험)
+4. **고객 고민** 입력 (예: 갱신형이 좋을까요?)
+5. **생성하기** 클릭
+6. 결과물 **원클릭 복사** → 네이버 카페에 붙여넣기 🎉

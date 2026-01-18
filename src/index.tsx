@@ -6209,8 +6209,8 @@ app.get('/api/health', (c) => c.json({
 
 // ========== V25.0: 실시간 보험 트렌드 API ==========
 app.get('/api/trends/insurance', async (c) => {
-  const clientId = c.env?.NAVER_CLIENT_ID || 'fUhHJ1HWyF6fFw_aBfkg'
-  const clientSecret = c.env?.NAVER_CLIENT_SECRET || 'gA4jUFDYK0'
+  const clientId = c.env?.NAVER_CLIENT_ID || ''
+  const clientSecret = c.env?.NAVER_CLIENT_SECRET || ''
   
   // V25.1: 네이버 트렌드 키워드 목록
   const trendKeywords = [
@@ -7074,8 +7074,8 @@ app.get('/api/naver/keywords', async (c) => {
   const query = c.req.query('q')
   if (!query) return c.json({ error: 'Query required' }, 400)
   
-  const clientId = c.env?.NAVER_CLIENT_ID || 'fUhHJ1HWyF6fFw_aBfkg'
-  const clientSecret = c.env?.NAVER_CLIENT_SECRET || 'gA4jUFDYK0'
+  const clientId = c.env?.NAVER_CLIENT_ID || ''
+  const clientSecret = c.env?.NAVER_CLIENT_SECRET || ''
   const keywords = await searchNaverKeywords(query, clientId, clientSecret)
   return c.json({ keywords })
 })
@@ -7591,8 +7591,8 @@ app.post('/api/generate/qna-full', async (c) => {
   
   // 환경 변수에서 API 키 가져오기 (Cloudflare Secrets) - 4개 키 로테이션
   const geminiKeys = getGeminiKeys(c.env)
-  const naverClientId = c.env?.NAVER_CLIENT_ID || 'fUhHJ1HWyF6fFw_aBfkg'
-  const naverClientSecret = c.env?.NAVER_CLIENT_SECRET || 'gA4jUFDYK0'
+  const naverClientId = c.env?.NAVER_CLIENT_ID || ''
+  const naverClientSecret = c.env?.NAVER_CLIENT_SECRET || ''
   
   if (geminiKeys.length === 0) {
     return c.json({ error: 'API key not configured' }, 500)

@@ -26,7 +26,7 @@ app.use('/*', cors())
 // Pro 모델: 최종 글쓰기만 사용
 
 const GEMINI_FLASH_MODEL = 'gemini-2.0-flash'  // 빠른 모델 (전략, JSON, 키워드)
-const GEMINI_PRO_MODEL = 'gemini-pro-latest'   // 품질 모델 (글쓰기)
+const GEMINI_PRO_MODEL = 'gemini-2.5-pro'   // 품질 모델 (글쓰기) - V32.2 직접 지정
 
 // ========== Gemini API 키 로테이션 관리 ==========
 // API 키는 환경 변수에서 가져옴 (Cloudflare Secrets)
@@ -154,11 +154,11 @@ async function callGeminiAPI(prompt: string, apiKeys: string | string[], retries
     const apiKey = keys[keyIndex % keys.length]
     
     try {
-      // V27.4: gemini-pro-latest 사용 (gemini-2.5-pro로 자동 매핑)
+      // V27.4: gemini-2.5-pro 사용 (gemini-2.5-pro로 자동 매핑)
       // - gemini-1.5-pro-002는 더 이상 사용 불가
       // - 복잡한 프롬프트 지시사항 정확 수행, Negative Constraints 준수
       const response = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=' + apiKey,
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=' + apiKey,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -6153,8 +6153,8 @@ interface ProposalImageDataV2 {
 app.get('/api/health', (c) => c.json({ 
   status: 'ok', 
   version: '28.0', 
-  ai: 'gemini-pro-latest + gemini-flash + naver-rag + html2canvas', 
-  textModel: 'gemini-pro-latest (gemini-2.5-pro)',
+  ai: 'gemini-2.5-pro + gemini-flash + naver-rag + html2canvas', 
+  textModel: 'gemini-2.5-pro (gemini-2.5-pro)',
   fastModel: 'gemini-2.0-flash',
   imageModel: 'html2canvas (CSS rendering)',
   ragPipeline: 'naver-search → flash-strategy → pro-content → self-diagnosis',
@@ -6764,9 +6764,9 @@ app.post('/api/analyze/insurance-report', async (c) => {
 
 주의: 불확실한 정보는 추측하지 말고 "확인필요"로 표기하세요.`
 
-          // Gemini Pro Vision 호출 (V27.4: gemini-pro-latest 사용)
+          // Gemini Pro Vision 호출 (V27.4: gemini-2.5-pro 사용)
           const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

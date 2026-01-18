@@ -2602,33 +2602,34 @@ function generateInsuranceDesignData(data: {
 
   const htmlVersion = `
 <style>
+/* V32.4: 흑백 설계서 스타일 - 색상 완전 제거 */
 .ds-sheet { font-family: 'Pretendard', -apple-system, sans-serif; background: #fff; color: #111; padding: 12px; font-size: 12px; line-height: 1.4; }
 .ds-sheet * { box-sizing: border-box; }
-.ds-header { background: linear-gradient(135deg, #1a5a3a 0%, #0d7a42 100%); color: #fff; padding: 12px; border-radius: 6px 6px 0 0; }
+.ds-header { background: #333; color: #fff; padding: 12px; border-radius: 6px 6px 0 0; }
 .ds-company { font-size: 11px; opacity: 0.9; }
 .ds-product { font-size: 14px; font-weight: 700; margin: 2px 0; }
 .ds-date { font-size: 10px; opacity: 0.8; }
-.ds-info { background: #f8f9fa; padding: 10px 12px; border: 1px solid #e9ecef; }
+.ds-info { background: #f5f5f5; padding: 10px 12px; border: 1px solid #ddd; }
 .ds-info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .ds-info-item { display: flex; gap: 6px; font-size: 11px; }
 .ds-info-label { color: #666; min-width: 48px; }
 .ds-info-value { color: #111; font-weight: 500; }
 .ds-section { margin: 8px 0; }
-.ds-section-title { font-size: 11px; font-weight: 700; color: #1a5a3a; margin-bottom: 4px; padding-left: 8px; border-left: 3px solid #1a5a3a; }
+.ds-section-title { font-size: 11px; font-weight: 700; color: #333; margin-bottom: 4px; padding-left: 8px; border-left: 3px solid #333; }
 .ds-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-.ds-table th { background: #e8f5e9; padding: 6px 4px; border: 1px solid #c8e6c9; font-weight: 600; font-size: 10px; }
-.ds-table td { padding: 5px 4px; border: 1px solid #e0e0e0; }
+.ds-table th { background: #e5e5e5; padding: 6px 4px; border: 1px solid #ccc; font-weight: 600; font-size: 10px; color: #333; }
+.ds-table td { padding: 5px 4px; border: 1px solid #ddd; }
 .ds-table tr:nth-child(even) { background: #fafafa; }
-.ds-total { background: linear-gradient(135deg, #1a5a3a 0%, #0d7a42 100%); color: #fff; padding: 10px 12px; margin: 8px 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+.ds-total { background: #333; color: #fff; padding: 10px 12px; margin: 8px 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
 .ds-total-label { font-size: 12px; }
 .ds-total-value { font-size: 16px; font-weight: 700; }
-.ds-reason { background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 4px; padding: 8px; margin: 8px 0; }
-.ds-reason-title { font-size: 10px; font-weight: 700; color: #e65100; margin-bottom: 4px; }
+.ds-reason { background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; padding: 8px; margin: 8px 0; }
+.ds-reason-title { font-size: 10px; font-weight: 700; color: #333; margin-bottom: 4px; }
 .ds-reason-text { font-size: 11px; color: #333; }
 .ds-notes { background: #f5f5f5; padding: 8px; border-radius: 4px; margin: 8px 0; }
-.ds-notes-title { font-size: 10px; font-weight: 700; color: #666; margin-bottom: 4px; }
+.ds-notes-title { font-size: 10px; font-weight: 700; color: #555; margin-bottom: 4px; }
 .ds-notes ul { margin: 0; padding-left: 16px; font-size: 10px; color: #555; }
-.ds-footer { text-align: center; font-size: 9px; color: #999; padding: 8px; border-top: 1px solid #eee; }
+.ds-footer { text-align: center; font-size: 9px; color: #888; padding: 8px; border-top: 1px solid #ddd; }
 @media (max-width: 480px) {
   .ds-sheet { padding: 8px; font-size: 11px; }
   .ds-table { font-size: 10px; }

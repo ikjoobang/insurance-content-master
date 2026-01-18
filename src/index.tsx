@@ -190,7 +190,7 @@ async function callGeminiAPI(prompt: string, apiKeys: string | string[], retries
 
 // ========== 보험사 브랜드 컬러 ==========
 const BRAND_COLORS: Record<string, { color: string, subColor: string }> = {
-  '삼성생명': { color: '#0066B3', subColor: '#004A8F' },
+  '삼성생명': { color: '#333333', subColor: '#222222' },
   '한화생명': { color: '#FF6600', subColor: '#CC5200' },
   '교보생명': { color: '#00A651', subColor: '#008542' },
   '신한라이프': { color: '#0046FF', subColor: '#0035CC' },
@@ -4644,7 +4644,7 @@ const mainPageHtml = `
             premium: currentDesignData?.monthlyPremium || '89,000원',
             totalItems: 15,
             highlightCount: 3,
-            brandColor: { main: '#0066B3', sub: '#004A8F' },
+            brandColor: { main: '#333333', sub: '#222222' },
             items: [
               { name: '사망보장', amount: '1억원', premium: '32,000원', isHighlight: true },
               { name: '암진단비(일반암)', amount: '5,000만원', premium: '18,500원', isHighlight: true },
@@ -4795,10 +4795,10 @@ const mainPageHtml = `
           
           const config = styleConfigs[style] || styleConfigs['phone-shot'];
           
-          // 형광펜 강조 효과
+          // 형광펜 강조 효과 - V32.4: 무채색으로 변경
           const highlightPenStyle = \`
-            background: linear-gradient(90deg, rgba(255,255,0,0.35) 0%, rgba(255,255,0,0.15) 100%);
-            border-left: 3px solid #fbbf24;
+            background: #F0F0F0;
+            border-left: 3px solid #666666;
             padding-left: 8px;
           \`;
           
@@ -4943,7 +4943,7 @@ const mainPageHtml = `
                       \${d.items.map((item, idx) => \`
                         <tr style="\${item.isHighlight ? highlightPenStyle : (idx % 2 === 0 ? 'background: white;' : 'background: #fafafa;')}">
                           <td style="padding: 9px 12px; border-bottom: 1px solid #e5e7eb; color: #1f2937;">
-                            \${item.isHighlight ? '<span style="color: #dc2626; font-weight: bold;">●</span> ' : ''}\${item.name}
+                            \${item.isHighlight ? '<span style="color: #333333; font-weight: bold;">●</span> ' : ''}\${item.name}  /* V32.4: 빨간색→회색 */
                           </td>
                           <td style="padding: 9px 12px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #111827;">\${item.amount}</td>
                           <td style="padding: 9px 12px; text-align: right; border-bottom: 1px solid #e5e7eb; color: #6b7280;">\${item.premium}</td>
@@ -4953,12 +4953,12 @@ const mainPageHtml = `
                   </table>
                 </div>
                 
-                <!-- 하단 면책 -->
+                <!-- 하단 면책 - V32.4: 무채색 -->
                 <div style="
-                  background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%); 
+                  background: #F5F5F5; 
                   padding: 12px 16px; 
                   font-size: 10px; 
-                  color: #92400e; 
+                  color: #666666; 
                   border-radius: 0 0 6px 6px;
                   opacity: \${config.contentOpacity};
                   font-family: \${config.fontFamily};
@@ -4967,20 +4967,20 @@ const mainPageHtml = `
                 </div>
                 
                 \${d.badPoints && d.badPoints.length > 0 ? \`
-                  <!-- 문제점 표시 (빨간펜 효과) -->
+                  <!-- 문제점 표시 - V32.4: 무채색 -->
                   <div style="
                     margin-top: 15px; 
                     padding: 12px 16px; 
-                    background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%); 
-                    border-left: 4px solid #dc2626;
+                    background: #EEEEEE; 
+                    border-left: 4px solid #666666;
                     border-radius: 4px;
                     opacity: \${config.contentOpacity};
                     font-family: \${config.fontFamily};
                   ">
-                    <div style="font-size: 12px; font-weight: 700; color: #dc2626; margin-bottom: 8px;">⚠️ 전문가 체크포인트</div>
+                    <div style="font-size: 12px; font-weight: 700; color: #333333; margin-bottom: 8px;">⚠️ 전문가 체크포인트</div>
                     \${d.badPoints.map(point => \`
-                      <div style="font-size: 11px; color: #7f1d1d; margin-bottom: 4px;">
-                        <span style="color: #dc2626;">✗</span> \${point}
+                      <div style="font-size: 11px; color: #444444; margin-bottom: 4px;">
+                        <span style="color: #333333;">✗</span> \${point}
                       </div>
                     \`).join('')}
                   </div>
@@ -9727,7 +9727,7 @@ ${detectedInsuranceType === '달러종신보험' ? `
   
   // 브랜드 컬러 매핑 (외국계 보험사 추가)
   const brandColors: Record<string, { main: string, sub: string }> = {
-    '삼성생명': { main: '#0066B3', sub: '#004A8F' },
+    '삼성생명': { main: '#333333', sub: '#222222' },
     '한화생명': { main: '#FF6600', sub: '#CC5200' },
     '교보생명': { main: '#00A651', sub: '#008542' },
     '신한라이프': { main: '#0046FF', sub: '#0035CC' },
@@ -9745,7 +9745,7 @@ ${detectedInsuranceType === '달러종신보험' ? `
     'ABL생명': { main: '#1E3A5F', sub: '#152C47' },
     '처브라이프': { main: '#002B5C', sub: '#001E3E' }
   }
-  const brandColor = brandColors[finalCompany] || { main: '#1E3A8A', sub: '#1E40AF' }
+  const brandColor = brandColors[finalCompany] || { main: '#444444', sub: '#333333' }
   
   console.log('[V27.1] 실사 합성 모드 - 데이터 반환:', { 
     company: finalCompany, 
@@ -10606,7 +10606,7 @@ app.post('/api/generate/proposal-stream', async (c) => {
       
       // 브랜드 컬러
       const brandColors: Record<string, { main: string, sub: string }> = {
-        '삼성생명': { main: '#0066B3', sub: '#004A8F' },
+        '삼성생명': { main: '#333333', sub: '#222222' },
         '한화생명': { main: '#FF6600', sub: '#CC5200' },
         '교보생명': { main: '#00A651', sub: '#008542' },
         '신한라이프': { main: '#0046FF', sub: '#0035CC' },
@@ -10615,7 +10615,7 @@ app.post('/api/generate/proposal-stream', async (c) => {
         'AIA생명': { main: '#CB122A', sub: '#A00E21' },
         '푸르덴셜생명': { main: '#00539B', sub: '#003D70' }
       }
-      const brandColor = brandColors[finalData?.company || companyName] || { main: '#1E3A8A', sub: '#1E40AF' }
+      const brandColor = brandColors[finalData?.company || companyName] || { main: '#444444', sub: '#333333' }
       
       // 최종 결과 전송
       await stream.write(JSON.stringify({
@@ -10715,12 +10715,12 @@ JSON: {"table_rows":[{"name":"담보명","amount":"금액","premium":"보험료"
     
     // 브랜드 컬러
     const brandColors: Record<string, { main: string, sub: string }> = {
-      '삼성생명': { main: '#0066B3', sub: '#004A8F' },
+      '삼성생명': { main: '#333333', sub: '#222222' },
       '한화생명': { main: '#FF6600', sub: '#CC5200' },
       '교보생명': { main: '#00A651', sub: '#008542' }
     }
     const finalCompany = strategy.company || detail.company || companyName
-    const brandColor = brandColors[finalCompany] || { main: '#1E3A8A', sub: '#1E40AF' }
+    const brandColor = brandColors[finalCompany] || { main: '#444444', sub: '#333333' }
     
     return c.json({
       success: true,
